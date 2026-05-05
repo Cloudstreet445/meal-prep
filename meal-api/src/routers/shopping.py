@@ -1,0 +1,33 @@
+"""Shopping list endpoints — thin wrapper over bundle shopping derivation."""
+
+from fastapi import APIRouter, HTTPException
+from database import get_db, get_pricing_db
+from routers.bundles import _derive_shopping_list
+
+router = APIRouter()
+
+
+@router.get("/latest")
+def get_latest_shopping():
+    """Shopping list for the most recent active bundle."""
+    db = get_db()
+    pricing_db = get_pricing_db()
+
+    bundle = db["bundles"].find_one(
+        {"active": True},
+        sort=[("week", -1), ("createdAt", -1)]
+    )
+    if not bundle:
+        raise HTTPException(status_code=404, detail="No active bundle found")
+
+    recipe_ids = bundle.get("recipeIds", [])
+    recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
+    shopping_items, total = _derive_shopping_list(recipes, pricing_db)
+
+    return {
+        "bundleId":       bundle.get("bundleId"),
+        "week":           bundle.get("week"),
+        "weekSummary":    bundle.get("weekSummary"),
+        "estimatedTotal": total,
+        "shoppingList":   shopping_items,
+    }

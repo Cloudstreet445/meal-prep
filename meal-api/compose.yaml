@@ -1,0 +1,22 @@
+name: paknsave-api
+
+networks:
+  paknsave-net:
+    external: True
+    name: ix-mongodb1_default
+
+services:
+  api:
+    image: localhost:5000/paknsave-api:latest
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      MONGO_URI: >-
+        mongodb://paknsave_app:letmein@192.168.1.85:27017/paknsave-meals?authSource=admin
+
+    networks:
+      - paknsave-net
+
+    restart: 'no'

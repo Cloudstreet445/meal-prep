@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f1410" />
+  <title>Kai Planner</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f1410;
+      --bg2:        #161d17;
+      --bg3:        #1e2820;
+      --border:     #2a3a2c;
+      --green:      #4caf6e;
+      --green-dim:  #2d6b42;
+      --green-glow: rgba(76,175,110,0.15);
+      --text:       #e8f0e9;
+      --text-dim:   #7a9b7d;
+      --text-muted: #4a6b4d;
+      --red:        #e05c5c;
+      --amber:      #d4a843;
+      --radius:     16px;
+      --radius-sm:  10px;
+      --safe-top:   env(safe-area-inset-top, 0px);
+      --safe-bot:   env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ── App Shell ────────────────────────────────────────────── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bot);
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: relative;
+      z-index: 10;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--green);
+      letter-spacing: -0.5px;
+    }
+
+    .logo span {
+      color: var(--text-dim);
+      font-weight: 300;
+      font-style: italic;
+    }
+
+    .week-badge {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .budget-pill {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    /* ── Nav Tabs ─────────────────────────────────────────────── */
+    nav {
+      display: flex;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 8px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .tab.active {
+      color: var(--green);
+      border-bottom-color: var(--green);
+    }
+
+    .tab-icon {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 2px;
+    }
+
+    /* ── Content Area ─────────────────────────────────────────── */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    .view { display: none; padding: 16px; }
+    .view.active { display: block; }
+
+    /* ── Loading / Error ──────────────────────────────────────── */
+    .state-msg {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .state-msg .icon { font-size: 40px; margin-bottom: 12px; display: block; }
+
+    /* ── Section Label ────────────────────────────────────────── */
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 20px 0 10px;
+    }
+
+    .section-label:first-child { margin-top: 4px; }
+
+    /* ═══════════════════════════════════════════════════════════
+       VIEW 1 — THIS WEEK
+    ═══════════════════════════════════════════════════════════ */
+
+    .week-summary {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .week-summary::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--green), transparent);
+    }
+
+    .summary-text {
+      font-family: 'Fraunces', serif;
+      font-size: 16px;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--text);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    .summary-stats {
+      display: flex;
+      gap: 16px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-val {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--green);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Meal Cards */
+    .meal-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .meal-card:active { background: var(--bg3); }
+
+    .meal-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .meal-id {
+      font-size: 10px;
+      color: var(--green-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .meal-name {
+      font-family: 'Fraunces', serif;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .meal-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.3px;
+    }
+
+    .pill.green {
+      background: var(--green-glow);
+      border-color: var(--green-dim);
+      color: var(--green);
+    }
+
+    .meal-arrow {
+      color: var(--text-muted);
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       VIEW 2 — SHOPPING
+    ═══════════════════════════════════════════════════════════ */
+
+    .shop-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .shop-total {
+      font-family: 'Fraunces', serif;
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--green);
+    }
+
+    .shop-total-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .clear-btn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'DM Mono', monospace;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .shop-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+    }
+
+    .shop-item.checked {
+      opacity: 0.45;
+      background: var(--bg);
+    }
+
+    .shop-item.checked .item-name {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .check-box {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      background: var(--bg);
+    }
+
+    .shop-item.checked .check-box {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .check-tick {
+      display: none;
+      color: var(--bg);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .shop-item.checked .check-tick { display: block; }
+
+    .item-info { flex: 1; min-width: 0; }
+
+    .item-name {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .item-special {
+      font-size: 10px;
+      color: var(--amber);
+      margin-left: 4px;
+    }
+
+    .item-price {
+      font-size: 14px;
+      color: var(--green);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .progress-bar {
+      height: 3px;
+      background: var(--bg3);
+      border-radius: 2px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       VIEW 3 — RECIPE
+    ═══════════════════════════════════════════════════════════ */
+
+    .recipe-list-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.2s;
+    }
+
+    .recipe-list-item:active { border-color: var(--green-dim); }
+
+    .recipe-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .recipe-list-name {
+      flex: 1;
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .recipe-list-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Recipe Detail */
+    .recipe-detail { display: none; }
+    .recipe-detail.active { display: block; }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--green);
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .recipe-title {
+      font-family: 'Fraunces', serif;
+      font-size: 26px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .recipe-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .recipe-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-dim);
+      text-decoration: none;
+      margin-bottom: 20px;
+    }
+
+    /* Ingredients */
+    .ingr-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .ingr-item:last-child { border-bottom: none; }
+
+    .ingr-name { color: var(--text); }
+    .ingr-amount { color: var(--text-dim); font-size: 12px; }
+    .ingr-cost { color: var(--green); font-size: 12px; }
+
+    /* Step-by-step cooking mode */
+    .cook-mode {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      padding: var(--safe-top) 0 var(--safe-bot);
+    }
+
+    .cook-mode.active { display: flex; }
+
+    .cook-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cook-title {
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .cook-close {
+      color: var(--text-muted);
+      font-size: 24px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 1;
+    }
+
+    .cook-progress {
+      padding: 12px 20px 0;
+    }
+
+    .cook-step-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .cook-dots {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .cook-dot {
+      height: 3px;
+      flex: 1;
+      background: var(--bg3);
+      border-radius: 2px;
+      transition: background 0.3s;
+      min-width: 20px;
+      max-width: 40px;
+    }
+
+    .cook-dot.done { background: var(--green); }
+    .cook-dot.current { background: var(--green-dim); }
+
+    .cook-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 28px;
+    }
+
+    .cook-step-text {
+      font-family: 'Fraunces', serif;
+      font-size: 24px;
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .cook-step-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--green);
+      letter-spacing: 1px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .cook-nav {
+      display: flex;
+      gap: 12px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .cook-btn {
+      flex: 1;
+      padding: 16px;
+      border-radius: var(--radius);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .cook-btn.prev {
+      background: var(--bg3);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    .cook-btn.next {
+      background: var(--green);
+      color: var(--bg);
+    }
+
+    .cook-btn.next.done {
+      background: var(--amber);
+    }
+
+    .cook-btn:active { transform: scale(0.97); }
+    .cook-btn:disabled { opacity: 0.3; }
+
+    .start-cooking-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--green);
+      color: var(--bg);
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      margin-top: 20px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .start-cooking-btn:active { transform: scale(0.98); }
+
+  </style>
+</head>
+
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="logo">Kai <span>Planner</span></div>
+        <div class="week-badge" id="week-badge">Loading...</div>
+      </div>
+      <div class="budget-pill" id="budget-pill">—</div>
+    </div>
+  </header>
+
+  <!-- Nav -->
+  <nav>
+    <div class="tab active" data-view="week">
+      <span class="tab-icon">🗓</span>This Week
+    </div>
+    <div class="tab" data-view="shopping">
+      <span class="tab-icon">🛒</span>Shopping
+    </div>
+    <div class="tab" data-view="recipes">
+      <span class="tab-icon">🍳</span>Recipes
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- VIEW: This Week -->
+    <div class="view active" id="view-week">
+      <div class="state-msg" id="week-loading">
+        <span class="icon">⏳</span>Loading meal plan...
+      </div>
+      <div id="week-content" style="display:none">
+        <div class="week-summary" id="week-summary"></div>
+        <div class="section-label">This week's dinners</div>
+        <div id="meal-cards"></div>
+      </div>
+    </div>
+
+    <!-- VIEW: Shopping -->
+    <div class="view" id="view-shopping">
+      <div class="state-msg" id="shopping-loading">
+        <span class="icon">⏳</span>Loading shopping list...
+      </div>
+      <div id="shopping-content" style="display:none">
+        <div class="shop-header">
+          <div>
+            <div class="shop-total" id="shop-total">$0.00</div>
+            <div class="shop-total-label">estimated total</div>
+          </div>
+          <button class="clear-btn" id="clear-btn">Reset ↺</button>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <div id="shopping-items"></div>
+      </div>
+    </div>
+
+    <!-- VIEW: Recipes -->
+    <div class="view" id="view-recipes">
+      <!-- Recipe List -->
+      <div id="recipe-list">
+        <div class="state-msg" id="recipes-loading">
+          <span class="icon">⏳</span>Loading recipes...
+        </div>
+        <div id="recipe-list-items"></div>
+      </div>
+      <!-- Recipe Detail (hidden until selected) -->
+      <div class="recipe-detail" id="recipe-detail">
+        <div class="back-btn" id="back-btn">← Back</div>
+        <div class="recipe-title" id="detail-title"></div>
+        <div class="recipe-pills" id="detail-pills"></div>
+        <a class="recipe-link" id="detail-link" target="_blank">
+          🔗 <span id="detail-link-text">Find recipe inspiration</span>
+        </a>
+        <div class="section-label">Ingredients</div>
+        <div id="detail-ingredients"></div>
+        <button class="start-cooking-btn" id="start-cooking-btn">Start Cooking →</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Cook Mode Overlay -->
+<div class="cook-mode" id="cook-mode">
+  <div class="cook-header">
+    <div class="cook-title" id="cook-recipe-name"></div>
+    <div class="cook-close" id="cook-close">✕</div>
+  </div>
+  <div class="cook-progress">
+    <div class="cook-step-label">Steps</div>
+    <div class="cook-dots" id="cook-dots"></div>
+  </div>
+  <div class="cook-body">
+    <div>
+      <div class="cook-step-num" id="cook-step-num"></div>
+      <div class="cook-step-text" id="cook-step-text"></div>
+    </div>
+  </div>
+  <div class="cook-nav">
+    <button class="cook-btn prev" id="cook-prev">← Prev</button>
+    <button class="cook-btn next" id="cook-next">Next →</button>
+  </div>
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────
+  const API = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000/api'
+    : `http://${window.location.hostname}:8000/api`;
+
+  // ── State ───────────────────────────────────────────────────────
+  let plan        = null;
+  let checked     = JSON.parse(localStorage.getItem('checked') || '{}');
+  let currentWeek = null;
+  let cookSteps   = [];
+  let cookIndex   = 0;
+
+  // ── Fetch helpers ───────────────────────────────────────────────
+  async function fetchPlan() {
+    const res = await fetch(`${API}/plan/latest`);
+    return res.json();
+  }
+
+  async function fetchShopping() {
+    const res = await fetch(`${API}/shopping/latest`);
+    return res.json();
+  }
+
+  // ── Tab switching ───────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
+    });
+  });
+
+  // ── Format helpers ───────────────────────────────────────────────
+  const fmt$ = n => `$${Number(n).toFixed(2)}`;
+
+  function fmtWeek(str) {
+    if (!str) return '';
+    const d = new Date(str);
+    return d.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // VIEW: THIS WEEK
+  // ══════════════════════════════════════════════════════════════
+  async function loadWeek() {
+    try {
+      plan = await fetchPlan();
+      currentWeek = plan.week;
+
+      document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
+      document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / $60`;
+
+      // Summary card
+      document.getElementById('week-summary').innerHTML = `
+        <div class="summary-text">${plan.weekSummary}</div>
+        <div class="summary-stats">
+          <div class="stat">
+            <div class="stat-val">${plan.meals?.length || 0}</div>
+            <div class="stat-label">Dinners</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">${fmt$(plan.estimatedTotal)}</div>
+            <div class="stat-label">Est. spend</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val">${fmt$(60 - plan.estimatedTotal)}</div>
+            <div class="stat-label">Under budget</div>
+          </div>
+        </div>`;
+
+      // Meal cards
+      const container = document.getElementById('meal-cards');
+      container.innerHTML = (plan.meals || []).map(meal => `
+        <div class="meal-card" onclick="openRecipe('${meal.id}')">
+          <div class="meal-card-header">
+            <div>
+              <div class="meal-id">${meal.id}</div>
+              <div class="meal-name">${meal.name}</div>
+              <div class="meal-meta">
+                <div class="pill">⏱ ${meal.cookTime}</div>
+                <div class="pill">👥 Serves ${meal.serves}</div>
+                ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
+              </div>
+            </div>
+            <div class="meal-arrow">›</div>
+          </div>
+        </div>`).join('');
+
+      document.getElementById('week-loading').style.display = 'none';
+      document.getElementById('week-content').style.display = 'block';
+    } catch (e) {
+      document.getElementById('week-loading').innerHTML =
+        '<span class="icon">⚠️</span>Could not load meal plan.<br>Is the API running?';
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // VIEW: SHOPPING
+  // ══════════════════════════════════════════════════════════════
+  async function loadShopping() {
+    try {
+      const data = await fetchShopping();
+      const items = data.shoppingList || [];
+      const weekKey = `checked_${data.week}`;
+      checked = JSON.parse(localStorage.getItem(weekKey) || '{}');
+
+      document.getElementById('shop-total').textContent = fmt$(data.estimatedTotal);
+
+      renderShoppingItems(items, weekKey);
+
+      document.getElementById('clear-btn').onclick = () => {
+        checked = {};
+        localStorage.setItem(weekKey, JSON.stringify(checked));
+        renderShoppingItems(items, weekKey);
+      };
+
+      document.getElementById('shopping-loading').style.display = 'none';
+      document.getElementById('shopping-content').style.display = 'block';
+    } catch (e) {
+      document.getElementById('shopping-loading').innerHTML =
+        '<span class="icon">⚠️</span>Could not load shopping list.';
+    }
+  }
+
+  function renderShoppingItems(items, weekKey) {
+    const done  = items.filter((_, i) => checked[i]).length;
+    const total = items.length;
+    document.getElementById('progress-fill').style.width = `${(done/total)*100}%`;
+
+    document.getElementById('shopping-items').innerHTML = items.map((item, i) => `
+      <div class="shop-item ${checked[i] ? 'checked' : ''}" onclick="toggleItem(${i}, '${weekKey}')">
+        <div class="check-box">
+          <span class="check-tick">✓</span>
+        </div>
+        <div class="item-info">
+          <div class="item-name">
+            ${item.name}
+            ${item.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
+          </div>
+          <div class="item-sub">${item.amount} · Used in ${(item.usedIn||[]).join(', ')}</div>
+        </div>
+        <div class="item-price">${fmt$(item.estimatedCost)}</div>
+      </div>`).join('');
+  }
+
+  function toggleItem(index, weekKey) {
+    checked[index] = !checked[index];
+    localStorage.setItem(weekKey, JSON.stringify(checked));
+    // Re-render without re-fetching
+    const items = document.querySelectorAll('.shop-item');
+    const total = items.length;
+    let done = 0;
+    items.forEach((el, i) => {
+      el.classList.toggle('checked', !!checked[i]);
+      if (checked[i]) done++;
+    });
+    document.getElementById('progress-fill').style.width = `${(done/total)*100}%`;
+    localStorage.setItem(weekKey, JSON.stringify(checked));
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // VIEW: RECIPES
+  // ══════════════════════════════════════════════════════════════
+  function loadRecipes() {
+    if (!plan) return;
+    const meals = plan.meals || [];
+
+    document.getElementById('recipe-list-items').innerHTML = meals.map((meal, i) => `
+      <div class="recipe-list-item" onclick="openRecipe('${meal.id}')">
+        <div class="recipe-num">${i + 1}</div>
+        <div>
+          <div class="recipe-list-name">${meal.name}</div>
+          <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
+        </div>
+        <div style="color:var(--text-muted)">›</div>
+      </div>`).join('');
+
+    document.getElementById('recipes-loading').style.display = 'none';
+  }
+
+  function openRecipe(id) {
+    if (!plan) return;
+    const meal = plan.meals.find(m => m.id === id);
+    if (!meal) return;
+
+    // Switch to recipes tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelector('[data-view="recipes"]').classList.add('active');
+    document.getElementById('view-recipes').classList.add('active');
+
+    // Show detail
+    document.getElementById('recipe-list').style.display = 'none';
+    const detail = document.getElementById('recipe-detail');
+    detail.classList.add('active');
+
+    document.getElementById('detail-title').textContent = meal.name;
+
+    document.getElementById('detail-pills').innerHTML = `
+      <div class="pill">⏱ ${meal.cookTime}</div>
+      <div class="pill">👥 Serves ${meal.serves}</div>
+      ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}`;
+
+    const link = document.getElementById('detail-link');
+    link.href = meal.recipeUrl || '#';
+    document.getElementById('detail-link-text').textContent = meal.recipeUrl
+      ? new URL(meal.recipeUrl).hostname
+      : 'Recipe inspiration';
+
+    document.getElementById('detail-ingredients').innerHTML =
+      (meal.ingredients || []).map(ing => `
+        <div class="ingr-item">
+          <span class="ingr-name">${ing.name} ${ing.fromSpecial ? '🔥' : ''}</span>
+          <div style="display:flex;gap:12px;align-items:center">
+            <span class="ingr-amount">${ing.amount}</span>
+            <span class="ingr-cost">${fmt$(ing.estimatedCost)}</span>
+          </div>
+        </div>`).join('');
+
+    // Setup cook mode
+    document.getElementById('start-cooking-btn').onclick = () => startCooking(meal);
+  }
+
+  document.getElementById('back-btn').onclick = () => {
+    document.getElementById('recipe-list').style.display = 'block';
+    document.getElementById('recipe-detail').classList.remove('active');
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // COOK MODE
+  // ══════════════════════════════════════════════════════════════
+  function startCooking(meal) {
+    cookSteps = meal.method || [];
+    cookIndex = 0;
+    document.getElementById('cook-recipe-name').textContent = meal.name;
+    renderCookStep();
+    document.getElementById('cook-mode').classList.add('active');
+  }
+
+  function renderCookStep() {
+    const total = cookSteps.length;
+
+    document.getElementById('cook-step-num').textContent =
+      `STEP ${cookIndex + 1} OF ${total}`;
+    document.getElementById('cook-step-text').textContent = cookSteps[cookIndex];
+
+    // Dots
+    document.getElementById('cook-dots').innerHTML = cookSteps.map((_, i) => `
+      <div class="cook-dot ${i < cookIndex ? 'done' : i === cookIndex ? 'current' : ''}"></div>
+    `).join('');
+
+    // Buttons
+    document.getElementById('cook-prev').disabled = cookIndex === 0;
+    const nextBtn = document.getElementById('cook-next');
+    nextBtn.textContent = cookIndex === total - 1 ? 'Done ✓' : 'Next →';
+    nextBtn.classList.toggle('done', cookIndex === total - 1);
+  }
+
+  document.getElementById('cook-prev').onclick = () => {
+    if (cookIndex > 0) { cookIndex--; renderCookStep(); }
+  };
+
+  document.getElementById('cook-next').onclick = () => {
+    if (cookIndex < cookSteps.length - 1) {
+      cookIndex++;
+      renderCookStep();
+    } else {
+      document.getElementById('cook-mode').classList.remove('active');
+    }
+  };
+
+  document.getElementById('cook-close').onclick = () => {
+    document.getElementById('cook-mode').classList.remove('active');
+  };
+
+  // ── Init ────────────────────────────────────────────────────────
+  (async () => {
+    await loadWeek();
+    loadRecipes();
+    loadShopping();
+  })();
+</script>
+
+</body>
+</html>

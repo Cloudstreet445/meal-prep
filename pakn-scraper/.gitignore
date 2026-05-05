@@ -1,0 +1,15 @@
+/.vscode
+/.vs
+/src/.vs
+
+/*/bin
+/*/obj
+
+/TestResults
+
+/src/appsettings.local.json
+/src/appsettings.json
+
+*.bat
+*.lnk
+*.ps1

@@ -1,0 +1,146 @@
+{
+  "week": "2026-04-28",
+  "weekSummary": "Pork on special across two cuts keeps costs down, with a chicken stew and two quick-cook meals filling the week",
+  "estimatedTotal": 49.60,
+  "meals": [
+    {
+      "id": "M1",
+      "name": "Pork Chops with Apple and Sage",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "25 min",
+      "description": "Pan-seared pork chops with a quick apple and sage pan sauce, served with mashed potato",
+      "recipeUrl": "https://www.recipetineats.com/pork-chops/",
+      "ingredients": [
+        { "name": "Pork Loin Chops", "amount": "4 chops", "estimatedCost": 9.00, "fromSpecial": true },
+        { "name": "Apples", "amount": "2 medium", "estimatedCost": 1.60, "fromSpecial": false },
+        { "name": "Potatoes", "amount": "500g", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Butter", "amount": "40g", "estimatedCost": 0.90, "fromSpecial": false },
+        { "name": "Fresh Sage", "amount": "small bunch", "estimatedCost": 1.00, "fromSpecial": false },
+        { "name": "Chicken Stock", "amount": "150ml", "estimatedCost": 0.80, "fromSpecial": false }
+      ],
+      "method": [
+        "Boil potatoes until tender. Drain and mash with butter, milk, salt and pepper.",
+        "Season chops well. Heat oil in a heavy pan over high heat.",
+        "Sear chops 4 minutes per side until golden. Remove and rest.",
+        "In the same pan, cook sliced apple 2 minutes until golden.",
+        "Add stock, sage leaves and a knob of butter. Simmer 2 minutes to make a pan sauce.",
+        "Serve chops over mash with apple and pan sauce spooned over."
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Chicken and Kumara Stew",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "50 min",
+      "description": "Warming autumn stew with chicken thighs, kumara and cannellini beans in a herby broth",
+      "recipeUrl": "https://www.taste.com.au/recipes/chicken-kumara-stew/",
+      "ingredients": [
+        { "name": "Chicken Thighs", "amount": "600g", "estimatedCost": 8.20, "fromSpecial": false },
+        { "name": "Kumara", "amount": "500g", "estimatedCost": 3.00, "fromSpecial": false },
+        { "name": "Canned Cannellini Beans", "amount": "400g", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Chicken Stock", "amount": "600ml", "estimatedCost": 2.00, "fromSpecial": false },
+        { "name": "Onion", "amount": "1 large", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Garlic", "amount": "3 cloves", "estimatedCost": 0.40, "fromSpecial": false },
+        { "name": "Thyme", "amount": "4 sprigs", "estimatedCost": 0.60, "fromSpecial": false }
+      ],
+      "method": [
+        "Brown chicken thighs in batches in a heavy pot until golden on both sides. Set aside.",
+        "Soften onion and garlic in the same pot 5 minutes.",
+        "Add cubed kumara, chicken stock and thyme. Bring to a simmer.",
+        "Return chicken to pot. Cover and cook 30 minutes until chicken is tender.",
+        "Stir in drained cannellini beans and season well.",
+        "Simmer uncovered 10 minutes until broth thickens slightly. Serve in deep bowls."
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "Pork Mince San Choy Bow",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "20 min",
+      "description": "Light and fresh pork mince in crispy iceberg lettuce cups with water chestnuts",
+      "recipeUrl": "https://www.recipetineats.com/san-choy-bow/",
+      "ingredients": [
+        { "name": "Pork Mince", "amount": "400g", "estimatedCost": 5.50, "fromSpecial": true },
+        { "name": "Iceberg Lettuce", "amount": "1 head", "estimatedCost": 2.20, "fromSpecial": false },
+        { "name": "Water Chestnuts", "amount": "225g tin", "estimatedCost": 2.00, "fromSpecial": false },
+        { "name": "Soy Sauce", "amount": "3 tbsp", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Oyster Sauce", "amount": "2 tbsp", "estimatedCost": 0.80, "fromSpecial": false },
+        { "name": "Spring Onions", "amount": "4 stalks", "estimatedCost": 0.90, "fromSpecial": false }
+      ],
+      "method": [
+        "Carefully separate iceberg lettuce into cup-shaped leaves. Refrigerate to keep crisp.",
+        "Drain and roughly chop water chestnuts.",
+        "Cook pork mince in a hot wok with garlic and ginger until cooked through.",
+        "Add water chestnuts, soy sauce, oyster sauce and a splash of sesame oil. Toss well.",
+        "Remove from heat, stir in sliced spring onions.",
+        "Spoon into lettuce cups and serve immediately."
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "Chicken Fried Noodles",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "20 min",
+      "description": "Wok-fried egg noodles with chicken, cabbage and a savoury soy glaze",
+      "recipeUrl": "https://www.recipetineats.com/chicken-noodle-stir-fry/",
+      "ingredients": [
+        { "name": "Chicken Thighs", "amount": "400g", "estimatedCost": 5.50, "fromSpecial": false },
+        { "name": "Egg Noodles", "amount": "200g", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Cabbage", "amount": "1/4 head", "estimatedCost": 1.00, "fromSpecial": false },
+        { "name": "Soy Sauce", "amount": "3 tbsp", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Oyster Sauce", "amount": "2 tbsp", "estimatedCost": 0.80, "fromSpecial": false },
+        { "name": "Garlic", "amount": "3 cloves", "estimatedCost": 0.40, "fromSpecial": false }
+      ],
+      "method": [
+        "Cook noodles per packet until just tender. Drain and toss with oil.",
+        "Slice chicken thinly across the grain. Season with salt and pepper.",
+        "Stir fry chicken in a hot wok 4 minutes until cooked. Remove.",
+        "Add shredded cabbage and garlic to wok. Stir fry 2 minutes.",
+        "Return chicken and noodles. Add soy and oyster sauce. Toss on high heat 2 minutes.",
+        "Serve with sliced spring onion and chilli if desired."
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "Pork Spare Ribs with Roasted Vegetables",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "1 hr 20 min",
+      "description": "Oven-baked spare ribs glazed with hoisin and honey, served with roasted broccoli and kumara",
+      "recipeUrl": "https://www.taste.com.au/recipes/pork-spare-ribs/",
+      "ingredients": [
+        { "name": "Pork Spare Ribs", "amount": "800g", "estimatedCost": 8.50, "fromSpecial": true },
+        { "name": "Hoisin Sauce", "amount": "4 tbsp", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Honey", "amount": "2 tbsp", "estimatedCost": 1.20, "fromSpecial": false },
+        { "name": "Broccoli", "amount": "1 head", "estimatedCost": 2.80, "fromSpecial": false },
+        { "name": "Kumara", "amount": "400g", "estimatedCost": 2.50, "fromSpecial": false }
+      ],
+      "method": [
+        "Preheat oven to 160°C. Mix hoisin, honey, soy sauce and garlic for the glaze.",
+        "Place ribs in a roasting tray, coat with half the glaze. Cover tightly with foil.",
+        "Roast 60 minutes until tender. Remove foil, brush with remaining glaze.",
+        "Increase oven to 200°C. Toss broccoli and cubed kumara in oil on a separate tray.",
+        "Roast everything uncovered 20 minutes until ribs are caramelised and vegetables are golden.",
+        "Serve ribs with roasted vegetables."
+      ]
+    }
+  ],
+  "shoppingList": [
+    { "name": "Pork Loin Chops", "amount": "4 chops", "estimatedCost": 9.00, "isSpecial": true, "category": "protein", "usedIn": ["M1"] },
+    { "name": "Chicken Thighs", "amount": "1kg", "estimatedCost": 13.70, "isSpecial": false, "category": "protein", "usedIn": ["M2", "M4"] },
+    { "name": "Pork Mince", "amount": "400g", "estimatedCost": 5.50, "isSpecial": true, "category": "protein", "usedIn": ["M3"] },
+    { "name": "Pork Spare Ribs", "amount": "800g", "estimatedCost": 8.50, "isSpecial": true, "category": "protein", "usedIn": ["M5"] },
+    { "name": "Kumara", "amount": "900g", "estimatedCost": 5.50, "isSpecial": false, "category": "vegetable", "usedIn": ["M2", "M5"] },
+    { "name": "Broccoli", "amount": "1 head", "estimatedCost": 2.80, "isSpecial": false, "category": "vegetable", "usedIn": ["M5"] },
+    { "name": "Cabbage", "amount": "1/4 head", "estimatedCost": 1.00, "isSpecial": false, "category": "vegetable", "usedIn": ["M4"] },
+    { "name": "Potatoes", "amount": "500g", "estimatedCost": 1.80, "isSpecial": false, "category": "vegetable", "usedIn": ["M1"] },
+    { "name": "Egg Noodles", "amount": "200g", "estimatedCost": 1.80, "isSpecial": false, "category": "pantry", "usedIn": ["M4"] },
+    { "name": "Canned Cannellini Beans", "amount": "400g", "estimatedCost": 1.80, "isSpecial": false, "category": "pantry", "usedIn": ["M2"] },
+    { "name": "Chicken Stock", "amount": "750ml", "estimatedCost": 2.80, "isSpecial": false, "category": "pantry", "usedIn": ["M1", "M2"] },
+    { "name": "Hoisin Sauce", "amount": "4 tbsp", "estimatedCost": 1.80, "isSpecial": false, "category": "pantry", "usedIn": ["M5"] }
+  ]
+}

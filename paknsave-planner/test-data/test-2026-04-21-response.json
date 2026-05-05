@@ -1,0 +1,156 @@
+{
+  "week": "2026-04-21",
+  "weekSummary": "Beef mince on special gives three comforting classics, with pork belly and lamb chops filling out a strong week",
+  "estimatedTotal": 57.80,
+  "meals": [
+    {
+      "id": "M1",
+      "name": "Spaghetti Bolognese",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "45 min",
+      "description": "Classic slow-cooked beef bolognese with a rich tomato base, served over spaghetti",
+      "recipeUrl": "https://www.recipetineats.com/spaghetti-bolognese/",
+      "ingredients": [
+        { "name": "Beef Mince", "amount": "500g", "estimatedCost": 7.00, "fromSpecial": true },
+        { "name": "Spaghetti", "amount": "250g", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Canned Tomatoes", "amount": "2 x 400g", "estimatedCost": 2.60, "fromSpecial": false },
+        { "name": "Onion", "amount": "1 large", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Garlic", "amount": "4 cloves", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Carrot", "amount": "1 medium", "estimatedCost": 0.45, "fromSpecial": false },
+        { "name": "Parmesan", "amount": "50g", "estimatedCost": 2.80, "fromSpecial": false }
+      ],
+      "method": [
+        "Dice onion, carrot and garlic finely. Sweat in olive oil over medium heat 8 minutes.",
+        "Increase heat, add mince and cook until deeply browned — don't rush this step.",
+        "Add canned tomatoes, a splash of red wine if available, salt and pepper.",
+        "Simmer uncovered 30 minutes until sauce is thick and rich.",
+        "Cook spaghetti in well-salted boiling water. Reserve a cup of pasta water.",
+        "Toss pasta through sauce with a splash of pasta water. Serve with grated parmesan."
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Beef Mince Tacos",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "20 min",
+      "description": "Spiced beef mince in crispy taco shells with cheese, tomato and sour cream",
+      "recipeUrl": "https://www.recipetineats.com/beef-tacos/",
+      "ingredients": [
+        { "name": "Beef Mince", "amount": "400g", "estimatedCost": 5.60, "fromSpecial": true },
+        { "name": "Taco Shells", "amount": "8 shells", "estimatedCost": 3.50, "fromSpecial": false },
+        { "name": "Cheddar Cheese", "amount": "100g", "estimatedCost": 2.50, "fromSpecial": false },
+        { "name": "Sour Cream", "amount": "150ml", "estimatedCost": 2.20, "fromSpecial": false },
+        { "name": "Tomatoes", "amount": "2 medium", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Iceberg Lettuce", "amount": "1/4 head", "estimatedCost": 0.80, "fromSpecial": false },
+        { "name": "Cumin", "amount": "1 tsp", "estimatedCost": 0.30, "fromSpecial": false }
+      ],
+      "method": [
+        "Cook mince in a hot pan until browned. Drain excess fat.",
+        "Add cumin, smoked paprika, garlic powder, chilli flakes and salt. Stir well.",
+        "Add a splash of water and simmer 5 minutes until fragrant.",
+        "Warm taco shells in oven at 180°C for 5 minutes.",
+        "Dice tomatoes, shred lettuce, grate cheese.",
+        "Load shells with mince and let everyone build their own with toppings."
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "Pork Belly Ramen",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "40 min",
+      "description": "Rich pork belly slices in a soy-ginger broth with noodles, soft egg and spring onion",
+      "recipeUrl": "https://www.recipetineats.com/ramen/",
+      "ingredients": [
+        { "name": "Pork Belly", "amount": "400g", "estimatedCost": 8.00, "fromSpecial": false },
+        { "name": "Ramen Noodles", "amount": "200g", "estimatedCost": 2.50, "fromSpecial": false },
+        { "name": "Chicken Stock", "amount": "1 litre", "estimatedCost": 2.80, "fromSpecial": false },
+        { "name": "Eggs", "amount": "2 large", "estimatedCost": 1.20, "fromSpecial": false },
+        { "name": "Spring Onions", "amount": "4 stalks", "estimatedCost": 0.90, "fromSpecial": false },
+        { "name": "Soy Sauce", "amount": "4 tbsp", "estimatedCost": 0.80, "fromSpecial": false },
+        { "name": "Ginger", "amount": "2cm piece", "estimatedCost": 0.40, "fromSpecial": false }
+      ],
+      "method": [
+        "Slice pork belly into 1cm thick pieces. Score the skin.",
+        "Sear belly slices in a heavy pan skin-side down until golden, about 5 minutes.",
+        "Heat stock with soy sauce, ginger, garlic and a little mirin. Simmer 15 minutes.",
+        "Soft boil eggs for 6.5 minutes. Cool in iced water, peel and halve.",
+        "Cook noodles per packet. Divide between deep bowls.",
+        "Ladle hot broth over noodles. Top with pork, egg halves and spring onion."
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "Lamb Chops with Minted Peas and Mash",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "30 min",
+      "description": "Pan-seared lamb loin chops with creamy mash and fresh minted peas",
+      "recipeUrl": "https://www.taste.com.au/recipes/lamb-chops-mash/",
+      "ingredients": [
+        { "name": "Lamb Loin Chops", "amount": "4 chops", "estimatedCost": 10.00, "fromSpecial": false },
+        { "name": "Potatoes", "amount": "600g", "estimatedCost": 2.20, "fromSpecial": false },
+        { "name": "Frozen Peas", "amount": "200g", "estimatedCost": 1.50, "fromSpecial": false },
+        { "name": "Butter", "amount": "50g", "estimatedCost": 1.20, "fromSpecial": false },
+        { "name": "Milk", "amount": "100ml", "estimatedCost": 0.40, "fromSpecial": false },
+        { "name": "Fresh Mint", "amount": "small bunch", "estimatedCost": 1.20, "fromSpecial": false }
+      ],
+      "method": [
+        "Boil potatoes in salted water until completely tender, about 20 minutes.",
+        "Drain and mash with butter, warm milk, salt and white pepper until smooth.",
+        "Season lamb chops generously with salt and pepper.",
+        "Heat a heavy pan until very hot. Sear chops 3 minutes per side for medium.",
+        "Rest chops 5 minutes while you cook peas.",
+        "Simmer peas 2 minutes, drain, toss with butter and torn mint leaves.",
+        "Serve chops over mash with peas on the side."
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "Beef Mince Shepherd's Pie",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "55 min",
+      "description": "Hearty beef mince filling topped with golden mashed potato crust",
+      "recipeUrl": "https://www.bbcgoodfood.com/recipes/shepherds-pie",
+      "ingredients": [
+        { "name": "Beef Mince", "amount": "400g", "estimatedCost": 5.60, "fromSpecial": true },
+        { "name": "Potatoes", "amount": "700g", "estimatedCost": 2.50, "fromSpecial": false },
+        { "name": "Frozen Peas", "amount": "100g", "estimatedCost": 0.80, "fromSpecial": false },
+        { "name": "Onion", "amount": "1 large", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Beef Stock", "amount": "300ml", "estimatedCost": 1.50, "fromSpecial": false },
+        { "name": "Worcestershire Sauce", "amount": "2 tbsp", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Butter", "amount": "40g", "estimatedCost": 0.90, "fromSpecial": false }
+      ],
+      "method": [
+        "Preheat oven to 190°C. Boil potatoes until tender, mash with butter and milk.",
+        "Fry onion and garlic in oil until soft. Add mince and brown well.",
+        "Add Worcestershire sauce, beef stock and frozen peas. Simmer 15 minutes until thickened.",
+        "Transfer filling to a baking dish. Spread mash evenly over the top.",
+        "Fork the mash surface and dot with butter.",
+        "Bake 25 minutes until top is golden and filling is bubbling at the edges."
+      ]
+    }
+  ],
+  "shoppingList": [
+    { "name": "Beef Mince", "amount": "1.3kg", "estimatedCost": 18.20, "isSpecial": true, "category": "protein", "usedIn": ["M1", "M2", "M5"] },
+    { "name": "Pork Belly", "amount": "400g", "estimatedCost": 8.00, "isSpecial": false, "category": "protein", "usedIn": ["M3"] },
+    { "name": "Lamb Loin Chops", "amount": "4 chops", "estimatedCost": 10.00, "isSpecial": false, "category": "protein", "usedIn": ["M4"] },
+    { "name": "Potatoes", "amount": "1.3kg", "estimatedCost": 4.70, "isSpecial": false, "category": "vegetable", "usedIn": ["M4", "M5"] },
+    { "name": "Onion", "amount": "2 large", "estimatedCost": 1.20, "isSpecial": false, "category": "vegetable", "usedIn": ["M1", "M5"] },
+    { "name": "Tomatoes", "amount": "2 medium", "estimatedCost": 1.80, "isSpecial": false, "category": "vegetable", "usedIn": ["M2"] },
+    { "name": "Frozen Peas", "amount": "300g", "estimatedCost": 2.30, "isSpecial": false, "category": "vegetable", "usedIn": ["M4", "M5"] },
+    { "name": "Spaghetti", "amount": "250g", "estimatedCost": 1.80, "isSpecial": false, "category": "pantry", "usedIn": ["M1"] },
+    { "name": "Canned Tomatoes", "amount": "2 x 400g", "estimatedCost": 2.60, "isSpecial": false, "category": "pantry", "usedIn": ["M1"] },
+    { "name": "Taco Shells", "amount": "8 shells", "estimatedCost": 3.50, "isSpecial": false, "category": "pantry", "usedIn": ["M2"] },
+    { "name": "Ramen Noodles", "amount": "200g", "estimatedCost": 2.50, "isSpecial": false, "category": "pantry", "usedIn": ["M3"] },
+    { "name": "Chicken Stock", "amount": "1 litre", "estimatedCost": 2.80, "isSpecial": false, "category": "pantry", "usedIn": ["M3"] },
+    { "name": "Parmesan", "amount": "50g", "estimatedCost": 2.80, "isSpecial": false, "category": "dairy", "usedIn": ["M1"] },
+    { "name": "Eggs", "amount": "2 large", "estimatedCost": 1.20, "isSpecial": false, "category": "dairy", "usedIn": ["M3"] },
+    { "name": "Cheddar Cheese", "amount": "100g", "estimatedCost": 2.50, "isSpecial": false, "category": "dairy", "usedIn": ["M2"] },
+    { "name": "Sour Cream", "amount": "150ml", "estimatedCost": 2.20, "isSpecial": false, "category": "dairy", "usedIn": ["M2"] },
+    { "name": "Butter", "amount": "90g", "estimatedCost": 2.10, "isSpecial": false, "category": "dairy", "usedIn": ["M4", "M5"] }
+  ]
+}

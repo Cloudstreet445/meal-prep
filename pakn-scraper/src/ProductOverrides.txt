@@ -1,0 +1,141 @@
+# If a product size cannot be scraped or is misplaced in the wrong category, these values can be manually overridden here.
+# Place product IDs spaced next to product size and/or category=new-category-name, one product per line.
+
+P5019270 1020g
+P5026036 1020g
+P5012168 1020g
+P5012227 1020g
+P5022829 800g
+P5284771 570g
+P5026147 200g
+P5026417 480g
+P5312938 180g
+P5312937 180g
+P5312936 180g
+P5032434 1kg
+P5295677 2.5kg
+P5295675 500g
+P5295676 1kg
+P5005785 180g
+P5003792 180g
+P5031203 250g
+P5013752 100g
+P5023555 200g
+P5264266 375g
+P5016432 100g
+P5026740 850g
+P5029917 425g
+P5026741 850g
+P5206566 300g
+P5006409 425g
+P5094884 864g
+P5011663 850g
+P5010982 455g
+P5011992 400g
+P5011993 400g
+P5011991 400g
+P5027775 400g
+P5012144 269g
+P5025338 340g
+P5011662 850g
+P5003459 category=ham
+P5106357 category=ham
+P5259855 category=ham
+P5019277 category=ham
+P5322852 category=invalid
+P5322851 category=invalid
+P5322850 category=invalid
+P5322849 category=invalid
+P5026053 500g
+P5002498 category=nuts-bulk-mix
+P5319587 category=chocolate
+P5282799 480g category=patties-meatballs
+P5276226 400g category=patties-meatballs
+P5314899 320g
+P5314898 360g
+P5314897 360g
+P5314901 352g
+P5314900 376g
+P5023552 904g
+P5216956 2.5kg
+P5021122 408g
+P5112344 522g
+P5082985 450g
+P5082984 450g
+P5082981 450g
+P5082986 450g
+P5324904 320g category=patties-meatballs
+P5082987 450g
+P5240737 300g
+P5308773 420g
+P5262905 420g
+P5262906 420g
+P5028366 480g
+P5028367 480g
+P5311015 category=pork
+P5310400 category=pork
+P5329428 450g
+P5329427 450g
+P5289187 50pack
+P5314891 508g
+P5314892 508g
+P5122637 1kg
+P5294700 category=sausages
+P5316462 category=patties-meatballs
+P5252613 category=patties-meatballs
+P5271888 432g category=sausages
+P5023432 300g
+P5023435 300g
+P5321123 300g
+P5278456 680g
+P299550 508g
+P5310035 390g category=sausages
+P5100060 category=chicken
+P5023615 category=ham
+P5124002 1.2kg
+P5315543 200g
+P5091882 2kg
+P5120445 400g
+P5315544 250g category=bread-rolls
+P5006143 1kg
+P5266363 240g
+P5264732 600g
+P5267850 600g
+P5005026 135g
+P5008381 135g
+P5269403 400g
+P5085852 490g
+P5223777 900g
+P5213737 700g
+P5213732 700g
+P5310464 400g
+P5310463 400g
+P5223639 360g
+P5269402 360g
+P5313302 280g
+P5313301 280g
+P5313300 280g
+P5295704 450g
+P5295702 450g
+P5110040 570g
+P5334955 432g category=sausages
+P5334954 432g category=sausages
+P5307952 300g category=sausages
+P5312131 450g category=sausages
+P5121328 category=sausages
+P5017318 category=patties-meatballs
+P5021174 category=patties-meatballs
+P5333205 category=pork
+P5333203 category=pork
+P5295690 800g category=pork
+P5308032 category=pork
+P5252611 category=sausages
+P5242833 category=sausages
+P5242822 category=sausages
+P5295689 400g category=pork
+P5082982 450g category=sausages 
+P5111971 category=sausages
+P5242832 category=sausages
+P5082969 450g category=sausages
+P5338156 category=frozen-seafood
+P5338158 category=frozen-seafood

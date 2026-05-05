@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f1410" />
+  <title>Kai Planner</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="logo">Kai <span>Planner</span></div>
+        <div class="week-badge" id="week-badge">Loading...</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="bundle-btn" id="bundle-switcher-btn" style="display:none" onclick="openBundleSheet()">
+          ↕ Weekly Plans
+        </button>
+        <div class="budget-pill" id="budget-pill">—</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Nav -->
+  <nav>
+    <div class="tab active" data-view="week">
+      <span class="tab-icon">🗓</span>This Week
+    </div>
+    <div class="tab" data-view="shopping">
+      <span class="tab-icon">🛒</span>Shopping
+    </div>
+    <div class="tab" data-view="recipes">
+      <span class="tab-icon">🍳</span>Recipes
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- VIEW: This Week -->
+    <div class="view active" id="view-week">
+      <div class="state-msg" id="week-loading">
+        <span class="icon">⏳</span>Loading meal plan...
+      </div>
+      <div id="week-content" style="display:none">
+        <div class="week-summary" id="week-summary"></div>
+        <div class="section-label">This week's dinners</div>
+        <div id="meal-cards"></div>
+      </div>
+    </div>
+
+    <!-- VIEW: Shopping -->
+    <div class="view" id="view-shopping">
+      <div class="state-msg" id="shopping-loading">
+        <span class="icon">⏳</span>Loading shopping list...
+      </div>
+      <div id="shopping-content" style="display:none">
+        <div class="shop-header">
+          <div>
+            <div class="shop-total" id="shop-total">$0.00</div>
+            <div class="shop-total-label">estimated total</div>
+          </div>
+          <button class="clear-btn" id="clear-btn">Reset ↺</button>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <div id="shopping-items"></div>
+      </div>
+    </div>
+
+    <!-- VIEW: Recipes -->
+    <div class="view" id="view-recipes">
+      <!-- Recipe List -->
+      <div id="recipe-list">
+        <div class="state-msg" id="recipes-loading">
+          <span class="icon">⏳</span>Loading recipes...
+        </div>
+        <div id="recipe-list-items"></div>
+      </div>
+      <!-- Recipe Detail (hidden until selected) -->
+      <div class="recipe-detail" id="recipe-detail">
+        <div class="back-btn" id="back-btn">← Back</div>
+        <div class="recipe-title" id="detail-title"></div>
+        <div class="recipe-pills" id="detail-pills"></div>
+        <a class="recipe-link" id="detail-link" target="_blank">
+          🔗 <span id="detail-link-text">Find recipe inspiration</span>
+        </a>
+        <div class="section-label">Ingredients</div>
+        <div id="detail-ingredients"></div>
+        <button class="start-cooking-btn" id="start-cooking-btn">Start Cooking →</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Bundle Switcher Sheet -->
+<div class="sheet-backdrop" id="sheet-backdrop" onclick="closeBundleSheet()"></div>
+<div class="bottom-sheet" id="bundle-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Select a plan for this week</div>
+  <div class="sheet-content" id="bundle-sheet-content">
+    <div class="sheet-empty">Loading...</div>
+  </div>
+</div>
+
+<!-- Cook Mode Overlay -->
+<div class="cook-mode" id="cook-mode">
+  <div class="cook-header">
+    <div class="cook-title" id="cook-recipe-name"></div>
+    <div class="cook-close" id="cook-close">✕</div>
+  </div>
+  <div class="cook-progress">
+    <div class="cook-step-label">Steps</div>
+    <div class="cook-dots" id="cook-dots"></div>
+  </div>
+  <div class="cook-body">
+    <div>
+      <div class="cook-step-num" id="cook-step-num"></div>
+      <div class="cook-step-text" id="cook-step-text"></div>
+    </div>
+  </div>
+  <div class="cook-nav">
+    <button class="cook-btn prev" id="cook-prev">← Prev</button>
+    <button class="cook-btn next" id="cook-next">Next →</button>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

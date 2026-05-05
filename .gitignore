@@ -1,0 +1,125 @@
+# =========================
+
+# OS / Editor junk
+
+# =========================
+
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# =========================
+
+# Environment / secrets
+
+# =========================
+
+.env
+.env.*
+*.env
+
+# =========================
+
+# Logs
+
+# =========================
+
+*.log
+logs/
+
+# =========================
+
+# Docker
+
+# =========================
+
+docker-compose.override.yml
+*.tar
+*.gz
+
+# =========================
+
+# Node (meal-pwa?)
+
+# =========================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# =========================
+
+# Python (meal-api / scraper?)
+
+# =========================
+
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+venv/
+.venv/
+env/
+*.sh
+
+# =========================
+
+# Testing / coverage
+
+# =========================
+
+.coverage
+coverage/
+htmlcov/
+
+# =========================
+
+# Misc
+
+# =========================
+
+*.bak
+*.tmp
+
+############################
+# AI tools (local configs)
+############################
+
+# GitHub Copilot / editor AI
+.vscode/copilot*
+.github/copilot*
+copilot*
+
+# Claude / Anthropic tooling (varies by client tools)
+.claude/
+claude/
+anthropic/
+
+# Cursor (AI editor)
+.cursor/
+.cursor-tutor/
+.cursor-cache/
+
+# Generic AI / LLM tooling caches
+.ai/
+.llm/
+.llm-cache/
+prompts/*.local
+*.prompt.local
+
+############################
+# API keys / secrets (CRITICAL)
+############################
+.env
+.env.*
+secrets/
+*.key
+*.pem
+*.token

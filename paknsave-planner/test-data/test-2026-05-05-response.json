@@ -1,0 +1,151 @@
+{
+  "week": "2026-05-05",
+  "weekSummary": "Hearty winter meals built around chicken thighs on special and a slow pork stew to warm up the cooler nights",
+  "estimatedTotal": 54.20,
+  "meals": [
+    {
+      "id": "M1",
+      "name": "Thai Green Chicken Curry",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "40 min",
+      "description": "Fragrant green curry with chicken thighs, zucchini and coconut cream over jasmine rice",
+      "recipeUrl": "https://www.recipetineats.com/thai-green-curry/",
+      "ingredients": [
+        { "name": "Chicken Thighs", "amount": "600g", "estimatedCost": 8.50, "fromSpecial": true },
+        { "name": "Coconut Cream", "amount": "400ml", "estimatedCost": 2.80, "fromSpecial": false },
+        { "name": "Green Curry Paste", "amount": "3 tbsp", "estimatedCost": 2.20, "fromSpecial": false },
+        { "name": "Jasmine Rice", "amount": "300g", "estimatedCost": 2.20, "fromSpecial": false },
+        { "name": "Zucchini", "amount": "2 medium", "estimatedCost": 2.50, "fromSpecial": false },
+        { "name": "Fish Sauce", "amount": "2 tbsp", "estimatedCost": 0.80, "fromSpecial": false },
+        { "name": "Lime", "amount": "1 lime", "estimatedCost": 0.60, "fromSpecial": false }
+      ],
+      "method": [
+        "Cut chicken into large chunks. Slice zucchini into half-moons.",
+        "Heat oil in a large pan. Fry curry paste 1 minute until fragrant.",
+        "Add chicken pieces and cook 3 minutes until sealed on all sides.",
+        "Pour in coconut cream and fish sauce. Bring to a gentle simmer.",
+        "Add zucchini and cook 15 minutes until chicken is cooked through.",
+        "Cook rice separately. Taste curry and adjust fish sauce and lime juice.",
+        "Serve over rice with fresh coriander if available."
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Slow Pork Shoulder and Bean Stew",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "2 hrs",
+      "description": "Melt-in-the-mouth pork shoulder braised with white beans, rosemary and tomato",
+      "recipeUrl": "https://www.bbcgoodfood.com/recipes/pork-bean-stew",
+      "ingredients": [
+        { "name": "Pork Shoulder", "amount": "800g", "estimatedCost": 8.80, "fromSpecial": false },
+        { "name": "Canned White Beans", "amount": "2 x 400g", "estimatedCost": 3.60, "fromSpecial": false },
+        { "name": "Canned Tomatoes", "amount": "400g", "estimatedCost": 1.30, "fromSpecial": false },
+        { "name": "Chicken Stock", "amount": "500ml", "estimatedCost": 1.80, "fromSpecial": false },
+        { "name": "Rosemary", "amount": "3 sprigs", "estimatedCost": 0.60, "fromSpecial": false },
+        { "name": "Onion", "amount": "2 large", "estimatedCost": 1.00, "fromSpecial": false },
+        { "name": "Garlic", "amount": "5 cloves", "estimatedCost": 0.60, "fromSpecial": false }
+      ],
+      "method": [
+        "Cut pork shoulder into large chunks, about 5cm. Season generously.",
+        "Brown in batches in a heavy pot until deeply caramelised on all sides. Set aside.",
+        "Soften onion and garlic in the same pot 8 minutes.",
+        "Return pork, add tomatoes, stock and rosemary. Bring to a simmer.",
+        "Cover and cook on low heat 1.5 hours until pork is very tender.",
+        "Add drained white beans, simmer uncovered 20 minutes until sauce thickens.",
+        "Season and serve with crusty bread."
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "Chicken Thigh Traybake with Kumara",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "50 min",
+      "description": "One-pan roasted chicken thighs with kumara, red onion and a lemon-herb dressing",
+      "recipeUrl": "https://www.taste.com.au/recipes/chicken-kumara-traybake/",
+      "ingredients": [
+        { "name": "Chicken Thighs", "amount": "600g", "estimatedCost": 8.50, "fromSpecial": true },
+        { "name": "Kumara", "amount": "500g", "estimatedCost": 3.00, "fromSpecial": false },
+        { "name": "Red Onion", "amount": "2 medium", "estimatedCost": 1.40, "fromSpecial": false },
+        { "name": "Olive Oil", "amount": "4 tbsp", "estimatedCost": 1.20, "fromSpecial": false },
+        { "name": "Lemon", "amount": "1 lemon", "estimatedCost": 0.70, "fromSpecial": false },
+        { "name": "Garlic", "amount": "4 cloves", "estimatedCost": 0.50, "fromSpecial": false }
+      ],
+      "method": [
+        "Preheat oven to 200°C. Cut kumara and red onion into wedges.",
+        "Toss vegetables with olive oil, garlic, salt and pepper. Spread on a large tray.",
+        "Rub chicken thighs with olive oil, salt, pepper and lemon zest. Place on top of vegetables.",
+        "Roast 45 minutes until chicken skin is crispy and vegetables are caramelised.",
+        "Squeeze lemon juice over everything and rest 5 minutes before serving."
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "Beef and Broccoli with Rice",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "25 min",
+      "description": "Tender beef strips and broccoli in a glossy oyster sauce, served over steamed rice",
+      "recipeUrl": "https://www.recipetineats.com/beef-and-broccoli/",
+      "ingredients": [
+        { "name": "Beef Stir Fry Strips", "amount": "400g", "estimatedCost": 9.00, "fromSpecial": false },
+        { "name": "Broccoli", "amount": "1 head", "estimatedCost": 2.80, "fromSpecial": false },
+        { "name": "Oyster Sauce", "amount": "4 tbsp", "estimatedCost": 1.20, "fromSpecial": false },
+        { "name": "Soy Sauce", "amount": "2 tbsp", "estimatedCost": 0.50, "fromSpecial": false },
+        { "name": "Jasmine Rice", "amount": "300g", "estimatedCost": 2.20, "fromSpecial": false },
+        { "name": "Cornflour", "amount": "2 tbsp", "estimatedCost": 0.30, "fromSpecial": false }
+      ],
+      "method": [
+        "Toss beef strips in cornflour, soy sauce and a little baking soda. Marinate 15 minutes.",
+        "Cook rice according to packet.",
+        "Blanch broccoli florets in boiling water 2 minutes. Drain.",
+        "Heat wok until smoking. Stir fry beef in batches — don't crowd the pan.",
+        "Return all beef, add broccoli and oyster sauce with a splash of water.",
+        "Toss on high heat 1 minute until sauce is glossy. Serve over rice."
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "Butter Chicken with Naan",
+      "serves": 2,
+      "leftovers": true,
+      "cookTime": "40 min",
+      "description": "Rich and creamy butter chicken sauce with chicken thighs, served with store-bought naan",
+      "recipeUrl": "https://www.recipetineats.com/butter-chicken/",
+      "ingredients": [
+        { "name": "Chicken Thighs", "amount": "500g", "estimatedCost": 7.00, "fromSpecial": true },
+        { "name": "Canned Tomatoes", "amount": "400g", "estimatedCost": 1.30, "fromSpecial": false },
+        { "name": "Cream", "amount": "150ml", "estimatedCost": 2.50, "fromSpecial": false },
+        { "name": "Butter Chicken Paste", "amount": "4 tbsp", "estimatedCost": 2.50, "fromSpecial": false },
+        { "name": "Butter", "amount": "30g", "estimatedCost": 0.70, "fromSpecial": false },
+        { "name": "Naan Bread", "amount": "4 pieces", "estimatedCost": 3.80, "fromSpecial": false },
+        { "name": "Jasmine Rice", "amount": "200g", "estimatedCost": 1.50, "fromSpecial": false }
+      ],
+      "method": [
+        "Cut chicken into chunks. Coat in 2 tbsp butter chicken paste.",
+        "Cook chicken in butter over medium-high heat until golden. Remove.",
+        "Add remaining paste to pan, cook 1 minute. Add canned tomatoes and simmer 10 minutes.",
+        "Blend sauce until smooth (optional). Return chicken to pan.",
+        "Stir in cream and simmer 10 minutes until chicken is cooked through.",
+        "Warm naan in oven. Serve chicken over rice with naan for scooping."
+      ]
+    }
+  ],
+  "shoppingList": [
+    { "name": "Chicken Thighs", "amount": "1.7kg", "estimatedCost": 24.00, "isSpecial": true, "category": "protein", "usedIn": ["M1", "M3", "M5"] },
+    { "name": "Pork Shoulder", "amount": "800g", "estimatedCost": 8.80, "isSpecial": false, "category": "protein", "usedIn": ["M2"] },
+    { "name": "Beef Stir Fry Strips", "amount": "400g", "estimatedCost": 9.00, "isSpecial": false, "category": "protein", "usedIn": ["M4"] },
+    { "name": "Kumara", "amount": "500g", "estimatedCost": 3.00, "isSpecial": false, "category": "vegetable", "usedIn": ["M3"] },
+    { "name": "Broccoli", "amount": "1 head", "estimatedCost": 2.80, "isSpecial": false, "category": "vegetable", "usedIn": ["M4"] },
+    { "name": "Zucchini", "amount": "2 medium", "estimatedCost": 2.50, "isSpecial": false, "category": "vegetable", "usedIn": ["M1"] },
+    { "name": "Jasmine Rice", "amount": "800g", "estimatedCost": 5.90, "isSpecial": false, "category": "pantry", "usedIn": ["M1", "M4", "M5"] },
+    { "name": "Canned Tomatoes", "amount": "2 x 400g", "estimatedCost": 2.60, "isSpecial": false, "category": "pantry", "usedIn": ["M2", "M5"] },
+    { "name": "Canned White Beans", "amount": "2 x 400g", "estimatedCost": 3.60, "isSpecial": false, "category": "pantry", "usedIn": ["M2"] },
+    { "name": "Coconut Cream", "amount": "400ml", "estimatedCost": 2.80, "isSpecial": false, "category": "pantry", "usedIn": ["M1"] },
+    { "name": "Naan Bread", "amount": "4 pieces", "estimatedCost": 3.80, "isSpecial": false, "category": "pantry", "usedIn": ["M5"] },
+    { "name": "Cream", "amount": "150ml", "estimatedCost": 2.50, "isSpecial": false, "category": "dairy", "usedIn": ["M5"] },
+    { "name": "Butter", "amount": "30g", "estimatedCost": 0.70, "isSpecial": false, "category": "dairy", "usedIn": ["M5"] }
+  ]
+}
