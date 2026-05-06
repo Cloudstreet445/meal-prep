@@ -48,15 +48,15 @@ jobs:
         if: needs.detect.outputs.pwa == 'true'
         run: |
           docker build \
-            -t localhost:5000/meal-pwa:latest \
+            -t localhost:5000/paknsave-pwa:latest \
             -f meal-pwa/Dockerfile \
             meal-pwa
 
       - name: Push meal-pwa
         if: needs.detect.outputs.pwa == 'true'
         run: |
-          docker push localhost:5000/meal-pwa:latest
-          docker pull localhost:5000/meal-pwa:latest
+          docker push localhost:5000/paknsave-pwa:latest
+          docker pull localhost:5000/paknsave-pwa:latest
 
       # -------------------------
       # meal-api
@@ -65,15 +65,15 @@ jobs:
         if: needs.detect.outputs.api == 'true'
         run: |
           docker build \
-            -t localhost:5000/meal-api:latest \
+            -t localhost:5000/paknsave-api:latest \
             -f meal-api/Dockerfile \
             meal-api
 
       - name: Push meal-api
         if: needs.detect.outputs.api == 'true'
         run: |
-          docker push localhost:5000/meal-api:latest
-          docker pull localhost:5000/meal-api:latest
+          docker push localhost:5000/paknsave-api:latest
+          docker pull localhost:5000/paknsave-api:latest
 
       # -------------------------
       # pakn-scraper
