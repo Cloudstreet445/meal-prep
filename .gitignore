@@ -124,3 +124,6 @@ secrets/
 *.key
 *.pem
 *.token
+*/*bin*
+*/*local*
+*/obj*

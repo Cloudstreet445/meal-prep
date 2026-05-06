@@ -48,11 +48,11 @@ jobs:
         if: needs.detect.outputs.pwa == 'true'
         run: |
           docker build \
-            -t 192.168.1.50:5000/meal-pwa:latest \
+            -t localhost:5000/meal-pwa:latest \
             -f meal-pwa/Dockerfile \
             meal-pwa
 
-          docker push 192.168.1.50:5000/meal-pwa:latest
+          docker push localhost:5000/meal-pwa:latest
 
       # -------------------------
       # BUILD & PUSH meal-api
@@ -61,11 +61,11 @@ jobs:
         if: needs.detect.outputs.api == 'true'
         run: |
           docker build \
-            -t 192.168.1.50:5000/meal-api:latest \
+            -t localhost:5000/meal-api:latest \
             -f meal-api/Dockerfile \
             meal-api
 
-          docker push 192.168.1.50:5000/meal-api:latest
+          docker push localhost:5000/meal-api:latest
 
       # -------------------------
       # BUILD & PUSH scraper
@@ -74,8 +74,8 @@ jobs:
         if: needs.detect.outputs.scraper == 'true'
         run: |
           docker build \
-            -t 192.168.1.50:5000/pakn-scraper:latest \
+            -t localhost:5000/pakn-scraper:latest \
             -f pakn-scraper/Dockerfile \
             pakn-scraper
 
-          docker push 192.168.1.50:5000/pakn-scraper:latest
+          docker push localhost:5000/pakn-scraper:latest
