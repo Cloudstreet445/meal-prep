@@ -78,6 +78,7 @@ env/
 .coverage
 coverage/
 htmlcov/
+runner
 
 # =========================
 
