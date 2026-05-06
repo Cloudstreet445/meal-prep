@@ -53,6 +53,7 @@ jobs:
             meal-pwa
 
           docker push localhost:5000/meal-pwa:latest
+          docker pull localhost:5000/meal-pwa:latest
 
       # -------------------------
       # BUILD & PUSH meal-api
@@ -66,6 +67,7 @@ jobs:
             meal-api
 
           docker push localhost:5000/meal-api:latest
+          docker pull localhost:5000/meal-api:latest
 
       # -------------------------
       # BUILD & PUSH scraper
@@ -79,3 +81,4 @@ jobs:
             pakn-scraper
 
           docker push localhost:5000/pakn-scraper:latest
+          docker pull localhost:5000/pakn-scraper:latest
