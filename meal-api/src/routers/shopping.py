@@ -1,8 +1,8 @@
 """Shopping list endpoints — thin wrapper over bundle shopping derivation."""
 
 from fastapi import APIRouter, HTTPException
-from database import get_db, get_pricing_db
-from routers.bundles import _derive_shopping_list
+from ..database import get_db, get_pricing_db
+from .bundles import _derive_shopping_list
 
 router = APIRouter()
 

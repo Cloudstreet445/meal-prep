@@ -1,7 +1,7 @@
 """Legacy /api/plan endpoints — alias to bundles."""
 
 from fastapi import APIRouter
-from routers.bundles import get_latest_bundle
+from .bundles import get_latest_bundle
 
 router = APIRouter()
 

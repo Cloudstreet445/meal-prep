@@ -10,7 +10,7 @@ Key design decisions implemented here:
 
 import re
 from fastapi import APIRouter, HTTPException
-from database import get_db, get_pricing_db
+from ..database import get_db, get_pricing_db
 
 router = APIRouter()
 

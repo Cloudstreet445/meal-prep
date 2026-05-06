@@ -1,7 +1,7 @@
 """Recipe endpoints."""
 
 from fastapi import APIRouter, HTTPException
-from database import get_db
+from ..database import get_db
 
 router = APIRouter()
 

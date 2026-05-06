@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from routers import bundles, recipes, shopping, plans
+from .routers import bundles, recipes, shopping, plans
 import time
 
 app = FastAPI(
