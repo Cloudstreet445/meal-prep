@@ -1,93 +1,93 @@
-name: Build & Push Docker Images
+  name: Build & Push Docker Images
 
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "meal-pwa/**"
-      - "meal-api/**"
-      - "pakn-scraper/**"
+  on:
+    push:
+      branches:
+        - main
+      paths:
+        - "meal-pwa/**"
+        - "meal-api/**"
+        - "pakn-scraper/**"
 
-jobs:
-  detect:
-    runs-on: ubuntu-latest
-    outputs:
-      pwa: ${{ steps.filter.outputs.meal-pwa }}
-      api: ${{ steps.filter.outputs.meal-api }}
-      scraper: ${{ steps.filter.outputs.pakn-scraper }}
+  jobs:
+    detect:
+      runs-on: ubuntu-latest
+      outputs:
+        pwa: ${{ steps.filter.outputs.meal-pwa }}
+        api: ${{ steps.filter.outputs.meal-api }}
+        scraper: ${{ steps.filter.outputs.pakn-scraper }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
 
-      - name: Detect changed services
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            meal-pwa:
-              - 'meal-pwa/**'
-            meal-api:
-              - 'meal-api/**'
-            pakn-scraper:
-              - 'pakn-scraper/**'
+        - name: Detect changed services
+          id: filter
+          uses: dorny/paths-filter@v3
+          with:
+            filters: |
+              meal-pwa:
+                - 'meal-pwa/**'
+              meal-api:
+                - 'meal-api/**'
+              pakn-scraper:
+                - 'pakn-scraper/**'
 
-  build:
-    needs: detect
-    runs-on: self-hosted
+    build:
+      needs: detect
+      runs-on: self-hosted
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
 
-      # -------------------------
-      # meal-pwa
-      # -------------------------
-      - name: Build meal-pwa
-        if: needs.detect.outputs.pwa == 'true'
-        run: |
-          docker build \
-            -t localhost:5000/paknsave-pwa:latest \
-            -f meal-pwa/Dockerfile \
-            meal-pwa
+        # -------------------------
+        # meal-pwa
+        # -------------------------
+        - name: Build meal-pwa
+          if: needs.detect.outputs.pwa == 'true'
+          run: |
+            docker build \
+              -t localhost:5000/paknsave-pwa:latest \
+              -f meal-pwa/Dockerfile \
+              meal-pwa
 
-      - name: Push meal-pwa
-        if: needs.detect.outputs.pwa == 'true'
-        run: |
-          docker push localhost:5000/paknsave-pwa:latest
-          docker pull localhost:5000/paknsave-pwa:latest
+        - name: Push meal-pwa
+          if: needs.detect.outputs.pwa == 'true'
+          run: |
+            docker push localhost:5000/paknsave-pwa:latest
+            docker pull localhost:5000/paknsave-pwa:latest
 
-      # -------------------------
-      # meal-api
-      # -------------------------
-      - name: Build meal-api
-        if: needs.detect.outputs.api == 'true'
-        run: |
-          docker build \
-            -t localhost:5000/paknsave-api:latest \
-            -f meal-api/Dockerfile \
-            meal-api
+        # -------------------------
+        # meal-api
+        # -------------------------
+        - name: Build meal-api
+          if: needs.detect.outputs.api == 'true'
+          run: |
+            docker build \
+              -t localhost:5000/paknsave-api:latest \
+              -f meal-api/Dockerfile \
+              meal-api
 
-      - name: Push meal-api
-        if: needs.detect.outputs.api == 'true'
-        run: |
-          docker push localhost:5000/paknsave-api:latest
-          docker pull localhost:5000/paknsave-api:latest
+        - name: Push meal-api
+          if: needs.detect.outputs.api == 'true'
+          run: |
+            docker push localhost:5000/paknsave-api:latest
+            docker pull localhost:5000/paknsave-api:latest
 
-      # -------------------------
-      # pakn-scraper
-      # -------------------------
-      - name: Build pakn-scraper
-        if: needs.detect.outputs.scraper == 'true'
-        run: |
-          docker build \
-            -t localhost:5000/pakn-scraper:latest \
-            -f pakn-scraper/Dockerfile \
-            pakn-scraper
+        # -------------------------
+        # pakn-scraper
+        # -------------------------
+        - name: Build pakn-scraper
+          if: needs.detect.outputs.scraper == 'true'
+          run: |
+            docker build \
+              -t localhost:5000/pakn-scraper:latest \
+              -f pakn-scraper/Dockerfile \
+              pakn-scraper
 
-      - name: Push pakn-scraper
-        if: needs.detect.outputs.scraper == 'true'
-        run: |
-          docker push localhost:5000/pakn-scraper:latest
-          docker pull localhost:5000/pakn-scraper:latest
+        - name: Push pakn-scraper
+          if: needs.detect.outputs.scraper == 'true'
+          run: |
+            docker push localhost:5000/pakn-scraper:latest
+            docker pull localhost:5000/pakn-scraper:latest

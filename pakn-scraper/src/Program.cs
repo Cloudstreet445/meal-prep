@@ -416,6 +416,7 @@ namespace Scraper
                 throw;
             }
         }
+        
 
         // Get the hi-res image url from the Playwright element
         public async static Task<string> GetHiresImageUrl(IElementHandle productElement)
