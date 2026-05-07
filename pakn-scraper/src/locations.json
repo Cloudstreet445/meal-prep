@@ -1,0 +1,84 @@
+{
+  "Auckland": [
+    { "name": "PAK'nSAVE Albany", "lat": -36.7266, "lng": 174.7006 },
+    { "name": "PAK'nSAVE Wairau Road", "lat": -36.7596, "lng": 174.7407 },
+    { "name": "PAK'nSAVE Westgate", "lat": -36.8277, "lng": 174.6132 },
+    { "name": "PAK'nSAVE Royal Oak", "lat": -36.9104, "lng": 174.7747 },
+    { "name": "PAK'nSAVE Sylvia Park", "lat": -36.9172, "lng": 174.8418 },
+    { "name": "PAK'nSAVE Mt Albert", "lat": -36.8870, "lng": 174.7020 },
+    { "name": "PAK'nSAVE Manukau", "lat": -36.9928, "lng": 174.8852 },
+    { "name": "PAK'nSAVE Papakura", "lat": -37.0650, "lng": 174.9430 },
+    { "name": "PAK'nSAVE Botany", "lat": -36.9370, "lng": 174.9120 },
+    { "name": "PAK'nSAVE Glen Innes", "lat": -36.8780, "lng": 174.8600 },
+    { "name": "PAK'nSAVE Silverdale", "lat": -36.6190, "lng": 174.6660 },
+    { "name": "PAK'nSAVE Pukekohe", "lat": -37.2010, "lng": 174.9020 },
+    { "name": "PAK'nSAVE Ormiston", "lat": -36.9654, "lng": 174.9126 }
+  ],
+
+  "Waikato": [
+    { "name": "PAK'nSAVE Hamilton Clarence Street", "lat": -37.7870, "lng": 175.2793 },
+    { "name": "PAK'nSAVE Hamilton Mill Street", "lat": -37.7875, "lng": 175.2890 },
+    { "name": "PAK'nSAVE Te Awamutu", "lat": -38.0090, "lng": 175.3240 },
+    { "name": "PAK'nSAVE Thames", "lat": -37.1389, "lng": 175.5400 }
+  ],
+
+  "Bay of Plenty": [
+    { "name": "PAK'nSAVE Tauranga", "lat": -37.6878, "lng": 176.1651 },
+    { "name": "PAK'nSAVE Tauriko", "lat": -37.7410, "lng": 176.1010 },
+    { "name": "PAK'nSAVE Pāpāmoa", "lat": -37.7140, "lng": 176.3340 },
+    { "name": "PAK'nSAVE Rotorua", "lat": -38.1310, "lng": 176.2460 },
+    { "name": "PAK'nSAVE Whakatāne", "lat": -37.9580, "lng": 176.9850 },
+    { "name": "PAK'nSAVE Taupō", "lat": -38.6857, "lng": 176.0702 }
+  ],
+
+  "Hawke's Bay": [
+    { "name": "PAK'nSAVE Napier Tamatea", "lat": -39.5160, "lng": 176.8680 },
+    { "name": "PAK'nSAVE Hastings", "lat": -39.6395, "lng": 176.8443 }
+  ],
+
+  "Taranaki": [
+    { "name": "PAK'nSAVE New Plymouth", "lat": -39.0556, "lng": 174.0740 },
+    { "name": "PAK'nSAVE Hāwera", "lat": -39.5940, "lng": 174.2770 }
+  ],
+
+  "Manawatu-Whanganui": [
+    { "name": "PAK'nSAVE Whanganui", "lat": -39.9322, "lng": 175.0470 },
+    { "name": "PAK'nSAVE Palmerston North", "lat": -40.3520, "lng": 175.6080 },
+    { "name": "PAK'nSAVE Levin", "lat": -40.6260, "lng": 175.2820 },
+    { "name": "PAK'nSAVE Masterton", "lat": -40.9490, "lng": 175.6570 }
+  ],
+
+  "Wellington Region": [
+    { "name": "PAK'nSAVE Porirua", "lat": -41.1288, "lng": 174.8388 },
+    { "name": "PAK'nSAVE Kilbirnie", "lat": -41.3185, "lng": 174.7960 },
+    { "name": "PAK'nSAVE Petone", "lat": -41.2260, "lng": 174.8700 },
+    { "name": "PAK'nSAVE Lower Hutt", "lat": -41.2090, "lng": 174.9080 },
+    { "name": "PAK'nSAVE Upper Hutt", "lat": -41.1260, "lng": 175.0690 },
+    { "name": "PAK'nSAVE Kapiti", "lat": -40.9000, "lng": 175.0160 }
+  ],
+
+  "Marlborough": [
+    { "name": "PAK'nSAVE Blenheim", "lat": -41.5140, "lng": 173.9610 }
+  ],
+
+  "Nelson-Tasman": [
+    { "name": "PAK'nSAVE Nelson", "lat": -41.2706, "lng": 173.2839 }
+  ],
+
+  "Canterbury": [
+    { "name": "PAK'nSAVE Riccarton", "lat": -43.5308, "lng": 172.5990 },
+    { "name": "PAK'nSAVE Moorhouse", "lat": -43.5370, "lng": 172.6390 },
+    { "name": "PAK'nSAVE Hornby", "lat": -43.5427, "lng": 172.5238 },
+    { "name": "PAK'nSAVE Papanui", "lat": -43.4900, "lng": 172.5950 },
+    { "name": "PAK'nSAVE Rangiora", "lat": -43.3050, "lng": 172.5950 },
+    { "name": "PAK'nSAVE Rolleston", "lat": -43.5960, "lng": 172.3830 },
+    { "name": "PAK'nSAVE Wainoni", "lat": -43.5030, "lng": 172.7120 },
+    { "name": "PAK'nSAVE Timaru", "lat": -44.3930, "lng": 171.2500 }
+  ],
+
+  "Otago-Southland": [
+    { "name": "PAK'nSAVE Dunedin", "lat": -45.8742, "lng": 170.5026 },
+    { "name": "PAK'nSAVE Invercargill", "lat": -46.4132, "lng": 168.3538 },
+    { "name": "PAK'nSAVE Queenstown", "lat": -45.0312, "lng": 168.6626 }
+  ]
+}
