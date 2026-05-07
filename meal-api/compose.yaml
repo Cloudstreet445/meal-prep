@@ -1,4 +1,4 @@
-name: paknsave-api
+dename: paknsave-api
 
 networks:
   paknsave-net:
