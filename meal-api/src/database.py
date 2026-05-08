@@ -13,6 +13,18 @@ PRICING_DB  = "paknsave-pricing"
 _client = MongoClient(MONGO_URI)
 
 
+def _ensure_indexes():
+    try:
+        db = _client[MEALS_DB]
+        db["recipes"].create_index("recipeId", unique=True)
+        db["bundles"].create_index("bundleId", unique=True)
+        db["bundles"].create_index([("week", 1), ("active", 1)])
+    except Exception:
+        pass
+
+_ensure_indexes()
+
+
 def get_db():
     """Return paknsave-meals database."""
     return _client[MEALS_DB]

@@ -16,6 +16,18 @@ MONGO_URI = os.environ["MONGO_URI"]
 _client = MongoClient(MONGO_URI)
 
 
+def _ensure_indexes():
+    try:
+        db = _client[MEALS_DB]
+        db["recipes"].create_index("recipeId", unique=True)
+        db["bundles"].create_index("bundleId", unique=True)
+        db["bundles"].create_index([("week", 1), ("active", 1)])
+    except Exception:
+        pass
+
+_ensure_indexes()
+
+
 def clean(doc: dict) -> dict:
     """Convert MongoDB document to JSON-safe format."""
     if doc is None:
