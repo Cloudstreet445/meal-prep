@@ -20,12 +20,16 @@ const API = _apiParam
 log('CONFIG', 'API endpoint set to:', API);
 
 // ── State ───────────────────────────────────────────────────────
-let plan        = null;   // active bundle with recipes
-let checked     = {};
-let currentWeek = null;
-let cookSteps   = [];
-let cookIndex   = 0;
-let historyData = [];     // [{week, activeBundleId, weekSummary, bundleCount, ...}]
+let plan          = null;   // active bundle with recipes
+let checked       = {};
+let currentWeek   = null;
+let cookSteps     = [];
+let cookIndex     = 0;
+let historyData   = [];     // [{week, activeBundleId, weekSummary, bundleCount, ...}]
+let allRecipes    = [];     // full library across all weeks
+let recipeSearch  = '';
+let activeProtein = 'all';
+let activeCookTime = 'all';
 
 // ── Fetch helpers ───────────────────────────────────────────────
 async function apiFetch(path) {
@@ -78,8 +82,6 @@ function resetViews() {
   document.getElementById('week-content').style.display = 'none';
   document.getElementById('shopping-loading').style.display = 'block';
   document.getElementById('shopping-content').style.display = 'none';
-  document.getElementById('recipes-loading').style.display = 'block';
-  document.getElementById('recipe-list-items').innerHTML = '';
   document.getElementById('recipe-list').style.display = 'block';
   document.getElementById('recipe-detail').classList.remove('active');
 }
@@ -215,26 +217,105 @@ function toggleItem(index, storeKey) {
 // ══════════════════════════════════════════════════════════════
 // VIEW: RECIPES
 // ══════════════════════════════════════════════════════════════
-function loadRecipes() {
-  if (!plan) return;
-  const meals = plan.recipes || [];
 
-  document.getElementById('recipe-list-items').innerHTML = meals.map((meal, i) => `
-    <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
-      <div class="recipe-num">${i + 1}</div>
-      <div>
-        <div class="recipe-list-name">${meal.name}</div>
-        <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
-      </div>
-      <div style="color:var(--text-muted)">›</div>
-    </div>`).join('');
+const PROTEIN_EMOJI = { chicken: '🍗', beef: '🥩', pork: '🐷', lamb: '🐑', vegetarian: '🥦' };
 
-  document.getElementById('recipes-loading').style.display = 'none';
+function inferProtein(recipe) {
+  const text = (recipe.name + ' ' + (recipe.ingredients || []).map(i => i.name).join(' ')).toLowerCase();
+  if (/chicken|turkey/.test(text))    return 'chicken';
+  if (/beef|mince|steak/.test(text))  return 'beef';
+  if (/pork|bacon|ham/.test(text))    return 'pork';
+  if (/lamb/.test(text))              return 'lamb';
+  return 'vegetarian';
 }
 
+function parseCookMinutes(str) {
+  if (!str) return 30;
+  let mins = 0;
+  const h = str.match(/(\d+)\s*h/i);
+  const m = str.match(/(\d+)\s*m/i);
+  if (h) mins += parseInt(h[1]) * 60;
+  if (m) mins += parseInt(m[1]);
+  return mins || 30;
+}
+
+async function loadRecipes() {
+  try {
+    allRecipes = await apiFetch('/recipes/');
+    log('RECIPES', 'Library loaded', { count: allRecipes.length });
+    document.getElementById('recipes-loading').style.display = 'none';
+    renderRecipeList();
+  } catch (e) {
+    log('RECIPES', 'Error', { error: e.message });
+    document.getElementById('recipes-loading').innerHTML =
+      '<span class="icon">⚠️</span>Could not load recipes.<br><small>Check console for details.</small>';
+  }
+}
+
+function renderRecipeList() {
+  let filtered = allRecipes;
+
+  if (recipeSearch) {
+    const q = recipeSearch.toLowerCase();
+    filtered = filtered.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  if (activeProtein !== 'all') {
+    filtered = filtered.filter(r => inferProtein(r) === activeProtein);
+  }
+
+  if (activeCookTime !== 'all') {
+    filtered = filtered.filter(r => {
+      const mins = parseCookMinutes(r.cookTime);
+      if (activeCookTime === 'quick')  return mins < 30;
+      if (activeCookTime === 'medium') return mins >= 30 && mins <= 60;
+      if (activeCookTime === 'slow')   return mins > 60;
+    });
+  }
+
+  const countEl = document.getElementById('library-count');
+  if (countEl) countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('recipe-list-items').innerHTML = filtered.length
+    ? filtered.map(meal => `
+        <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
+          <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
+          <div>
+            <div class="recipe-list-name">${meal.name}</div>
+            <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
+          </div>
+          <div style="color:var(--text-muted)">›</div>
+        </div>`).join('')
+    : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
+}
+
+// ── Search + filter chip wiring ──────────────────────────────
+document.getElementById('recipe-search').addEventListener('input', e => {
+  recipeSearch = e.target.value.trim();
+  renderRecipeList();
+});
+
+document.getElementById('protein-chips').addEventListener('click', e => {
+  const chip = e.target.closest('[data-protein]');
+  if (!chip) return;
+  activeProtein = chip.dataset.protein;
+  document.querySelectorAll('#protein-chips .filter-chip').forEach(c =>
+    c.classList.toggle('active', c === chip));
+  renderRecipeList();
+});
+
+document.getElementById('time-chips').addEventListener('click', e => {
+  const chip = e.target.closest('[data-time]');
+  if (!chip) return;
+  activeCookTime = chip.dataset.time;
+  document.querySelectorAll('#time-chips .filter-chip').forEach(c =>
+    c.classList.toggle('active', c === chip));
+  renderRecipeList();
+});
+
 function openRecipe(id) {
-  if (!plan) return;
-  const meal = plan.recipes.find(m => m.recipeId === id);
+  const meal = allRecipes.find(m => m.recipeId === id)
+            || (plan?.recipes || []).find(m => m.recipeId === id);
   if (!meal) return;
 
   // Switch to recipes tab
