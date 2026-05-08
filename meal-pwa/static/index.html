@@ -87,22 +87,29 @@
       <!-- Recipe List -->
       <div id="recipe-list">
         <div class="library-controls">
-          <input type="search" id="recipe-search" class="recipe-search" placeholder="Search recipes...">
-          <div class="filter-chips" id="protein-chips">
-            <div class="filter-chip active" data-protein="all">All</div>
-            <div class="filter-chip" data-protein="chicken">Chicken</div>
-            <div class="filter-chip" data-protein="beef">Beef</div>
-            <div class="filter-chip" data-protein="pork">Pork</div>
-            <div class="filter-chip" data-protein="lamb">Lamb</div>
-            <div class="filter-chip" data-protein="vegetarian">Vege</div>
+          <div class="recipe-search-wrap">
+            <span class="recipe-search-icon">⌕</span>
+            <input type="search" id="recipe-search" class="recipe-search" placeholder="Search recipes..." autocomplete="off">
           </div>
-          <div class="filter-chips" id="time-chips">
-            <div class="filter-chip active" data-time="all">All times</div>
-            <div class="filter-chip" data-time="quick">Quick &lt;30m</div>
-            <div class="filter-chip" data-time="medium">30–60 min</div>
-            <div class="filter-chip" data-time="slow">Slow 60+</div>
+          <div class="filter-row">
+            <div class="filter-chips" id="protein-chips">
+              <div class="filter-chip active" data-protein="all">All</div>
+              <div class="filter-chip" data-protein="chicken">🍗 Chicken</div>
+              <div class="filter-chip" data-protein="beef">🥩 Beef</div>
+              <div class="filter-chip" data-protein="pork">🐷 Pork</div>
+              <div class="filter-chip" data-protein="lamb">🐑 Lamb</div>
+              <div class="filter-chip" data-protein="vegetarian">🥦 Vege</div>
+            </div>
           </div>
-          <div class="library-count" id="library-count"></div>
+          <div class="filter-row">
+            <div class="filter-chips" id="time-chips">
+              <div class="filter-chip active" data-time="all">Any time</div>
+              <div class="filter-chip" data-time="quick">⚡ &lt;30m</div>
+              <div class="filter-chip" data-time="medium">⏱ 30–60m</div>
+              <div class="filter-chip" data-time="slow">🕐 60m+</div>
+            </div>
+            <div class="library-count" id="library-count"></div>
+          </div>
         </div>
         <div class="state-msg" id="recipes-loading">
           <span class="icon">⏳</span>Loading recipes...
