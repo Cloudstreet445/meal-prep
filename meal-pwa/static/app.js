@@ -28,7 +28,16 @@ let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
-let settings      = { budget: 60, serves: 2, exclusions: [] };
+let settings      = { budget: 60, serves: 2, exclusions: [], storeId: 'paknsave-lower-hutt' };
+let availableStores = [];
+
+const STORE_NAMES = {
+  'paknsave-lower-hutt': 'Lower Hutt',
+  'paknsave-kilbirnie':  'Kilbirnie',
+  'paknsave-porirua':    'Porirua',
+  'paknsave-upper-hutt': 'Upper Hutt',
+  'paknsave-kapiti':     'Kapiti',
+};
 let pantry        = []; // [{name, canonical}] — localStorage only
 
 // ── Cooking terms glossary ───────────────────────────────────
@@ -220,7 +229,8 @@ async function loadWeek() {
 async function loadShopping() {
   try {
     log('SHOPPING', 'Loading...');
-    const data  = await apiFetch('/shopping/latest');
+    const storeParam = settings.storeId || 'paknsave-lower-hutt';
+    const data  = await apiFetch(`/shopping/latest?store_id=${storeParam}`);
     const items = data.shoppingList || [];
 
     // Key checked state to bundleId so switching bundles resets ticks
@@ -769,6 +779,34 @@ async function loadSettings() {
   } catch (e) {
     log('SETTINGS', 'Could not load settings, using defaults', { error: e.message });
   }
+  try {
+    availableStores = await apiFetch('/settings/stores');
+    log('SETTINGS', 'Stores loaded', { count: availableStores.length });
+  } catch (e) {
+    availableStores = [settings.storeId || 'paknsave-lower-hutt'];
+  }
+}
+
+function storeName(id) {
+  return STORE_NAMES[id] || id.replace(/^paknsave-/, '').replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function renderStoreSelector() {
+  const container = document.getElementById('settings-store-options');
+  if (!container) return;
+  const current = settings.storeId || 'paknsave-lower-hutt';
+  const stores = availableStores.length ? availableStores : [current];
+  container.innerHTML = stores.map(id => `
+    <div class="store-option ${id === current ? 'active' : ''}" onclick="selectStore('${id}')">
+      <span class="store-option-dot"></span>
+      ${storeName(id)}
+    </div>`).join('');
+}
+
+function selectStore(id) {
+  settings.storeId = id;
+  renderStoreSelector();
 }
 
 function openSettings() {
@@ -776,6 +814,7 @@ function openSettings() {
   document.getElementById('settings-serves').value  = settings.serves;
   renderExclusionTags();
   renderPantryTags();
+  renderStoreSelector();
   document.getElementById('settings-backdrop').classList.add('active');
   document.getElementById('settings-sheet').classList.add('active');
 }
@@ -820,7 +859,7 @@ async function saveSettings() {
   btn.disabled    = true;
 
   try {
-    settings = await apiPost('/settings/', { budget, serves, exclusions: settings.exclusions || [] }, 'PUT');
+    settings = await apiPost('/settings/', { budget, serves, exclusions: settings.exclusions || [], storeId: settings.storeId || 'paknsave-lower-hutt' }, 'PUT');
     closeSettings();
     // Refresh budget pill if a plan is loaded
     if (plan) {

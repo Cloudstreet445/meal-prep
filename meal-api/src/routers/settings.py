@@ -3,17 +3,18 @@
 from typing import List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
-from ..database import get_db
+from ..database import get_db, get_pricing_db
 
 router = APIRouter()
 
-_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": []}
+_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "storeId": "paknsave-lower-hutt"}
 
 
 class SettingsIn(BaseModel):
     budget: Optional[float] = None
     serves: Optional[int] = None
     exclusions: Optional[List[str]] = None
+    storeId: Optional[str] = None
 
 
 @router.get("/")
@@ -36,3 +37,17 @@ def update_settings(body: SettingsIn):
             upsert=True,
         )
     return get_settings()
+
+
+@router.get("/stores")
+def list_stores():
+    """Return store IDs that have pricing data in the database."""
+    pricing_db = get_pricing_db()
+    pipeline = [
+        {"$project": {"stores": {"$objectToArray": "$storePrice"}}},
+        {"$unwind": "$stores"},
+        {"$group": {"_id": "$stores.k"}},
+        {"$sort": {"_id": 1}},
+    ]
+    result = list(pricing_db["products"].aggregate(pipeline))
+    return [r["_id"] for r in result]
