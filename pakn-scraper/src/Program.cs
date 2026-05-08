@@ -23,8 +23,9 @@ namespace Scraper
         static bool uploadImages = false;
         static bool useHeadlessBrowser = true;
 
-        static int totalNew = 0, totalPriceUpdated = 0, totalNonPriceUpdated = 0, totalUpToDate = 0;
-        static Stopwatch globalStopwatch = new Stopwatch(); 
+        record StoreConfig(string id, float lat, float lng);
+
+        static Stopwatch globalStopwatch = new Stopwatch();
 
         // Singletons for Playwright
         public static IPlaywright? playwright;
@@ -78,6 +79,20 @@ namespace Scraper
                 LogWarn("(Dry Run Mode - no database writes)");
             }
 
+            // Load store configs from appsettings.json
+            var stores = config.GetSection("STORES").GetChildren()
+                .Select(s => new StoreConfig(
+                    id:  s["id"]  ?? "paknsave-lower-hutt",
+                    lat: float.Parse(s["lat"] ?? "-41.2166"),
+                    lng: float.Parse(s["lng"] ?? "174.9080")
+                )).ToList();
+
+            if (stores.Count == 0)
+            {
+                LogError("No stores configured in STORES — check appsettings.json");
+                return;
+            }
+
             // Start Stopwatch for logging purposes
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -99,17 +114,26 @@ namespace Scraper
                     incrementEachPageBy: 1
                 );
 
-            // Log how many pages will be scraped
             LogWarn(
-                $"{categorisedUrls.Count} pages to be scraped, " +
-                $"with {secondsDelayBetweenPageScrapes}s delay between each page scrape."
+                $"{categorisedUrls.Count} pages to be scraped per store, " +
+                $"{stores.Count} store(s), {secondsDelayBetweenPageScrapes}s delay between pages."
             );
-            // Open an initial page and allow geolocation set the desired store location
-            await OpenInitialPageAndSetLocation();
 
-            // Open up each URL and run the scraping function
-            for (int i = 0; i < categorisedUrls.Count(); i++)
+            foreach (var store in stores)
             {
+                LogWarn($"\n=== Store: {store.id} ===");
+                int storeNew = 0, storePriceUpdated = 0, storeNonPriceUpdated = 0, storeUpToDate = 0;
+                Stopwatch storeStopwatch = Stopwatch.StartNew();
+
+                if (uploadToDatabase)
+                    await MongoDBHandler.StartStoreRun(store.id);
+
+                // Navigate to this store's location
+                await OpenInitialPageAndSetLocation(store.lat, store.lng);
+
+                // Open up each URL and run the scraping function
+                for (int i = 0; i < categorisedUrls.Count(); i++)
+                {
                 try
                 {
                     // Separate out url from categorisedUrl
@@ -255,16 +279,16 @@ namespace Scraper
                             switch (response)
                             {
                                 case UpsertResponse.NewProduct:
-                                    newCount++; totalNew++;
+                                    newCount++; storeNew++;
                                     break;
                                 case UpsertResponse.PriceUpdated:
-                                    priceUpdatedCount++; totalPriceUpdated++;
+                                    priceUpdatedCount++; storePriceUpdated++;
                                     break;
                                 case UpsertResponse.NonPriceUpdated:
-                                    nonPriceUpdatedCount++; totalNonPriceUpdated++;
+                                    nonPriceUpdatedCount++; storeNonPriceUpdated++;
                                     break;
                                 case UpsertResponse.AlreadyUpToDate:
-                                    upToDateCount++; totalUpToDate++;
+                                    upToDateCount++; storeUpToDate++;
                                     break;
                                 case UpsertResponse.Failed:
                                 default:
@@ -330,21 +354,31 @@ namespace Scraper
                     return;
                 }
 
-                // This page has now completed scraping. A delay is added in-between each subsequent URL
-                if (i != categorisedUrls.Count() - 1)
+                    // This page has now completed scraping. A delay is added in-between each subsequent URL
+                    if (i != categorisedUrls.Count() - 1)
+                    {
+                        Thread.Sleep(secondsDelayBetweenPageScrapes * 1000);
+                    }
+                }
+
+                storeStopwatch.Stop();
+                LogWarn(
+                    $"=== {store.id} done: {storeNew} new, {storePriceUpdated} updated, " +
+                    $"{storeUpToDate} up-to-date ({(int)storeStopwatch.Elapsed.TotalSeconds}s) ==="
+                );
+
+                if (uploadToDatabase)
                 {
-                    Thread.Sleep(secondsDelayBetweenPageScrapes * 1000);
+                    await MongoDBHandler.FinaliseRun(
+                        totalScraped: storeNew + storePriceUpdated + storeNonPriceUpdated + storeUpToDate,
+                        newProducts: storeNew,
+                        priceUpdates: storePriceUpdated,
+                        alreadyUpToDate: storeUpToDate,
+                        failed: 0,
+                        durationSeconds: (int)storeStopwatch.Elapsed.TotalSeconds
+                    );
                 }
             }
-
-            await MongoDBHandler.FinaliseRun(
-                totalScraped: totalNew + totalPriceUpdated + totalNonPriceUpdated + totalUpToDate,
-                newProducts: totalNew,
-                priceUpdates: totalPriceUpdated,
-                alreadyUpToDate: totalUpToDate,
-                failed: 0,
-                durationSeconds: (int)stopwatch.Elapsed.TotalSeconds
-            );
 
             // Try clean up playwright browser and other resources, then end program
             try
@@ -671,7 +705,7 @@ namespace Scraper
 
         // OpenInitialPageAndSetLocation()
         // -------------------------------
-        private static async Task OpenInitialPageAndSetLocation()
+        private static async Task OpenInitialPageAndSetLocation(float lat, float lng)
         {
             int maxAttempts = 4;
             for (int attempt = 0; attempt < maxAttempts; attempt++)
@@ -679,7 +713,7 @@ namespace Scraper
                 try
                 {
                     // Set geo-location data
-                    await SetGeoLocation();
+                    await SetGeoLocation(lat, lng);
 
                     // Goto any page to trigger geo-location detection
                     await playwrightPage!.GotoAsync("https://www.paknsave.co.nz/");
@@ -707,52 +741,13 @@ namespace Scraper
 
         // SetGeoLocation()
         // ----------------
-        private static async Task SetGeoLocation()
+        private static async Task SetGeoLocation(float latitude, float longitude)
         {
-            float latitude, longitude;
-
-            // Try get latitude and longitude from appsettings.json
-            try
-            {
-                if (
-                    config.GetSection("GEOLOCATION_LAT").Value == "" ||
-                    config.GetSection("GEOLOCATION_LONG").Value == ""
-                    )
-                {
-                    throw new ArgumentNullException();
-                }
-                latitude = float.Parse(config.GetSection("GEOLOCATION_LAT").Value!);
-                longitude = float.Parse(config.GetSection("GEOLOCATION_LONG").Value!);
-
-                // Set playwright geolocation using found latitude and longitude
-                await playwrightPage!.Context.SetGeolocationAsync(
-                    new Geolocation() { Latitude = latitude, Longitude = longitude }
-                );
-
-                // Grant permission to access geo-location
-                await playwrightPage.Context.GrantPermissionsAsync(new string[] { "geolocation" });
-
-                // Log to console
-                LogWarn($"Selecting closest store using geo-location: ({latitude}, {longitude})");
-            }
-
-            // Return if no latitude and longitude are found
-            catch (ArgumentNullException)
-            {
-                LogWarn("Using default location");
-                return;
-            }
-
-            // Return if unable to parse values or for any other exception
-            catch (Exception)
-            {
-                LogWarn(
-                    "Invalid geolocation found in appsettings.json, ensure format is:\n" +
-                    "\"GEOLOCATION_LAT\": \"-41.21\"," +
-                    "\"GEOLOCATION_LONG\": \"174.91\""
-                );
-                return;
-            }
+            await playwrightPage!.Context.SetGeolocationAsync(
+                new Geolocation() { Latitude = latitude, Longitude = longitude }
+            );
+            await playwrightPage.Context.GrantPermissionsAsync(new string[] { "geolocation" });
+            LogWarn($"Geolocation set: ({latitude}, {longitude})");
         }
 
         // GetStoreLocationName()

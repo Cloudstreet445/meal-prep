@@ -14,9 +14,9 @@ namespace Scraper
         private static IMongoCollection<BsonDocument>? scrapeRunsCollection;
 
         static string today = DateTime.Today.ToString("yyyy-MM-dd");
-        static string scrapeRunId = ObjectId.GenerateNewId().ToString();
+        static string scrapeRunId = "";
         static DateTime scrapeStartTime = DateTime.UtcNow;
-        static string StoreId => config["STORE_NAME"] ?? "paknsave-lower-hutt";
+        public static string StoreId { get; set; } = "paknsave-lower-hutt";
 
         // EstablishConnection()
         // ---------------------
@@ -45,21 +45,6 @@ namespace Scraper
                 );
 
                 Log($"\n(Connected to MongoDB) {dbName}", ConsoleColor.Yellow);
-
-                // Insert a scrape_run document to record this run has started
-                await scrapeRunsCollection.InsertOneAsync(new BsonDocument
-                {
-                    { "_id", scrapeRunId },
-                    { "runAt", scrapeStartTime },
-                    { "storeId", config["STORE_NAME"] ?? "paknsave-lower-hutt" },
-                    { "status", "running" },
-                    { "productsScraped", 0 },
-                    { "newProducts", 0 },
-                    { "priceUpdates", 0 },
-                    { "upToDate", 0 },
-                    { "failed", 0 }
-                });
-
                 return true;
             }
             catch (Exception e)
@@ -67,6 +52,31 @@ namespace Scraper
                 LogError($"Error connecting to MongoDB: {e.Message}");
                 return false;
             }
+        }
+
+        // StartStoreRun()
+        // ---------------
+        // Sets the active store and inserts a scrape_run document for this store's run.
+        public static async Task StartStoreRun(string storeId)
+        {
+            StoreId = storeId;
+            scrapeRunId = ObjectId.GenerateNewId().ToString();
+            scrapeStartTime = DateTime.UtcNow;
+
+            if (scrapeRunsCollection == null) return;
+
+            await scrapeRunsCollection.InsertOneAsync(new BsonDocument
+            {
+                { "_id", scrapeRunId },
+                { "runAt", scrapeStartTime },
+                { "storeId", storeId },
+                { "status", "running" },
+                { "productsScraped", 0 },
+                { "newProducts", 0 },
+                { "priceUpdates", 0 },
+                { "upToDate", 0 },
+                { "failed", 0 }
+            });
         }
 
         // TransformAndUpsertProduct()
