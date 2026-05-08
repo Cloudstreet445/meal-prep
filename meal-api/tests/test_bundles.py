@@ -162,6 +162,63 @@ class TestGetBundle:
         assert resp.status_code == 404
 
 
+class TestCustomBundle:
+    def test_creates_bundle_and_returns_bundle_id(self, client, meals_db):
+        meals_db["recipes"].insert_many([dict(RECIPE_1), dict(RECIPE_2)])
+        resp = client.post("/api/bundle/custom", json={
+            "recipeIds": ["chicken-stir-fry-abc123", "pasta-bake-def456"],
+            "week": "2026-05-12",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["bundleId"].startswith("custom-")
+        assert data["week"] == "2026-05-12"
+
+    def test_bundle_saved_active_with_correct_fields(self, client, meals_db):
+        meals_db["recipes"].insert_one(dict(RECIPE_1))
+        resp = client.post("/api/bundle/custom", json={
+            "recipeIds": ["chicken-stir-fry-abc123"],
+            "week": "2026-05-12",
+        })
+        bundle_id = resp.json()["bundleId"]
+        doc = meals_db["bundles"].find_one({"bundleId": bundle_id})
+        assert doc["active"] is True
+        assert doc["generatedBy"] == "user"
+        assert doc["recipeIds"] == ["chicken-stir-fry-abc123"]
+
+    def test_deactivates_existing_bundle_for_same_week(self, client, meals_db):
+        meals_db["bundles"].insert_one({**BUNDLE, "bundleId": "existing", "week": "2026-05-12", "active": True})
+        meals_db["recipes"].insert_one(dict(RECIPE_1))
+        client.post("/api/bundle/custom", json={
+            "recipeIds": ["chicken-stir-fry-abc123"],
+            "week": "2026-05-12",
+        })
+        assert meals_db["bundles"].find_one({"bundleId": "existing"})["active"] is False
+
+    def test_computes_estimated_total_from_ingredients(self, client, meals_db):
+        meals_db["recipes"].insert_many([dict(RECIPE_1), dict(RECIPE_2)])
+        resp = client.post("/api/bundle/custom", json={
+            "recipeIds": ["chicken-stir-fry-abc123", "pasta-bake-def456"],
+            "week": "2026-05-12",
+        })
+        # RECIPE_1: 5.00 + 2.00 = 7.00, RECIPE_2: 1.50 + 3.00 = 4.50
+        assert resp.json()["estimatedTotal"] == 11.50
+
+    def test_unknown_recipe_returns_422(self, client):
+        resp = client.post("/api/bundle/custom", json={
+            "recipeIds": ["does-not-exist"],
+            "week": "2026-05-12",
+        })
+        assert resp.status_code == 422
+
+    def test_empty_recipe_list_returns_422(self, client):
+        resp = client.post("/api/bundle/custom", json={
+            "recipeIds": [],
+            "week": "2026-05-12",
+        })
+        assert resp.status_code == 422
+
+
 class TestActivateBundle:
     def test_activates_bundle(self, client, meals_db):
         meals_db["bundles"].insert_many([

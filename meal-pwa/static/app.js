@@ -456,6 +456,9 @@ async function renderBundleSheet() {
   const [thisWeek, ...pastWeeks] = historyData;
   let html = '';
 
+  // ── Build my own ──
+  html += `<button class="build-own-btn" onclick="openBuilder()">✏️ Build my own plan</button>`;
+
   // ── This week — fetch all bundles to show each one ──
   html += `<div class="history-week-label">This week · ${fmtWeek(thisWeek.week)}</div>`;
   try {
@@ -606,6 +609,150 @@ async function submitRating(score) {
 document.getElementById('rating-up').onclick   = () => submitRating(1);
 document.getElementById('rating-down').onclick  = () => submitRating(-1);
 document.getElementById('rating-skip').onclick  = () => closeRatingOverlay();
+
+// ══════════════════════════════════════════════════════════════
+// CUSTOM BUNDLE BUILDER
+// ══════════════════════════════════════════════════════════════
+
+let builderSlots    = [null, null, null, null, null];
+let builderWeek     = null;
+let pickerSlotIndex = -1;
+let pickerSearchText = '';
+
+function getThisMonday() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function openBuilder() {
+  closeBundleSheet();
+  builderWeek   = currentWeek || getThisMonday();
+  builderSlots  = [null, null, null, null, null];
+  document.getElementById('builder-week-label').textContent = `Week of ${fmtWeek(builderWeek)}`;
+  renderBuilderSlots();
+  document.getElementById('builder-overlay').classList.add('active');
+}
+
+function closeBuilder() {
+  document.getElementById('builder-overlay').classList.remove('active');
+}
+
+function builderCost() {
+  return builderSlots.reduce((total, rid) => {
+    if (!rid) return total;
+    const r = allRecipes.find(x => x.recipeId === rid);
+    return total + (r?.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+  }, 0);
+}
+
+function renderBuilderSlots() {
+  const cost      = builderCost();
+  const filled    = builderSlots.filter(Boolean).length;
+  document.getElementById('builder-cost').textContent = fmt$(cost);
+  document.getElementById('builder-save-btn').disabled = filled === 0;
+
+  document.getElementById('builder-slots').innerHTML = builderSlots.map((rid, i) => {
+    if (rid) {
+      const r = allRecipes.find(x => x.recipeId === rid);
+      return `
+        <div class="builder-slot filled" onclick="openPicker(${i})">
+          <div class="builder-slot-num">Meal ${i + 1}</div>
+          <div class="builder-slot-name">${r?.name || rid}</div>
+          <div class="builder-slot-remove" onclick="event.stopPropagation(); removeBuilderSlot(${i})">✕</div>
+        </div>`;
+    }
+    return `
+      <div class="builder-slot empty" onclick="openPicker(${i})">
+        <div class="builder-slot-num">Meal ${i + 1}</div>
+        <div class="builder-slot-add">+ Add recipe</div>
+      </div>`;
+  }).join('');
+}
+
+function removeBuilderSlot(i) {
+  builderSlots[i] = null;
+  renderBuilderSlots();
+}
+
+async function saveCustomBundle() {
+  const filledIds = builderSlots.filter(Boolean);
+  if (!filledIds.length) return;
+
+  const btn = document.getElementById('builder-save-btn');
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    await apiPost('/bundle/custom', { recipeIds: filledIds, week: builderWeek });
+    closeBuilder();
+    resetViews();
+    await loadWeek();
+    loadRecipes();
+    loadShopping();
+  } catch (e) {
+    log('BUILDER', 'Error saving custom bundle', { error: e.message });
+    btn.textContent = 'Save Plan';
+    btn.disabled = false;
+    alert('Could not save plan. Please try again.');
+  }
+}
+
+document.getElementById('builder-close').onclick  = closeBuilder;
+document.getElementById('builder-save-btn').onclick = saveCustomBundle;
+
+// ── Recipe Picker ─────────────────────────────────────────────
+
+function openPicker(slotIndex) {
+  pickerSlotIndex  = slotIndex;
+  pickerSearchText = '';
+  document.getElementById('picker-search-input').value = '';
+  renderPickerList('');
+  document.getElementById('picker-overlay').classList.add('active');
+}
+
+function closePicker() {
+  document.getElementById('picker-overlay').classList.remove('active');
+}
+
+function renderPickerList(search) {
+  let list = allRecipes;
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(r => r.name.toLowerCase().includes(q));
+  }
+  document.getElementById('picker-list-items').innerHTML = list.length
+    ? list.map(r => {
+        const cost = (r.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+        return `
+          <div class="recipe-list-item" onclick="pickRecipe('${r.recipeId}')">
+            <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(r)] || '🍽'}</div>
+            <div style="flex:1">
+              <div class="recipe-list-name">${r.name}</div>
+              <div class="recipe-list-meta">⏱ ${r.cookTime} · ${fmt$(cost)}</div>
+            </div>
+            <div style="color:var(--green);font-size:18px">+</div>
+          </div>`;
+      }).join('')
+    : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
+}
+
+function pickRecipe(recipeId) {
+  if (pickerSlotIndex >= 0) {
+    builderSlots[pickerSlotIndex] = recipeId;
+    pickerSlotIndex = -1;
+  }
+  closePicker();
+  renderBuilderSlots();
+}
+
+document.getElementById('picker-back').onclick = closePicker;
+document.getElementById('picker-search-input').addEventListener('input', e => {
+  pickerSearchText = e.target.value.trim();
+  renderPickerList(pickerSearchText);
+});
 
 // ── Init ────────────────────────────────────────────────────────
 (async () => {

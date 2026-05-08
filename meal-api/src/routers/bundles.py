@@ -1,10 +1,20 @@
 """Bundle endpoints — route handlers only. Helpers live in helpers.py."""
 
+import uuid
+from datetime import datetime
+from typing import List
+
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from ..database import get_db, get_pricing_db
 from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes
 
 router = APIRouter()
+
+
+class CustomBundleIn(BaseModel):
+    recipeIds: List[str]
+    week: str  # YYYY-MM-DD
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -65,6 +75,58 @@ def get_bundle_history():
         }
         for w in weeks
     ]
+
+
+@router.post("/custom")
+def create_custom_bundle(body: CustomBundleIn):
+    """Create a user-defined bundle from a chosen list of recipe IDs."""
+    if not body.recipeIds:
+        raise HTTPException(status_code=422, detail="recipeIds cannot be empty")
+
+    db = get_db()
+
+    recipes = list(db["recipes"].find({"recipeId": {"$in": body.recipeIds}}))
+    found_ids = {r["recipeId"] for r in recipes}
+    missing = [rid for rid in body.recipeIds if rid not in found_ids]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Unknown recipes: {missing}")
+
+    recipe_map = {r["recipeId"]: r for r in recipes}
+    ordered = [recipe_map[rid] for rid in body.recipeIds if rid in recipe_map]
+
+    total = round(sum(
+        ing.get("estimatedCost", 0)
+        for r in ordered
+        for ing in r.get("ingredients", [])
+    ), 2)
+
+    names = [r["name"] for r in ordered]
+    week_summary = ", ".join(names[:3]) + (f" + {len(names) - 3} more" if len(names) > 3 else "")
+
+    bundle_id = f"custom-{uuid.uuid4().hex[:8]}"
+    now = datetime.utcnow()
+
+    db["bundles"].update_many({"week": body.week}, {"$set": {"active": False}})
+    db["bundles"].insert_one({
+        "bundleId":          bundle_id,
+        "week":              body.week,
+        "active":            True,
+        "recipeIds":         body.recipeIds,
+        "weekSummary":       week_summary,
+        "estimatedTotal":    total,
+        "generatedBy":       "user",
+        "priceSnapshotDate": now.strftime("%Y-%m-%d"),
+        "createdAt":         now,
+        "updatedAt":         now,
+    })
+
+    for rid in body.recipeIds:
+        db["recipes"].update_one(
+            {"recipeId": rid},
+            {"$addToSet": {"bundleHistory": bundle_id}}
+        )
+
+    return {"bundleId": bundle_id, "week": body.week, "estimatedTotal": total}
 
 
 @router.get("/week/{week_id}")

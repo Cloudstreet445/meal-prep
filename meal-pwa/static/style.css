@@ -1055,3 +1055,195 @@ main {
   margin-left: 6px;
   vertical-align: middle;
 }
+
+/* ── Custom Bundle Builder ────────────────────────────────── */
+.builder-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 300;
+  display: none;
+  flex-direction: column;
+  padding: var(--safe-top) 0 var(--safe-bot);
+}
+
+.builder-overlay.active { display: flex; }
+
+.builder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.builder-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.builder-week-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.builder-cost {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--green);
+}
+
+.builder-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.builder-slot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s;
+}
+
+.builder-slot:active { border-color: var(--green-dim); }
+
+.builder-slot.filled { border-color: var(--green-dim); background: var(--green-glow); }
+
+.builder-slot-num {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 44px;
+}
+
+.builder-slot-add {
+  font-size: 13px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.builder-slot-name {
+  font-size: 14px;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-slot-remove {
+  font-size: 16px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+
+.builder-footer {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.builder-save-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--green);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+
+.builder-save-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Build My Own button in sheet ─────────────────────────── */
+.build-own-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg2);
+  border: 1px dashed var(--green-dim);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  cursor: pointer;
+  color: var(--green);
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+  width: 100%;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.build-own-btn:active { border-style: solid; }
+
+/* ── Recipe Picker Overlay ────────────────────────────────── */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 310;
+  display: none;
+  flex-direction: column;
+  padding: var(--safe-top) 0 var(--safe-bot);
+}
+
+.picker-overlay.active { display: flex; }
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.picker-back {
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 0;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.picker-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.picker-search-bar {
+  padding: 12px 16px 8px;
+  flex-shrink: 0;
+}
+
+.picker-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 16px;
+}
