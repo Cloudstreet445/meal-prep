@@ -78,7 +78,7 @@ html, body {
 
 /* ── Header ───────────────────────────────────────────────── */
 header {
-  padding: 16px 20px 12px;
+  padding: 20px 20px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   position: relative;
@@ -93,16 +93,23 @@ header {
 
 .logo {
   font-family: 'Fraunces', serif;
-  font-size: var(--text-xl);
+  font-size: 28px;
   font-weight: 600;
   color: var(--green);
-  letter-spacing: -0.5px;
+  letter-spacing: -1px;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
 }
 
 .logo span {
-  color: var(--text-dim);
-  font-weight: 300;
-  font-style: italic;
+  font-family: 'DM Mono', monospace;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 1px;
 }
 
 .week-badge {
@@ -133,12 +140,12 @@ nav {
 
 .tab {
   flex: 1;
-  padding: 12px 8px;
+  padding: 14px 8px;
   text-align: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 0.8px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   border-bottom: 2px solid transparent;
   transition: all var(--dur-normal) var(--ease);
@@ -153,9 +160,7 @@ nav {
 }
 
 .tab-icon {
-  display: block;
-  font-size: 18px;
-  margin-bottom: 2px;
+  display: none;
 }
 
 /* ── Content Area ─────────────────────────────────────────── */
@@ -182,10 +187,12 @@ main {
 /* ── Section Label ────────────────────────────────────────── */
 .section-label {
   font-size: var(--text-xs);
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin: 20px 0 10px;
+  margin: 24px 0 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--green-dim);
 }
 
 .section-label:first-child { margin-top: 4px; }
@@ -214,12 +221,12 @@ main {
 
 .summary-text {
   font-family: 'Fraunces', serif;
-  font-size: var(--text-md);
+  font-size: 17px;
   font-weight: 300;
   font-style: italic;
   color: var(--text);
-  line-height: 1.5;
-  margin-bottom: 12px;
+  line-height: 1.55;
+  margin-bottom: 16px;
 }
 
 .summary-stats {
@@ -234,16 +241,20 @@ main {
 }
 
 .stat-val {
-  font-size: var(--text-lg);
-  font-weight: 500;
+  font-family: 'Fraunces', serif;
+  font-size: var(--text-3xl);
+  font-weight: 600;
   color: var(--green);
+  line-height: 1;
+  letter-spacing: -0.5px;
 }
 
 .stat-label {
   font-size: var(--text-xs);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  margin-top: 3px;
 }
 
 /* Meal Cards */
@@ -251,13 +262,21 @@ main {
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 20px;
   margin-bottom: 10px;
   cursor: pointer;
   transition: border-color var(--dur-normal) var(--ease), background var(--dur-normal) var(--ease);
   -webkit-tap-highlight-color: transparent;
   position: relative;
   overflow: hidden;
+}
+
+.meal-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--green-dim), transparent);
 }
 
 .meal-card:active { background: var(--bg3); }
@@ -279,10 +298,11 @@ main {
 
 .meal-name {
   font-family: 'Fraunces', serif;
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text);
-  line-height: 1.3;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
 }
 
 .meal-meta {
@@ -321,16 +341,20 @@ main {
 
 .shop-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
 }
 
 .shop-total {
   font-family: 'Fraunces', serif;
-  font-size: 28px;
+  font-size: 48px;
   font-weight: 600;
   color: var(--green);
+  line-height: 1;
+  letter-spacing: -2px;
 }
 
 .shop-total-label {
@@ -586,9 +610,10 @@ main {
 .recipe-list-name {
   flex: 1;
   font-family: 'Fraunces', serif;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text);
+  letter-spacing: -0.2px;
 }
 
 .recipe-list-meta {
@@ -614,11 +639,12 @@ main {
 
 .recipe-title {
   font-family: 'Fraunces', serif;
-  font-size: var(--text-2xl);
+  font-size: var(--text-3xl);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
   color: var(--text);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  letter-spacing: -0.5px;
 }
 
 .recipe-pills {
@@ -681,9 +707,10 @@ main {
 
 .cook-title {
   font-family: 'Fraunces', serif;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text);
+  letter-spacing: -0.2px;
 }
 
 .cook-close {
@@ -735,11 +762,12 @@ main {
 
 .cook-step-text {
   font-family: 'Fraunces', serif;
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 300;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--text);
   text-align: center;
+  letter-spacing: -0.3px;
 }
 
 .cook-step-num {
@@ -866,11 +894,12 @@ main {
 }
 
 .sheet-title {
-  font-size: var(--text-xs);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 16px 20px 12px;
+  font-family: 'Fraunces', serif;
+  font-size: var(--text-lg);
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text);
+  padding: 16px 20px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -1327,8 +1356,10 @@ main {
 }
 
 .builder-title {
-  font-size: var(--text-md);
-  font-weight: 500;
+  font-family: 'Fraunces', serif;
+  font-size: var(--text-xl);
+  font-weight: 300;
+  font-style: italic;
   color: var(--text);
 }
 
