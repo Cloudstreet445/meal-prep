@@ -1186,6 +1186,69 @@ main {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Cooking term highlights ──────────────────────────────── */
+.cooking-term {
+  color: var(--green);
+  border-bottom: 1px dashed var(--green-dim);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.cooking-term:hover { color: #6dd98a; }
+
+/* ── Cooking term tooltip ─────────────────────────────────── */
+.term-tooltip {
+  position: fixed;
+  bottom: calc(var(--safe-bot) + 80px); /* above nav */
+  left: 20px;
+  right: 20px;
+  background: var(--bg3);
+  border: 1px solid var(--green-dim);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: none;
+  animation: tooltipIn var(--dur-normal) var(--ease);
+}
+
+.term-tooltip.active { display: block; }
+
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.term-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.term-tooltip-name {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--green);
+  letter-spacing: -0.2px;
+}
+
+.term-tooltip-close {
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.term-tooltip-def {
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
 /* ── Shared ingredient badge ──────────────────────────────── */
 .item-shared {
   display: inline-block;

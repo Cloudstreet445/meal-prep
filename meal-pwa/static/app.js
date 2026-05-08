@@ -31,6 +31,73 @@ let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
 let settings      = { budget: 60, serves: 2, exclusions: [] };
 let pantry        = []; // [{name, canonical}] — localStorage only
 
+// ── Cooking terms glossary ───────────────────────────────────
+const COOKING_TERMS = {
+  'sauté':       'Cook quickly in a small amount of hot fat over medium-high heat, stirring frequently.',
+  'saute':       'Cook quickly in a small amount of hot fat over medium-high heat, stirring frequently.',
+  'deglaze':     'Add liquid (wine, stock, water) to a hot pan to loosen the browned bits stuck to the bottom — these add deep flavour.',
+  'fold':        'Gently combine a lighter mixture into a heavier one using a wide, sweeping under-and-over motion. Preserves air and texture.',
+  'blanch':      'Briefly boil an ingredient then plunge it into ice water. Locks in colour and parcooks vegetables.',
+  'simmer':      'Cook in liquid kept just below boiling (small, gentle bubbles). Lower and slower than boiling — builds flavour without toughening proteins.',
+  'braise':      'Brown the ingredient first, then cook it low and slow in a small amount of liquid with the lid on. Makes tough cuts tender.',
+  'sear':        'Cook over very high heat for a short time to create a browned crust. Adds flavour and colour; does not "seal in" juices.',
+  'julienne':    'Cut into thin, uniform matchstick strips — typically 3mm wide and 5–6cm long.',
+  'dice':        'Cut into uniform cubes. Fine dice ≈6mm, medium ≈12mm, large ≈20mm.',
+  'mince':       'Chop into very fine, irregular pieces — smaller than a fine dice. Common for garlic, herbs, and ginger.',
+  'sweat':       'Cook slowly in fat over low heat without browning. Softens vegetables and releases moisture and sweetness.',
+  'reduce':      'Boil a liquid until some evaporates, concentrating the flavour and thickening the sauce.',
+  'emulsify':    'Combine two liquids that don\'t normally mix (like oil and water) into a stable, creamy mixture — e.g. making a vinaigrette or hollandaise.',
+  'baste':       'Spoon or brush the cooking juices or fat over the surface of meat or fish during cooking to keep it moist and add colour.',
+  'marinate':    'Soak an ingredient in a flavoured liquid (acid + oil + aromatics) before cooking to add flavour and tenderise.',
+  'poach':       'Cook gently in barely simmering liquid (no bubbles). Keeps delicate proteins — eggs, fish, chicken — moist and tender.',
+  'roast':       'Cook uncovered in a dry oven. High heat browns the outside; lower heat cooks the inside through.',
+  'caramelise':  'Heat sugar (or natural sugars in onions/vegetables) until it melts and turns golden-brown, developing a rich, complex sweetness.',
+  'caramelize':  'Heat sugar (or natural sugars in onions/vegetables) until it melts and turns golden-brown, developing a rich, complex sweetness.',
+  'char':        'Deliberately blacken the surface slightly over direct high heat. Adds a smoky, bitter edge that balances rich or fatty dishes.',
+  'knead':       'Work dough with your hands (press, fold, push) to develop gluten, making the dough smooth, elastic, and able to trap gas.',
+  'rest':        'Leave cooked meat off the heat before slicing. Lets the internal juices redistribute so they don\'t all run out when cut.',
+  'zest':        'Grate or peel the outermost coloured layer of citrus skin. Contains the aromatic oils — avoid the bitter white pith beneath.',
+  'season':      'Add salt and pepper (or other spices) to balance and heighten all the flavours in a dish. Taste as you go.',
+  'parboil':     'Partially cook in boiling water, then finish by another method (roasting, frying). Common for potatoes and dense vegetables.',
+  'stir-fry':    'Cook small pieces of food in a very hot wok or pan with a little oil, tossing constantly. Fast — usually under 5 minutes.',
+  'render':      'Cook fatty meat (bacon, duck) slowly over low heat so the fat melts out, leaving crispy meat and usable cooking fat.',
+  'whisk':       'Beat rapidly with a whisk to combine ingredients smoothly, or to incorporate air (e.g. whipped cream, eggs).',
+  'toss':        'Combine ingredients by lifting and turning them repeatedly — distributes dressing, seasoning, or sauce evenly.',
+  'score':       'Make shallow cuts across the surface of meat, fish, or bread. Helps heat penetrate, prevents skin from curling, and lets marinades soak in.',
+  'pat dry':     'Press paper towels against the surface of meat or fish to remove moisture. Dry surfaces brown far better than wet ones.',
+  'al dente':    'Italian for "to the tooth". Pasta or rice cooked until just barely tender with a slight firmness in the centre.',
+  'flambé':      'Add alcohol and briefly ignite it to burn off the raw spirit flavour while keeping the aromatics.',
+};
+
+// Sort terms longest-first so multi-word terms match before their component words
+const _termsSorted = Object.keys(COOKING_TERMS).sort((a, b) => b.length - a.length);
+
+function _escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function highlightCookingTerms(plainText) {
+  let html = _escapeHtml(plainText);
+  const used = new Set();
+  for (const term of _termsSorted) {
+    if (used.has(term)) continue;
+    // Word-boundary aware; handle special chars in term (e.g. hyphen, accent)
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(?<![\\w-])(${escaped})(?![\\w-])`, 'gi');
+    if (re.test(html)) {
+      html = html.replace(re, (match) => {
+        used.add(term);
+        return `<span class="cooking-term" data-term="${term.toLowerCase()}">${match}</span>`;
+      });
+    }
+  }
+  return html;
+}
+
 // ── Fetch helpers ───────────────────────────────────────────────
 async function apiFetch(path) {
   const url = `${API}${path}`;
@@ -367,7 +434,7 @@ function openRecipe(id) {
   const steps = meal.method || [];
   document.getElementById('method-label').style.display = steps.length ? '' : 'none';
   document.getElementById('detail-method').innerHTML =
-    steps.map(s => `<li class="method-step">${s}</li>`).join('');
+    steps.map(s => `<li class="method-step">${highlightCookingTerms(s)}</li>`).join('');
 
   const rating = lastRating(meal);
   const ratingEl = document.getElementById('detail-rating');
@@ -423,7 +490,7 @@ function startCooking(meal) {
 function renderCookStep() {
   const total = cookSteps.length;
   document.getElementById('cook-step-num').textContent = `STEP ${cookIndex + 1} OF ${total}`;
-  document.getElementById('cook-step-text').textContent = cookSteps[cookIndex];
+  document.getElementById('cook-step-text').innerHTML = highlightCookingTerms(cookSteps[cookIndex]);
   document.getElementById('cook-dots').innerHTML = cookSteps.map((_, i) => `
     <div class="cook-dot ${i < cookIndex ? 'done' : i === cookIndex ? 'current' : ''}"></div>
   `).join('');
@@ -466,6 +533,28 @@ document.getElementById('cook-close').onclick = _exitCookMode;
     else        document.getElementById('cook-prev').click();
   }, { passive: true });
 })();
+
+// ── Cooking term tooltip ──────────────────────────────────────
+function showTermTooltip(term) {
+  const def = COOKING_TERMS[term];
+  if (!def) return;
+  document.getElementById('term-tooltip-name').textContent =
+    term.charAt(0).toUpperCase() + term.slice(1);
+  document.getElementById('term-tooltip-def').textContent = def;
+  document.getElementById('term-tooltip').classList.add('active');
+}
+
+function closeTermTooltip() {
+  document.getElementById('term-tooltip').classList.remove('active');
+}
+
+document.getElementById('term-tooltip-close').onclick = closeTermTooltip;
+
+document.addEventListener('click', e => {
+  const term = e.target.closest('.cooking-term');
+  if (term) { showTermTooltip(term.dataset.term); return; }
+  if (!e.target.closest('#term-tooltip')) closeTermTooltip();
+});
 
 // ══════════════════════════════════════════════════════════════
 // BUNDLE SWITCHER
