@@ -1224,6 +1224,31 @@ main {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Pantry item state ────────────────────────────────────── */
+.shop-item.in-pantry {
+  background: var(--bg);
+  border-color: var(--bg3);
+  opacity: 0.6;
+}
+
+.shop-item.in-pantry .item-name {
+  color: var(--text-dim);
+}
+
+.item-pantry {
+  display: inline-block;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: rgba(212, 168, 67, 0.1);
+  border: 1px solid rgba(212, 168, 67, 0.3);
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 /* ── Shopping list deal badge ─────────────────────────────── */
 .item-deal {
   display: inline-block;

@@ -7,6 +7,7 @@ function log(section, message, data = null) {
 
 // ── Config ──────────────────────────────────────────────────────
 // Override via ?api=http://host:port  e.g. ?api=http://192.168.1.10:8000
+// __API_HOST__ is replaced at build time by Dockerfile ARG API_HOST
 const _apiParam = new URLSearchParams(window.location.search).get('api');
 const _hostname = window.location.hostname;
 const _isLocal  = !_hostname || _hostname === 'localhost' || _hostname === '127.0.0.1';
@@ -14,7 +15,7 @@ const _isLocal  = !_hostname || _hostname === 'localhost' || _hostname === '127.
 const API = _apiParam
   ? _apiParam.replace(/\/$/, '') + '/api'
   : _isLocal
-    ? 'http://192.168.1.85:8000/api'
+    ? 'http://__API_HOST__/api'
     : `http://${_hostname}:8000/api`;
 
 log('CONFIG', 'API endpoint set to:', API);
@@ -32,6 +33,7 @@ let activeProtein = 'all';
 let activeCookTime = 'all';
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
 let settings      = { budget: 60, serves: 2, exclusions: [] };
+let pantry        = []; // [{name, canonical}] — localStorage only
 
 // ── Fetch helpers ───────────────────────────────────────────────
 async function apiFetch(path) {
@@ -188,18 +190,20 @@ function renderShoppingItems(items, storeKey) {
 
   document.getElementById('shopping-items').innerHTML = items.map((item, i) => {
     // sharedWith is computed by API — show recipe names it's used in
-    const usedIn = (item.usedInNames || item.usedIn || []).join(', ');
-    const shared = item.sharedWith?.length > 0
+    const usedIn    = (item.usedInNames || item.usedIn || []).join(', ');
+    const shared    = item.sharedWith?.length > 0
       ? `<span class="item-shared">shared</span>`
       : '';
+    const inPantry  = isPantryItem(item.name);
     return `
-      <div class="shop-item ${checked[i] ? 'checked' : ''}" onclick="toggleItem(${i}, '${storeKey}')">
+      <div class="shop-item ${checked[i] ? 'checked' : ''} ${inPantry ? 'in-pantry' : ''}" onclick="toggleItem(${i}, '${storeKey}')">
         <div class="check-box"><span class="check-tick">✓</span></div>
         <div class="item-info">
           <div class="item-name">
             ${item.name}
             ${item.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
             ${item.dealStrength > 0 ? `<span class="item-deal">↓${item.dealStrength}% vs avg</span>` : ''}
+            ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
             ${shared}
           </div>
           <div class="item-sub">${item.amount}${usedIn ? ' · ' + usedIn : ''}</div>
@@ -629,6 +633,7 @@ function openSettings() {
   document.getElementById('settings-budget').value  = settings.budget;
   document.getElementById('settings-serves').value  = settings.serves;
   renderExclusionTags();
+  renderPantryTags();
   document.getElementById('settings-backdrop').classList.add('active');
   document.getElementById('settings-sheet').classList.add('active');
 }
@@ -696,6 +701,56 @@ document.getElementById('settings-exclusion-btn').onclick = addExclusion;
 
 document.getElementById('settings-exclusion-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') addExclusion();
+});
+
+// ══════════════════════════════════════════════════════════════
+// PANTRY
+// ══════════════════════════════════════════════════════════════
+
+function loadPantry() {
+  pantry = JSON.parse(localStorage.getItem('pantry') || '[]');
+  log('PANTRY', 'Loaded', { count: pantry.length });
+}
+
+function savePantry() {
+  localStorage.setItem('pantry', JSON.stringify(pantry));
+}
+
+function isPantryItem(itemName) {
+  if (!pantry.length) return false;
+  const n = itemName.toLowerCase().trim();
+  return pantry.some(p => n.includes(p.canonical) || p.canonical.includes(n));
+}
+
+function renderPantryTags() {
+  const tags = document.getElementById('settings-pantry-tags');
+  tags.innerHTML = pantry.map((item, i) => `
+    <span class="excl-tag">
+      ${item.name}
+      <span class="excl-tag-remove" onclick="removePantryItem(${i})">✕</span>
+    </span>`).join('');
+}
+
+function removePantryItem(i) {
+  pantry = pantry.filter((_, idx) => idx !== i);
+  savePantry();
+  renderPantryTags();
+}
+
+function addPantryItem() {
+  const input    = document.getElementById('settings-pantry-input');
+  const val      = input.value.trim();
+  const canonical = val.toLowerCase();
+  if (!val || pantry.some(p => p.canonical === canonical)) { input.value = ''; return; }
+  pantry = [...pantry, { name: val, canonical }];
+  savePantry();
+  input.value = '';
+  renderPantryTags();
+}
+
+document.getElementById('settings-pantry-btn').onclick = addPantryItem;
+document.getElementById('settings-pantry-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addPantryItem();
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -842,8 +897,25 @@ document.getElementById('picker-search-input').addEventListener('input', e => {
   renderPickerList(pickerSearchText);
 });
 
+// ── Global keyboard / backdrop handlers ─────────────────────────
+
+document.getElementById('rating-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('rating-overlay')) closeRatingOverlay();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('picker-overlay').classList.contains('active'))  { closePicker();       return; }
+  if (document.getElementById('builder-overlay').classList.contains('active')) { closeBuilder();      return; }
+  if (document.getElementById('cook-mode').classList.contains('active'))       { document.getElementById('cook-mode').classList.remove('active'); return; }
+  if (document.getElementById('rating-overlay').classList.contains('active'))  { closeRatingOverlay();return; }
+  if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();     return; }
+  if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();  return; }
+});
+
 // ── Init ────────────────────────────────────────────────────────
 (async () => {
+  loadPantry();
   await loadSettings();
   await loadWeek();
   loadRecipes();
