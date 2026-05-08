@@ -1,6 +1,6 @@
 """Shopping list endpoints — thin wrapper over bundle shopping derivation."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from ..database import get_db, get_pricing_db
 from .bundles import _derive_shopping_list
 
@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/latest")
-def get_latest_shopping():
+def get_latest_shopping(store_id: str = Query(default="paknsave-lower-hutt")):
     """Shopping list for the most recent active bundle."""
     db = get_db()
     pricing_db = get_pricing_db()
@@ -22,7 +22,7 @@ def get_latest_shopping():
 
     recipe_ids = bundle.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
-    shopping_items, total = _derive_shopping_list(recipes, pricing_db)
+    shopping_items, total = _derive_shopping_list(recipes, pricing_db, store_id)
 
     return {
         "bundleId":       bundle.get("bundleId"),

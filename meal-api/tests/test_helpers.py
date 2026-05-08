@@ -200,6 +200,48 @@ class TestDeriveShoppingList:
         assert items == []
         assert total == 0.0
 
+    def test_enriches_price_from_store_specific_data(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Chicken Breast 1kg",
+            "storePrice": {
+                "paknsave-lower-hutt": {"currentPrice": 7.99, "isSpecial": True},
+            },
+        })
+        recipes = [
+            {
+                "recipeId": "r1",
+                "name": "Chicken Dinner",
+                "ingredients": [
+                    {"name": "Chicken breast", "amount": "400g", "estimatedCost": 5.00},
+                ],
+            }
+        ]
+        items, _ = _derive_shopping_list(recipes, pricing_db)
+        chicken = next(i for i in items if "chicken" in i["name"].lower())
+        assert chicken["currentPrice"] == 7.99
+        assert chicken["isSpecial"] is True
+
+    def test_enriches_only_matching_store(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Chicken Breast 1kg",
+            "storePrice": {
+                "paknsave-porirua": {"currentPrice": 8.49, "isSpecial": False},
+            },
+        })
+        recipes = [
+            {
+                "recipeId": "r1",
+                "name": "Chicken Dinner",
+                "ingredients": [
+                    {"name": "Chicken breast", "amount": "400g", "estimatedCost": 5.00},
+                ],
+            }
+        ]
+        # Request lower-hutt prices — product only exists for porirua, so no enrichment
+        items, _ = _derive_shopping_list(recipes, pricing_db, store_id="paknsave-lower-hutt")
+        chicken = next(i for i in items if "chicken" in i["name"].lower())
+        assert chicken["currentPrice"] is None
+
     def test_from_special_flag_propagates(self, pricing_db):
         recipes = [
             {

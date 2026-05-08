@@ -9,7 +9,7 @@ Key design decisions implemented here:
 """
 
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from ..database import get_db, get_pricing_db
 
 router = APIRouter()
@@ -36,10 +36,10 @@ def _normalise_name(name: str) -> str:
     return re.sub(r'[^a-z0-9]', '', name.lower())
 
 
-def _enrich_ingredient(item: dict, pricing_db) -> dict:
+def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     """
     Try to match an ingredient name against paknsave-pricing products.
-    Attaches isSpecial and currentPrice if a match is found.
+    Attaches isSpecial and currentPrice from the store-specific storePrice entry.
     """
     name = item.get("name", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
@@ -47,28 +47,31 @@ def _enrich_ingredient(item: dict, pricing_db) -> dict:
     if not words:
         return item
 
-    # Build a regex that matches any of the key words
     pattern = "|".join(re.escape(w) for w in words[:3])
     product = pricing_db["products"].find_one(
-        {"name": {"$regex": pattern, "$options": "i"}},
-        {"name": 1, "currentPrice": 1, "isSpecial": 1}
+        {
+            "name": {"$regex": pattern, "$options": "i"},
+            f"storePrice.{store_id}": {"$exists": True},
+        },
+        {"name": 1, f"storePrice.{store_id}.currentPrice": 1, f"storePrice.{store_id}.isSpecial": 1}
     )
 
     if product:
-        item["isSpecial"]    = product.get("isSpecial", False)
-        item["currentPrice"] = product.get("currentPrice")
+        store_data = product.get("storePrice", {}).get(store_id, {})
+        item["isSpecial"]     = store_data.get("isSpecial", False)
+        item["currentPrice"]  = store_data.get("currentPrice")
         item["matchedProduct"] = product.get("name")
 
     return item
 
 
-def _derive_shopping_list(recipes: list, pricing_db) -> tuple[list, float]:
+def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-lower-hutt") -> tuple[list, float]:
     """
     Derive a deduplicated shopping list from a list of recipe documents.
 
     - Deduplicates by normalised ingredient name
     - Computes sharedWith dynamically (ingredients used in >1 recipe)
-    - Enriches with live prices from paknsave-pricing
+    - Enriches with live prices from paknsave-pricing for the given store
     - Returns (shopping_items, total)
     """
     # Map: normalised_name → aggregated item
@@ -110,7 +113,7 @@ def _derive_shopping_list(recipes: list, pricing_db) -> tuple[list, float]:
     items = []
     for item in ingredient_map.values():
         # Enrich with live pricing
-        enriched = _enrich_ingredient(item, pricing_db)
+        enriched = _enrich_ingredient(item, pricing_db, store_id)
 
         # sharedWith = list of recipe names where more than one recipe uses this ingredient
         enriched["sharedWith"] = enriched["usedInNames"] if len(enriched["usedIn"]) > 1 else []
@@ -253,7 +256,7 @@ def get_bundle(bundle_id: str):
 
 
 @router.get("/{bundle_id}/shopping")
-def get_bundle_shopping(bundle_id: str):
+def get_bundle_shopping(bundle_id: str, store_id: str = Query(default="paknsave-lower-hutt")):
     """
     Derive shopping list from bundle's recipes with live prices.
     sharedWith is computed dynamically — never stored.
@@ -268,7 +271,7 @@ def get_bundle_shopping(bundle_id: str):
     recipe_ids = doc.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
 
-    shopping_items, total = _derive_shopping_list(recipes, pricing_db)
+    shopping_items, total = _derive_shopping_list(recipes, pricing_db, store_id)
 
     return {
         "bundleId":      bundle_id,
@@ -310,7 +313,7 @@ def activate_bundle(bundle_id: str):
 
 
 @router.post("/{bundle_id}/refresh-prices")
-def refresh_bundle_prices(bundle_id: str):
+def refresh_bundle_prices(bundle_id: str, store_id: str = Query(default="paknsave-lower-hutt")):
     """
     Recalculate estimatedTotal from current live prices.
     Updates the bundle's estimatedTotal and priceSnapshotDate.
@@ -326,7 +329,7 @@ def refresh_bundle_prices(bundle_id: str):
 
     recipe_ids = doc.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
-    _, new_total = _derive_shopping_list(recipes, pricing_db)
+    _, new_total = _derive_shopping_list(recipes, pricing_db, store_id)
 
     db["bundles"].update_one(
         {"bundleId": bundle_id},
