@@ -21,8 +21,8 @@ import json
 from datetime import datetime
 from config import BUDGET, SERVES, RESPONSE_JSON
 from planner import get_market_data
-from claude import generate_meal_plan, load_from_file
-from mongodb import store_recipes, store_bundle
+from ai.claude import generate_meal_plan, load_from_file
+from db.mongodb import store_recipes, store_bundle
 
 
 USE_API  = "api"  in sys.argv
@@ -79,7 +79,7 @@ def print_meal_plan(plan: dict):
 def main():
     if USE_SEED:
         import subprocess
-        subprocess.run([sys.executable, "src/seed.py"], check=True)
+        subprocess.run([sys.executable, "scripts/seed.py"], check=True)
         return
 
     # Step 1 — Get market data

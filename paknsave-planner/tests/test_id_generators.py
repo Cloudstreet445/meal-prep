@@ -1,7 +1,7 @@
 """Tests for deterministic ID generation in mongodb.py."""
 
 import pytest
-from mongodb import generate_recipe_id, generate_bundle_id
+from db.mongodb import generate_recipe_id, generate_bundle_id
 
 
 class TestGenerateRecipeId:

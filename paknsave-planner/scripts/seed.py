@@ -2,7 +2,7 @@
 """Seed test data into MongoDB.
 
 Usage (from paknsave-planner/):
-    python src/seed.py
+    python scripts/seed.py
 """
 
 import glob
@@ -11,9 +11,9 @@ import sys
 import os
 
 # Ensure src/ is on the path so local imports work
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 
-from mongodb import store_recipes, store_bundle
+from db.mongodb import store_recipes, store_bundle
 
 # Resolve test-data/ relative to this file, not cwd
 BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

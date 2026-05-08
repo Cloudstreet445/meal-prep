@@ -3,7 +3,7 @@
 import pytest
 import mongomock
 from unittest.mock import patch
-from mongodb import store_recipes, store_bundle, generate_recipe_id, generate_bundle_id
+from db.mongodb import store_recipes, store_bundle, generate_recipe_id, generate_bundle_id
 
 
 def make_meal(name="Chicken Stir Fry", **kwargs):
@@ -40,7 +40,7 @@ def mock_client():
 class TestStoreRecipes:
     def test_stores_recipe(self, mock_client):
         plan = make_plan()
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             count, ids = store_recipes(plan, "2026-05-05")
 
         assert count == 1
@@ -51,7 +51,7 @@ class TestStoreRecipes:
 
     def test_returns_recipe_ids(self, mock_client):
         plan = make_plan(meals=[make_meal("Meal A"), make_meal("Meal B")])
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             _, ids = store_recipes(plan, "2026-05-05")
 
         assert len(ids) == 2
@@ -64,7 +64,7 @@ class TestStoreRecipes:
             {"name": "Garlic", "amount": "2 cloves", "estimatedCost": 0.5, "sharedWith": ["Other Meal"]}
         ]
         plan = make_plan(meals=[meal])
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             _, ids = store_recipes(plan, "2026-05-05")
 
         stored = mock_client["paknsave-meals"]["recipes"].find_one({"recipeId": ids[0]})
@@ -73,7 +73,7 @@ class TestStoreRecipes:
 
     def test_upserts_existing_recipe(self, mock_client):
         plan = make_plan()
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             store_recipes(plan, "2026-05-01")
             plan["meals"][0]["description"] = "Updated description"
             _, ids = store_recipes(plan, "2026-05-05")
@@ -84,7 +84,7 @@ class TestStoreRecipes:
 
     def test_tracks_usage_history(self, mock_client):
         plan = make_plan()
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             _, ids = store_recipes(plan, "2026-05-05")
             store_recipes(plan, "2026-05-12")
 
@@ -93,7 +93,7 @@ class TestStoreRecipes:
         assert "2026-05-12" in stored["usageHistory"]
 
     def test_empty_plan_returns_zero_count(self, mock_client):
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             count, ids = store_recipes({"meals": []}, "2026-05-05")
 
         assert count == 0
@@ -105,7 +105,7 @@ class TestStoreBundle:
         plan = make_plan()
         recipe_ids = [generate_recipe_id({"name": "Chicken Stir Fry"})]
 
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             bundle_id = store_bundle(plan, "2026-05-05", recipe_ids)
 
         assert bundle_id is not None
@@ -118,7 +118,7 @@ class TestStoreBundle:
         plan = make_plan()
         recipe_ids = ["r1"]
 
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             id1 = store_bundle(plan, "2026-05-05", recipe_ids)
             id2 = store_bundle(plan, "2026-05-05", recipe_ids)
 
@@ -132,7 +132,7 @@ class TestStoreBundle:
         })
 
         plan = make_plan(week_summary="New plan")
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             store_bundle(plan, "2026-05-05", [])
 
         old = mock_client["paknsave-meals"]["bundles"].find_one({"bundleId": "old-bundle"})
@@ -146,7 +146,7 @@ class TestStoreBundle:
         })
 
         plan = make_plan()
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             store_bundle(plan, "2026-05-05", [])
 
         prev = mock_client["paknsave-meals"]["bundles"].find_one({"bundleId": "prev-week-bundle"})
@@ -161,7 +161,7 @@ class TestStoreBundle:
         })
 
         plan = make_plan()
-        with patch("mongodb._client", mock_client):
+        with patch("db.mongodb._client", mock_client):
             bundle_id = store_bundle(plan, "2026-05-05", [recipe_id])
 
         recipe = mock_client["paknsave-meals"]["recipes"].find_one({"recipeId": recipe_id})

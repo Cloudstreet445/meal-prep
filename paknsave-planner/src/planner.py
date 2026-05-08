@@ -8,7 +8,7 @@ from config import (
     MAX_DATA_AGE_DAYS
 )
 from models import MarketData
-from mongodb import _client, MEALS_DB
+from db.mongodb import _client, MEALS_DB
 import os
 
 PRICING_DB = os.environ.get("PRICING_DB", "paknsave-pricing")
