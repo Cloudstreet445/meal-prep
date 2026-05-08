@@ -30,6 +30,7 @@ let allRecipes    = [];     // full library across all weeks
 let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
+let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
 
 // ── Fetch helpers ───────────────────────────────────────────────
 async function apiFetch(path) {
@@ -40,10 +41,15 @@ async function apiFetch(path) {
   return res.json();
 }
 
-async function apiPost(path) {
+async function apiPost(path, body = null) {
   const url = `${API}${path}`;
   log('FETCH', `POST ${url}`);
-  const res = await fetch(url, { method: 'POST' });
+  const opts = { method: 'POST' };
+  if (body) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (${url})`);
   return res.json();
 }
@@ -277,15 +283,21 @@ function renderRecipeList() {
   if (countEl) countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''}`;
 
   document.getElementById('recipe-list-items').innerHTML = filtered.length
-    ? filtered.map(meal => `
-        <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
-          <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
-          <div>
-            <div class="recipe-list-name">${meal.name}</div>
-            <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
-          </div>
-          <div style="color:var(--text-muted)">›</div>
-        </div>`).join('')
+    ? filtered.map(meal => {
+        const rating = lastRating(meal);
+        const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
+                     : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
+                     : '';
+        return `
+          <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
+            <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
+            <div style="flex:1">
+              <div class="recipe-list-name">${meal.name}${badge}</div>
+              <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
+            </div>
+            <div style="color:var(--text-muted)">›</div>
+          </div>`;
+      }).join('')
     : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
 }
 
@@ -358,8 +370,9 @@ document.getElementById('back-btn').onclick = () => {
 // COOK MODE
 // ══════════════════════════════════════════════════════════════
 function startCooking(meal) {
-  cookSteps = meal.method || [];
-  cookIndex = 0;
+  cookSteps    = meal.method || [];
+  cookIndex    = 0;
+  cookRecipeId = meal.recipeId;
   document.getElementById('cook-recipe-name').textContent = meal.name;
   renderCookStep();
   document.getElementById('cook-mode').classList.add('active');
@@ -384,7 +397,11 @@ document.getElementById('cook-prev').onclick = () => {
 
 document.getElementById('cook-next').onclick = () => {
   if (cookIndex < cookSteps.length - 1) { cookIndex++; renderCookStep(); }
-  else document.getElementById('cook-mode').classList.remove('active');
+  else {
+    document.getElementById('cook-mode').classList.remove('active');
+    if (cookRecipeId) showRatingOverlay(cookRecipeId,
+      document.getElementById('cook-recipe-name').textContent);
+  }
 };
 
 document.getElementById('cook-close').onclick = () => {
@@ -549,6 +566,46 @@ async function selectBundle(bundleId, week) {
     alert('Could not switch to this plan. Please try again.');
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// RATINGS
+// ══════════════════════════════════════════════════════════════
+
+function lastRating(recipe) {
+  const mine = (recipe.ratings || []).filter(r => r.userId === 'default');
+  return mine.length ? mine[mine.length - 1].score : null;
+}
+
+function showRatingOverlay(recipeId, recipeName) {
+  document.getElementById('rating-recipe-name').textContent = recipeName;
+  document.getElementById('rating-overlay').dataset.recipeId = recipeId;
+  document.getElementById('rating-overlay').classList.add('active');
+}
+
+function closeRatingOverlay() {
+  document.getElementById('rating-overlay').classList.remove('active');
+}
+
+async function submitRating(score) {
+  const recipeId = document.getElementById('rating-overlay').dataset.recipeId;
+  closeRatingOverlay();
+  try {
+    await apiPost(`/recipes/${recipeId}/rate`, { score });
+    const recipe = allRecipes.find(r => r.recipeId === recipeId);
+    if (recipe) {
+      recipe.ratings = recipe.ratings || [];
+      recipe.ratings.push({ userId: 'default', score, date: new Date().toISOString().slice(0, 10) });
+      renderRecipeList();
+    }
+    log('RATING', 'Rated recipe', { recipeId, score });
+  } catch (e) {
+    log('RATING', 'Error submitting rating', { error: e.message });
+  }
+}
+
+document.getElementById('rating-up').onclick   = () => submitRating(1);
+document.getElementById('rating-down').onclick  = () => submitRating(-1);
+document.getElementById('rating-skip').onclick  = () => closeRatingOverlay();
 
 // ── Init ────────────────────────────────────────────────────────
 (async () => {

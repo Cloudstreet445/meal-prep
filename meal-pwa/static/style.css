@@ -965,6 +965,82 @@ main {
   margin-bottom: 4px;
 }
 
+/* ── Recipe rating badge (on library cards) ──────────────── */
+.recipe-rating-badge {
+  display: inline-block;
+  font-size: 11px;
+  margin-left: 6px;
+  vertical-align: middle;
+  opacity: 0.8;
+}
+
+/* ── Rating overlay ───────────────────────────────────────── */
+.rating-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.rating-overlay.active { display: flex; }
+
+.rating-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 28px 24px;
+  text-align: center;
+  max-width: 300px;
+  width: 88%;
+}
+
+.rating-recipe-name {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.rating-question {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.rating-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.rating-btn {
+  font-size: 36px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 72px;
+  height: 72px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.rating-btn:active { transform: scale(0.9); }
+
+.rating-skip {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ── Shared ingredient badge ──────────────────────────────── */
 .item-shared {
   display: inline-block;

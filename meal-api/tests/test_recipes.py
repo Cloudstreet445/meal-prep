@@ -61,6 +61,40 @@ class TestListRecipes:
         assert resp.json()[0]["recipeId"] == "r1"
 
 
+class TestRateRecipe:
+    def test_adds_thumbs_up(self, client, meals_db):
+        meals_db["recipes"].insert_one(dict(RECIPE))
+        resp = client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": 1})
+        assert resp.status_code == 200
+        doc = meals_db["recipes"].find_one({"recipeId": "chicken-stir-fry-abc123"})
+        assert len(doc["ratings"]) == 1
+        assert doc["ratings"][0]["score"] == 1
+        assert doc["ratings"][0]["userId"] == "default"
+
+    def test_adds_thumbs_down(self, client, meals_db):
+        meals_db["recipes"].insert_one(dict(RECIPE))
+        resp = client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": -1})
+        assert resp.status_code == 200
+        doc = meals_db["recipes"].find_one({"recipeId": "chicken-stir-fry-abc123"})
+        assert doc["ratings"][0]["score"] == -1
+
+    def test_accumulates_multiple_ratings(self, client, meals_db):
+        meals_db["recipes"].insert_one(dict(RECIPE))
+        client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": 1})
+        client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": -1})
+        doc = meals_db["recipes"].find_one({"recipeId": "chicken-stir-fry-abc123"})
+        assert len(doc["ratings"]) == 2
+
+    def test_invalid_score_returns_422(self, client, meals_db):
+        meals_db["recipes"].insert_one(dict(RECIPE))
+        resp = client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": 5})
+        assert resp.status_code == 422
+
+    def test_unknown_recipe_returns_404(self, client):
+        resp = client.post("/api/recipes/does-not-exist/rate", json={"score": 1})
+        assert resp.status_code == 404
+
+
 class TestGetRecipe:
     def test_returns_recipe_by_id(self, client, meals_db):
         meals_db["recipes"].insert_one(dict(RECIPE))
