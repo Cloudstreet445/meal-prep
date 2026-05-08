@@ -386,6 +386,30 @@ document.getElementById('back-btn').onclick = () => {
 // ══════════════════════════════════════════════════════════════
 // COOK MODE
 // ══════════════════════════════════════════════════════════════
+let _wakeLock = null;
+
+async function _acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try { _wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+}
+
+function _releaseWakeLock() {
+  if (_wakeLock) { _wakeLock.release(); _wakeLock = null; }
+}
+
+// Re-acquire wake lock when tab becomes visible again (browser drops it on hide)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' &&
+      document.getElementById('cook-mode').classList.contains('active')) {
+    _acquireWakeLock();
+  }
+});
+
+function _exitCookMode() {
+  document.getElementById('cook-mode').classList.remove('active');
+  _releaseWakeLock();
+}
+
 function startCooking(meal) {
   cookSteps    = meal.method || [];
   cookIndex    = 0;
@@ -393,6 +417,7 @@ function startCooking(meal) {
   document.getElementById('cook-recipe-name').textContent = meal.name;
   renderCookStep();
   document.getElementById('cook-mode').classList.add('active');
+  _acquireWakeLock();
 }
 
 function renderCookStep() {
@@ -415,15 +440,32 @@ document.getElementById('cook-prev').onclick = () => {
 document.getElementById('cook-next').onclick = () => {
   if (cookIndex < cookSteps.length - 1) { cookIndex++; renderCookStep(); }
   else {
-    document.getElementById('cook-mode').classList.remove('active');
+    _exitCookMode();
     if (cookRecipeId) showRatingOverlay(cookRecipeId,
       document.getElementById('cook-recipe-name').textContent);
   }
 };
 
-document.getElementById('cook-close').onclick = () => {
-  document.getElementById('cook-mode').classList.remove('active');
-};
+document.getElementById('cook-close').onclick = _exitCookMode;
+
+// Swipe left = next step, swipe right = prev step
+(function() {
+  const el   = document.getElementById('cook-mode');
+  let startX = 0, startY = 0;
+
+  el.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  el.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) document.getElementById('cook-next').click();
+    else        document.getElementById('cook-prev').click();
+  }, { passive: true });
+})();
 
 // ══════════════════════════════════════════════════════════════
 // BUNDLE SWITCHER
@@ -918,7 +960,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (document.getElementById('picker-overlay').classList.contains('active'))  { closePicker();       return; }
   if (document.getElementById('builder-overlay').classList.contains('active')) { closeBuilder();      return; }
-  if (document.getElementById('cook-mode').classList.contains('active'))       { document.getElementById('cook-mode').classList.remove('active'); return; }
+  if (document.getElementById('cook-mode').classList.contains('active'))       { _exitCookMode(); return; }
   if (document.getElementById('rating-overlay').classList.contains('active'))  { closeRatingOverlay();return; }
   if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();     return; }
   if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();  return; }
