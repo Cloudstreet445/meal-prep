@@ -10,15 +10,17 @@ MONGO_URI   = os.environ["MONGO_URI"]
 MEALS_DB    = "paknsave-meals"
 PRICING_DB  = "paknsave-pricing"
 
+_client = MongoClient(MONGO_URI)
+
 
 def get_db():
     """Return paknsave-meals database."""
-    return MongoClient(MONGO_URI)[MEALS_DB]
+    return _client[MEALS_DB]
 
 
 def get_pricing_db():
     """Return paknsave-pricing database (for live price enrichment)."""
-    return MongoClient(MONGO_URI)[PRICING_DB]
+    return _client[PRICING_DB]
 
 
 def clean(doc: dict) -> dict:

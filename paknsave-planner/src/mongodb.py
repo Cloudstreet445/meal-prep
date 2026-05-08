@@ -13,9 +13,7 @@ load_dotenv()
 
 MONGO_URI = os.environ["MONGO_URI"]
 
-
-def _connect():
-    return MongoClient(MONGO_URI)
+_client = MongoClient(MONGO_URI)
 
 
 def clean(doc: dict) -> dict:
@@ -65,8 +63,7 @@ def store_recipes(plan: dict, week_id: str = None) -> tuple[int, list[str]]:
     if week_id is None:
         week_id = datetime.now().strftime("%Y-%m-%d")
 
-    client = _connect()
-    recipes = client[MEALS_DB]["recipes"]
+    recipes = _client[MEALS_DB]["recipes"]
     count = 0
     recipe_ids = []
 
@@ -111,7 +108,6 @@ def store_recipes(plan: dict, week_id: str = None) -> tuple[int, list[str]]:
         if result.upserted_id or result.modified_count > 0:
             count += 1
 
-    client.close()
     return count, recipe_ids
 
 
@@ -126,8 +122,7 @@ def store_bundle(plan: dict, week_id: str, recipe_ids: list[str]) -> str:
 
     Returns bundleId.
     """
-    client = _connect()
-    db = client[MEALS_DB]
+    db = _client[MEALS_DB]
 
     bundle_id = generate_bundle_id(
         plan.get("weekSummary", "meal-plan"),
@@ -168,50 +163,40 @@ def store_bundle(plan: dict, week_id: str, recipe_ids: list[str]) -> str:
         {"$addToSet": {"bundleHistory": bundle_id}}
     )
 
-    client.close()
     return bundle_id
 
 
 def get_latest_active_bundle() -> dict:
     """Get the active bundle for the most recent week."""
-    client = _connect()
-    # Find most recent week, then get its active bundle
-    latest_week = client[MEALS_DB]["bundles"].find_one(
+    latest_week = _client[MEALS_DB]["bundles"].find_one(
         {"active": True},
         sort=[("week", -1)]
     )
-    client.close()
     return clean(latest_week) if latest_week else {}
 
 
 def get_active_bundle_for_week(week_id: str) -> dict:
     """Get the active bundle for a specific week."""
-    client = _connect()
-    doc = client[MEALS_DB]["bundles"].find_one(
+    doc = _client[MEALS_DB]["bundles"].find_one(
         {"week": week_id, "active": True},
         sort=[("createdAt", -1)]
     )
-    client.close()
     return clean(doc) if doc else {}
 
 
 def get_bundle_by_id(bundle_id: str) -> dict:
     """Get a specific bundle by bundleId."""
-    client = _connect()
-    doc = client[MEALS_DB]["bundles"].find_one({"bundleId": bundle_id})
-    client.close()
+    doc = _client[MEALS_DB]["bundles"].find_one({"bundleId": bundle_id})
     return clean(doc) if doc else {}
 
 
 def list_bundles_for_week(week_id: str) -> list:
     """All bundles for a specific week, newest first."""
-    client = _connect()
-    docs = list(client[MEALS_DB]["bundles"].find(
+    docs = list(_client[MEALS_DB]["bundles"].find(
         {"week": week_id},
         {"bundleId": 1, "weekSummary": 1, "estimatedTotal": 1,
          "createdAt": 1, "active": 1, "recipeIds": 1}
     ).sort("createdAt", -1))
-    client.close()
     return clean_list(docs)
 
 
@@ -220,8 +205,6 @@ def list_all_weeks() -> list:
     List all weeks that have bundles, with their active bundle summary.
     Returns one entry per week (the active bundle for that week).
     """
-    client = _connect()
-    # Aggregate: for each week, get the active bundle
     pipeline = [
         {"$sort": {"week": -1, "createdAt": -1}},
         {"$group": {
@@ -235,9 +218,7 @@ def list_all_weeks() -> list:
         }},
         {"$sort": {"week": -1}}
     ]
-    docs = list(client[MEALS_DB]["bundles"].aggregate(pipeline))
-    client.close()
-    # Clean manually since _id is the week string here
+    docs = list(_client[MEALS_DB]["bundles"].aggregate(pipeline))
     return [
         {
             "week":           d["_id"],
@@ -255,12 +236,10 @@ def activate_bundle(bundle_id: str) -> bool:
     Set a specific bundle as active for its week.
     Deactivates other bundles for SAME WEEK ONLY.
     """
-    client = _connect()
-    db = client[MEALS_DB]
+    db = _client[MEALS_DB]
 
     bundle = db["bundles"].find_one({"bundleId": bundle_id})
     if not bundle:
-        client.close()
         return False
 
     week_id = bundle["week"]
@@ -277,7 +256,6 @@ def activate_bundle(bundle_id: str) -> bool:
         {"$set": {"active": True, "updatedAt": datetime.now()}}
     )
 
-    client.close()
     return result.modified_count > 0
 
 
@@ -285,32 +263,26 @@ def activate_bundle(bundle_id: str) -> bool:
 
 def get_recipes(usage_week: str = None, bundle_id: str = None) -> list:
     """Retrieve recipes, optionally filtered by week or bundle."""
-    client = _connect()
     filter_dict = {}
     if usage_week:
         filter_dict["usageHistory"] = usage_week
     if bundle_id:
         filter_dict["bundleHistory"] = bundle_id
-    results = list(client[MEALS_DB]["recipes"].find(filter_dict).sort("name", 1))
-    client.close()
+    results = list(_client[MEALS_DB]["recipes"].find(filter_dict).sort("name", 1))
     return clean_list(results)
 
 
 def get_recipe_by_id(recipe_id: str) -> dict:
     """Retrieve a specific recipe by recipeId."""
-    client = _connect()
-    result = client[MEALS_DB]["recipes"].find_one({"recipeId": recipe_id})
-    client.close()
+    result = _client[MEALS_DB]["recipes"].find_one({"recipeId": recipe_id})
     return clean(result) if result else {}
 
 
 def get_recipes_by_ids(recipe_ids: list[str]) -> list:
     """Retrieve multiple recipes by their recipeIds, preserving order."""
-    client = _connect()
-    docs = list(client[MEALS_DB]["recipes"].find(
+    docs = list(_client[MEALS_DB]["recipes"].find(
         {"recipeId": {"$in": recipe_ids}}
     ))
-    client.close()
     # Preserve the order of recipe_ids
     recipe_map = {d["recipeId"]: clean(d) for d in docs}
     return [recipe_map[rid] for rid in recipe_ids if rid in recipe_map]
