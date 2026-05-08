@@ -48,6 +48,7 @@
           if: needs.detect.outputs.pwa == 'true'
           run: |
             docker build \
+              --build-arg VERSION=$(git describe --tags --always) \
               -t localhost:5000/paknsave-pwa:latest \
               -f meal-pwa/Dockerfile \
               meal-pwa
