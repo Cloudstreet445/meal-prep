@@ -353,12 +353,27 @@ function openRecipe(id) {
     ? (() => { try { return new URL(meal.recipeUrl).hostname; } catch { return 'Recipe inspiration'; } })()
     : 'Recipe inspiration';
 
+  const descEl = document.getElementById('detail-description');
+  descEl.textContent = meal.description || '';
+  descEl.style.display = meal.description ? '' : 'none';
+
   document.getElementById('detail-ingredients').innerHTML =
     (meal.ingredients || []).map(ing => `
       <div class="ingr-item">
         <span class="ingr-name">${ing.name}${ing.fromSpecial ? ' 🔥' : ''}</span>
         <span class="ingr-amount">${ing.amount}</span>
       </div>`).join('');
+
+  const steps = meal.method || [];
+  document.getElementById('method-label').style.display = steps.length ? '' : 'none';
+  document.getElementById('detail-method').innerHTML =
+    steps.map(s => `<li class="method-step">${s}</li>`).join('');
+
+  const rating = lastRating(meal);
+  const ratingEl = document.getElementById('detail-rating');
+  if (rating === 1)       ratingEl.innerHTML = '<span class="detail-rating-badge up">👍 You liked this</span>';
+  else if (rating === -1) ratingEl.innerHTML = '<span class="detail-rating-badge down">👎 You disliked this</span>';
+  else                    ratingEl.innerHTML = '';
 
   document.getElementById('start-cooking-btn').onclick = () => startCooking(meal);
 }

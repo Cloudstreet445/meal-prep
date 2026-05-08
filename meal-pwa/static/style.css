@@ -684,6 +684,45 @@ main {
 .ingr-amount { color: var(--text-dim); font-size: var(--text-sm); }
 .ingr-cost { color: var(--green); font-size: var(--text-sm); }
 
+/* Recipe description */
+.recipe-description {
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: 20px;
+}
+
+/* Method steps */
+.recipe-method {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.method-step {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.method-step:last-child { border-bottom: none; }
+
+/* Rating badge on detail view */
+.recipe-detail-rating {
+  margin: 16px 0 4px;
+}
+
+.detail-rating-badge {
+  display: inline-block;
+  font-size: var(--text-sm);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.detail-rating-badge.up   { background: rgba(76, 175, 110, 0.15); color: var(--green); }
+.detail-rating-badge.down { background: rgba(200, 80, 80, 0.12);  color: #e07070; }
+
 /* ── Cook Mode ────────────────────────────────────────────── */
 .cook-mode {
   position: fixed;
