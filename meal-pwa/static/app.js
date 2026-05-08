@@ -6,17 +6,13 @@ function log(section, message, data = null) {
 }
 
 // ── Config ──────────────────────────────────────────────────────
-// Override via ?api=http://host:port  e.g. ?api=http://192.168.1.10:8000
-// __API_HOST__ is replaced at build time by Dockerfile ARG API_HOST
+// API calls go to /api/ — proxied internally by nginx to the API service.
+// Override via ?api=http://host:port for local dev against a different host.
 const _apiParam = new URLSearchParams(window.location.search).get('api');
-const _hostname = window.location.hostname;
-const _isLocal  = !_hostname || _hostname === 'localhost' || _hostname === '127.0.0.1';
 
 const API = _apiParam
   ? _apiParam.replace(/\/$/, '') + '/api'
-  : _isLocal
-    ? 'http://__API_HOST__/api'
-    : `http://${_hostname}:8000/api`;
+  : '/api';
 
 log('CONFIG', 'API endpoint set to:', API);
 

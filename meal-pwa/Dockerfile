@@ -10,6 +10,6 @@ COPY manifest.json /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN sed -i "s/__VERSION__/$VERSION/g" /usr/share/nginx/html/index.html && \
-    sed -i "s/__API_HOST__/$API_HOST/g" /usr/share/nginx/html/app.js
+    sed -i "s/__API_HOST__/$API_HOST/g" /etc/nginx/conf.d/default.conf
 
 EXPOSE 3000
