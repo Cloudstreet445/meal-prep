@@ -15,6 +15,7 @@ Usage:
   python src/main.py seed     # seed test-data files (delegates to seed.py)
 """
 
+import os
 import sys
 import json
 from datetime import datetime
@@ -83,7 +84,7 @@ def main():
 
     # Step 1 — Get market data
     print("📊 Querying Pak'nSave price data from MongoDB...")
-    market_data = get_market_data()
+    market_data = get_market_data(os.environ.get("STORE_ID", "paknsave-lower-hutt"))
     print_market_summary(market_data)
 
     if not market_data.any_data():
