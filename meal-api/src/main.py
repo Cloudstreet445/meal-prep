@@ -8,7 +8,7 @@ import time
 app = FastAPI(
     title="Kai Planner API",
     description="Weekly meal planning API — bundles, recipes, shopping lists",
-    version="2.0.0"
+    version="0.1.0"
 )
 
 app.add_middleware(
