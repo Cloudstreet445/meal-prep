@@ -48,6 +48,7 @@
           if: needs.detect.outputs.pwa == 'true'
           run: |
             docker build \
+              --network=host \
               --build-arg VERSION=$(git describe --tags --always) \
               -t localhost:5000/paknsave-pwa:latest \
               -f meal-pwa/Dockerfile \
@@ -66,6 +67,7 @@
           if: needs.detect.outputs.api == 'true'
           run: |
             docker build \
+              --network=host \
               -t localhost:5000/paknsave-api:latest \
               -f meal-api/Dockerfile \
               meal-api
@@ -83,6 +85,7 @@
           if: needs.detect.outputs.scraper == 'true'
           run: |
             docker build \
+              --network=host \
               -t localhost:5000/pakn-scraper:latest \
               -f pakn-scraper/Dockerfile \
               pakn-scraper

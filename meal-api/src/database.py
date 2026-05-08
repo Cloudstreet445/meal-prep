@@ -17,9 +17,18 @@ def _ensure_indexes():
     try:
         db = _client[MEALS_DB]
         db["recipes"].create_index("recipeId", unique=True)
+        db["recipes"].create_index("usageHistory")
+        db["recipes"].create_index("bundleHistory")
         db["bundles"].create_index("bundleId", unique=True)
         db["bundles"].create_index([("week", 1), ("active", 1)])
+        # ESR index for find_one({"active": True}, sort=[("week", -1), ("createdAt", -1)])
+        db["bundles"].create_index([("active", 1), ("week", -1), ("createdAt", -1)])
+        # Index to support aggregation pipeline initial sort
+        db["bundles"].create_index([("week", -1), ("createdAt", -1)])
         db["settings"].create_index("key", unique=True)
+        pricing_db = _client[PRICING_DB]
+        pricing_db["products"].create_index("category")
+        pricing_db["products"].create_index([("name", "text")])
     except Exception:
         pass
 
