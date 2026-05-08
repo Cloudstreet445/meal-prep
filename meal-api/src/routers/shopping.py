@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 from ..database import get_db, get_pricing_db
-from .bundles import _derive_shopping_list
+from .helpers import _derive_shopping_list
 
 router = APIRouter()
 

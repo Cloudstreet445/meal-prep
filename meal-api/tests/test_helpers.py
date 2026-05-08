@@ -1,7 +1,7 @@
 """Unit tests for pure helper functions in routers/bundles.py."""
 
 import pytest
-from src.routers.bundles import _normalise_name, _guess_category, _derive_shopping_list
+from src.routers.helpers import _normalise_name, _guess_category, _derive_shopping_list
 
 
 class TestNormaliseName:
