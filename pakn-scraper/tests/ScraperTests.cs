@@ -8,18 +8,15 @@ namespace ScraperTests
     public class ScraperTests
     {
         [TestMethod]
+        [Ignore("Requires 'playwright install' — run manually for integration testing")]
         public async Task EstablishPlaywright_BrowserConnected()
         {
-            // Singletons for Playwright
-            //IPlaywright? playwright = null;
-            //IPage? playwrightPage = null;
-            //IBrowser? browser = null;
-
             await EstablishPlaywright(headless: true);
             Assert.IsTrue(browser!.IsConnected);
         }
 
         [TestMethod]
+        [Ignore("Requires 'playwright install' and network — run manually for integration testing")]
         public async Task EstablishPlaywright_GoogleConnected()
         {
             await EstablishPlaywright(headless: true);

@@ -18,6 +18,18 @@ namespace Scraper
         static DateTime scrapeStartTime = DateTime.UtcNow;
         public static string StoreId { get; set; } = "paknsave-lower-hutt";
 
+        // EstablishTestConnection()
+        // ------------------------
+        // For unit tests: connect directly to a provided URI without reading config.
+        public static async Task EstablishTestConnection(string connectionString, string dbName)
+        {
+            mongoClient = new MongoClient(connectionString);
+            mongoDatabase = mongoClient.GetDatabase(dbName);
+            productsCollection = mongoDatabase.GetCollection<BsonDocument>("products");
+            scrapeRunsCollection = mongoDatabase.GetCollection<BsonDocument>("scrape_runs");
+            await mongoDatabase.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1));
+        }
+
         // EstablishConnection()
         // ---------------------
         // Connects to MongoDB using MONGO_URI from appsettings.json or environment variables.

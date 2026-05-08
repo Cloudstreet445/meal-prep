@@ -478,19 +478,18 @@ namespace Scraper
                     productSize, @"\d+(g|ml)\seach\s\d+pack").ToString();
                 if (matchMultipliedSizeString.Length > 2)
                 {
-                    int multiplier = int.Parse(matchMultipliedSizeString.Split("each")[1].Trim());
-                    int subUnitSize = int.Parse(matchMultipliedSizeString.Split("each")[0].Trim());
+                    int multiplier = int.Parse(Regex.Match(matchMultipliedSizeString.Split("each")[1], @"\d+").Value);
+                    int subUnitSize = int.Parse(Regex.Match(matchMultipliedSizeString.Split("each")[0], @"\d+").Value);
                     quantity = multiplier * subUnitSize;
                     originalUnitQuantity = quantity;
                     matchedUnit = matchedUnit.ToLower().Replace("each", "");
                     //Log(ConsoleColor.DarkGreen, productSize + " = (" + quantity + ") (" + matchedUnit + ")");
                 }
 
-                // If units are in grams, normalize quantity and convert to /kg
+                // If units are in grams, normalize quantity for price calculation but keep unit as "g"
                 if (matchedUnit == "g")
                 {
                     quantity = quantity / 1000;
-                    matchedUnit = "kg";
                 }
 
                 // If units are in mL, normalize quantity and convert to /L
@@ -505,10 +504,9 @@ namespace Scraper
 
                 // Set per unit price, rounded to 2 decimal points
                 string roundedUnitPrice = Math.Round((decimal)(productPrice / quantity), 2).ToString();
-                //Log(productPrice + " / " + quantity + " = " + roundedUnitPrice + "/" + matchedUnit);
 
-                // Return in format '450g cheese' = '0.45/kg'
-                return roundedUnitPrice + "/" + matchedUnit;
+                // Return in format '{pricePerUnit}/{unit}/{rawSize}', e.g. '3.25/L/2'
+                return roundedUnitPrice + "/" + matchedUnit + "/" + originalUnitQuantity;
             }
             return null;
         }

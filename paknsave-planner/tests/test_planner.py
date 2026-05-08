@@ -6,18 +6,27 @@ from unittest.mock import patch
 from datetime import datetime, timedelta
 
 
-def make_product(name, category, price, is_special=False, days_ago=0):
+STORE_ID = "paknsave-lower-hutt"
+
+
+def make_product(name, category, price, is_special=False, days_ago=0, store_id=STORE_ID):
+    """Build a product document using the multi-store storePrice schema."""
     last_checked = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
     return {
         "name": name,
         "category": category,
-        "currentPrice": price,
-        "isSpecial": is_special,
-        "maxPrice90d": price + 2.00,
-        "avgPrice90d": price + 1.00,
-        "unitPrice": f"${price:.2f}/kg",
         "size": "500g",
-        "lastChecked": last_checked,
+        "sourceSite": "paknsave",
+        "storePrice": {
+            store_id: {
+                "currentPrice": price,
+                "isSpecial": is_special,
+                "unitPrice": f"${price:.2f}/kg",
+                "maxPrice90d": price + 2.00,
+                "avgPrice90d": price + 1.00,
+                "lastChecked": last_checked,
+            }
+        },
     }
 
 
@@ -42,7 +51,7 @@ def populated_client():
 
 class TestGetMarketData:
     def test_returns_market_data_with_all_categories(self, populated_client):
-        with patch("planner.MongoClient", return_value=populated_client):
+        with patch("planner._client", populated_client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -55,7 +64,7 @@ class TestGetMarketData:
         assert hasattr(data, "dairy")
 
     def test_proteins_on_special_includes_chicken_on_special(self, populated_client):
-        with patch("planner.MongoClient", return_value=populated_client):
+        with patch("planner._client", populated_client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -63,7 +72,7 @@ class TestGetMarketData:
         assert "Chicken Breast" in names
 
     def test_excludes_seafood_category(self, populated_client):
-        with patch("planner.MongoClient", return_value=populated_client):
+        with patch("planner._client", populated_client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -76,7 +85,7 @@ class TestGetMarketData:
         assert "canned-fish" not in categories
 
     def test_excludes_mushroom_keyword(self, populated_client):
-        with patch("planner.MongoClient", return_value=populated_client):
+        with patch("planner._client", populated_client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -95,7 +104,7 @@ class TestGetMarketData:
             make_product("Stale Chicken", "chicken", 5.00, is_special=True, days_ago=10),
         ])
 
-        with patch("planner.MongoClient", return_value=client):
+        with patch("planner._client", client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -111,7 +120,7 @@ class TestGetMarketData:
             make_product("Expensive Broccoli", "fresh-vegetables", 8.00),
         ])
 
-        with patch("planner.MongoClient", return_value=client):
+        with patch("planner._client", client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -120,7 +129,7 @@ class TestGetMarketData:
         assert "Expensive Broccoli" not in names
 
     def test_result_items_have_expected_keys(self, populated_client):
-        with patch("planner.MongoClient", return_value=populated_client):
+        with patch("planner._client", populated_client):
             from planner import get_market_data
             data = get_market_data()
 
@@ -130,3 +139,20 @@ class TestGetMarketData:
             assert "price" in item
             assert "category" in item
             assert "isSpecial" in item
+
+    def test_uses_store_id_for_queries(self):
+        """Products only visible to the queried store are returned; other-store products are not."""
+        client = mongomock.MongoClient()
+        db = client["paknsave-pricing"]
+        db["products"].insert_many([
+            make_product("Lower Hutt Chicken", "chicken", 7.00, is_special=True, store_id=STORE_ID),
+            make_product("Other Store Chicken", "chicken", 6.00, is_special=True, store_id="paknsave-other"),
+        ])
+
+        with patch("planner._client", client):
+            from planner import get_market_data
+            data = get_market_data(store_id=STORE_ID)
+
+        names = [p["name"] for p in data.proteins_on_special]
+        assert "Lower Hutt Chicken" in names
+        assert "Other Store Chicken" not in names
