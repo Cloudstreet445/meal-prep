@@ -16,6 +16,7 @@ namespace Scraper
         public static Container? cosmosContainer;
         static string partitionKey = "/category";
         static string today = DateTime.Today.ToString("yyyy-MM-dd");
+        static string StoreId => config["STORE_NAME"] ?? "paknsave-lower-hutt";
 
         // EstablishConnection()
         // ---------------------
@@ -201,70 +202,65 @@ namespace Scraper
 
         public static ProductResponse BuildUpdatedProduct(DBProduct dbProduct, Product scrapedProduct)
         {
-            // Measure the price difference between the new scraped product and the old db product
-            float priceDifference = Math.Abs(dbProduct.priceHistory.Last().price - scrapedProduct.currentPrice);
+            var storeData = dbProduct.storePrice.GetValueOrDefault(StoreId);
 
-            // Check if price has changed by more than $0.05
+            if (storeData == null)
+            {
+                // First time at this store — add a new storePrice entry
+                var newStorePrice = new StorePrice(
+                    currentPrice: scrapedProduct.currentPrice,
+                    unitPrice: scrapedProduct.unitPrice,
+                    isSpecial: false,
+                    priceHistory: [new DatedPrice(date: today, price: scrapedProduct.currentPrice)],
+                    firstSeen: today,
+                    lastChecked: today,
+                    lastPriceChange: today,
+                    avgPrice90d: scrapedProduct.currentPrice,
+                    minPrice90d: scrapedProduct.currentPrice,
+                    maxPrice90d: scrapedProduct.currentPrice
+                );
+                var updatedMap = new Dictionary<string, StorePrice>(dbProduct.storePrice) { [StoreId] = newStorePrice };
+                return new ProductResponse(UpsertResponse.NewProduct, dbProduct with { storePrice = updatedMap });
+            }
+
+            float lastPrice = storeData.priceHistory.Last().price;
+            float priceDifference = Math.Abs(lastPrice - scrapedProduct.currentPrice);
             bool priceHasChanged = priceDifference > 0.05;
 
-            // If price has changed and not on the same day, we can do a full update from the scraped product
-            if (priceHasChanged && dbProduct.priceHistory.Last().date != today)
+            if (priceHasChanged && storeData.priceHistory.Last().date != today)
             {
-                // Price has changed, so we can create an updated priceHistory with today's addition
-                List<DatedPrice> updatedHistory = dbProduct.priceHistory.ToList<DatedPrice>();
-                DatedPrice newDatedPriceEntry = new DatedPrice(date: today, price: scrapedProduct.currentPrice);
-                updatedHistory.Add(newDatedPriceEntry);
+                var updatedHistory = storeData.priceHistory.ToList();
+                updatedHistory.Add(new DatedPrice(date: today, price: scrapedProduct.currentPrice));
+                var recentHistory = updatedHistory.TakeLast(39).Select(d => d.price).ToList();
 
-                // Log price change with different verb and colour depending on price change direction
-                bool priceTrendingDown = scrapedProduct.currentPrice < dbProduct.priceHistory.Last().price;
-                string priceTrendText = "  Price " + (priceTrendingDown ? "Down " : "Up   ") + ":";
-
+                bool priceTrendingDown = scrapedProduct.currentPrice < lastPrice;
                 Log(
-                    $"{priceTrendText} {dbProduct.name.PadRight(51).Substring(0, 51)} | " +
-                    $"${dbProduct.priceHistory.Last().price} > ${scrapedProduct.currentPrice}",
+                    $"  Price {(priceTrendingDown ? "Down " : "Up   ")}: " +
+                    $"{dbProduct.name.PadRight(51).Substring(0, 51)} | " +
+                    $"${lastPrice} > ${scrapedProduct.currentPrice}",
                     priceTrendingDown ? ConsoleColor.Green : ConsoleColor.Red
                 );
 
-                // Return new product with updated data
-                return new ProductResponse(
-                    UpsertResponse.PriceUpdated,
-                    new DBProduct(
-                        id: dbProduct.id,
-                        name: dbProduct.name,
-                        size: dbProduct.size,
-                        category: dbProduct.category,
-                        sourceSite: dbProduct.sourceSite,
-                        priceHistory: updatedHistory.ToArray(),
-                        lastChecked: today,
-                        unitPrice: dbProduct.unitPrice
-                    )
-                );
+                var updatedStorePrice = storeData with
+                {
+                    currentPrice = scrapedProduct.currentPrice,
+                    unitPrice = scrapedProduct.unitPrice,
+                    isSpecial = scrapedProduct.currentPrice < (recentHistory.Average() * 0.90f),
+                    priceHistory = updatedHistory.ToArray(),
+                    lastChecked = today,
+                    lastPriceChange = today,
+                    avgPrice90d = (float)Math.Round(recentHistory.Average(), 2),
+                    minPrice90d = (float)Math.Round(recentHistory.Min(), 2),
+                    maxPrice90d = (float)Math.Round(recentHistory.Max(), 2)
+                };
+                var updatedMap = new Dictionary<string, StorePrice>(dbProduct.storePrice) { [StoreId] = updatedStorePrice };
+                return new ProductResponse(UpsertResponse.PriceUpdated, dbProduct with { storePrice = updatedMap });
             }
-            // else if (otherDataHasChanged)
-            // {
-            //     // If only non-price data has changed, update non price/date fields
-            //     return new ProductResponse(UpsertResponse.NonPriceUpdated, new Product(
-            //         dbProduct.id,
-            //         scrapedProduct.name,
-            //         scrapedProduct.size,
-            //         dbProduct.currentPrice,
-            //         scrapedProduct.category,
-            //         scrapedProduct.sourceSite,
-            //         dbProduct.priceHistory,
-            //         dbProduct.lastUpdated,
-            //         scrapedProduct.lastChecked,
-            //         scrapedProduct.unitPrice,
-            //         scrapedProduct.unitName,
-            //         scrapedProduct.originalUnitQuantity
-            //     ));
-            // }
             else
             {
-                // Else existing DB Product has not changed, update only lastChecked
-                return new ProductResponse(
-                    UpsertResponse.AlreadyUpToDate,
-                    dbProduct with { lastChecked = today }
-                );
+                var updatedStorePrice = storeData with { lastChecked = today };
+                var updatedMap = new Dictionary<string, StorePrice>(dbProduct.storePrice) { [StoreId] = updatedStorePrice };
+                return new ProductResponse(UpsertResponse.AlreadyUpToDate, dbProduct with { storePrice = updatedMap });
             }
         }
 
@@ -275,7 +271,18 @@ namespace Scraper
         {
             try
             {
-                // Build a new DBProduct with a single priceHistory [ entry ]
+                var storePriceEntry = new StorePrice(
+                    currentPrice: scrapedProduct.currentPrice,
+                    unitPrice: scrapedProduct.unitPrice,
+                    isSpecial: false,
+                    priceHistory: [new DatedPrice(date: today, price: scrapedProduct.currentPrice)],
+                    firstSeen: today,
+                    lastChecked: today,
+                    lastPriceChange: today,
+                    avgPrice90d: scrapedProduct.currentPrice,
+                    minPrice90d: scrapedProduct.currentPrice,
+                    maxPrice90d: scrapedProduct.currentPrice
+                );
                 DBProduct newProduct = new DBProduct
                 (
                     id: scrapedProduct.id,
@@ -283,9 +290,7 @@ namespace Scraper
                     size: scrapedProduct.size,
                     category: scrapedProduct.category,
                     sourceSite: scrapedProduct.sourceSite,
-                    priceHistory: [new DatedPrice(date: today, price: scrapedProduct.currentPrice)],
-                    lastChecked: today,
-                    unitPrice: scrapedProduct.unitPrice
+                    storePrice: new Dictionary<string, StorePrice> { [StoreId] = storePriceEntry }
                 );
 
                 await cosmosContainer!.UpsertItemAsync(newProduct, new PartitionKey(newProduct.category));

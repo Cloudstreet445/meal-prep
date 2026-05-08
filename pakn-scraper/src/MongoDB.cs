@@ -16,6 +16,7 @@ namespace Scraper
         static string today = DateTime.Today.ToString("yyyy-MM-dd");
         static string scrapeRunId = ObjectId.GenerateNewId().ToString();
         static DateTime scrapeStartTime = DateTime.UtcNow;
+        static string StoreId => config["STORE_NAME"] ?? "paknsave-lower-hutt";
 
         // EstablishConnection()
         // ---------------------
@@ -107,10 +108,18 @@ namespace Scraper
         {
             try
             {
-                var priceHistoryEntry = new BsonDocument
+                var storePriceEntry = new BsonDocument
                 {
-                    { "date", today },
-                    { "price", scrapedProduct.currentPrice }
+                    { "currentPrice", scrapedProduct.currentPrice },
+                    { "unitPrice", scrapedProduct.unitPrice ?? "" },
+                    { "isSpecial", false },
+                    { "priceHistory", new BsonArray { new BsonDocument { { "date", today }, { "price", scrapedProduct.currentPrice } } } },
+                    { "firstSeen", today },
+                    { "lastChecked", today },
+                    { "lastPriceChange", today },
+                    { "avgPrice90d", scrapedProduct.currentPrice },
+                    { "minPrice90d", scrapedProduct.currentPrice },
+                    { "maxPrice90d", scrapedProduct.currentPrice }
                 };
 
                 var newProduct = new BsonDocument
@@ -120,17 +129,7 @@ namespace Scraper
                     { "size", scrapedProduct.size ?? "" },
                     { "category", scrapedProduct.category },
                     { "sourceSite", scrapedProduct.sourceSite },
-                    { "storeId", config["STORE_NAME"] ?? "paknsave-lower-hutt" },
-                    { "currentPrice", scrapedProduct.currentPrice },
-                    { "unitPrice", scrapedProduct.unitPrice ?? "" },
-                    { "isSpecial", false },
-                    { "priceHistory", new BsonArray { priceHistoryEntry } },
-                    { "firstSeen", today },
-                    { "lastChecked", today },
-                    { "lastPriceChange", today },
-                    { "avgPrice90d", scrapedProduct.currentPrice },
-                    { "minPrice90d", scrapedProduct.currentPrice },
-                    { "maxPrice90d", scrapedProduct.currentPrice }
+                    { "storePrice", new BsonDocument { { StoreId, storePriceEntry } } }
                 };
 
                 await productsCollection!.InsertOneAsync(newProduct);
@@ -157,30 +156,59 @@ namespace Scraper
             Product scrapedProduct
         )
         {
-            float lastPrice = existing["currentPrice"].AsDouble > 0
-                ? (float)existing["currentPrice"].AsDouble
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", scrapedProduct.id);
+
+            // Migrate legacy flat-schema documents to storePrice map on first encounter
+            if (!existing.Contains("storePrice"))
+            {
+                return await MigrateAndUpdateProduct(existing, scrapedProduct, filter);
+            }
+
+            // Read per-store data from storePrice map
+            var storePriceMap = existing["storePrice"].AsBsonDocument;
+            BsonDocument? storeData = storePriceMap.Contains(StoreId)
+                ? storePriceMap[StoreId].AsBsonDocument
+                : null;
+
+            float lastPrice = storeData != null && storeData.Contains("currentPrice")
+                ? (float)storeData["currentPrice"].AsDouble
                 : 0f;
+
+            string lastChecked = storeData != null && storeData.Contains("lastChecked")
+                ? storeData["lastChecked"].AsString
+                : "";
 
             float priceDifference = Math.Abs(lastPrice - scrapedProduct.currentPrice);
             bool priceHasChanged = priceDifference > 0.05f;
 
-            string lastChecked = existing.Contains("lastChecked")
-                ? existing["lastChecked"].AsString
-                : "";
+            string storePrefix = $"storePrice.{StoreId}";
 
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", scrapedProduct.id);
-
-            if (priceHasChanged && lastChecked != today)
+            if (storeData == null)
             {
-                // Append new price history entry
-                var newEntry = new BsonDocument
+                // First time seeing this product at this store — add a new storePrice entry
+                var storePriceEntry = new BsonDocument
                 {
-                    { "date", today },
-                    { "price", scrapedProduct.currentPrice }
+                    { "currentPrice", scrapedProduct.currentPrice },
+                    { "unitPrice", scrapedProduct.unitPrice ?? "" },
+                    { "isSpecial", false },
+                    { "priceHistory", new BsonArray { new BsonDocument { { "date", today }, { "price", scrapedProduct.currentPrice } } } },
+                    { "firstSeen", today },
+                    { "lastChecked", today },
+                    { "lastPriceChange", today },
+                    { "avgPrice90d", scrapedProduct.currentPrice },
+                    { "minPrice90d", scrapedProduct.currentPrice },
+                    { "maxPrice90d", scrapedProduct.currentPrice }
                 };
 
-                // Recalculate 90 day stats from existing history
-                var history = existing["priceHistory"].AsBsonArray
+                var update = Builders<BsonDocument>.Update.Set(storePrefix, storePriceEntry);
+                await productsCollection!.UpdateOneAsync(filter, update);
+                return UpsertResponse.NewProduct;
+            }
+            else if (priceHasChanged && lastChecked != today)
+            {
+                var newEntry = new BsonDocument { { "date", today }, { "price", scrapedProduct.currentPrice } };
+
+                var history = storeData["priceHistory"].AsBsonArray
                     .Select(e => (float)e["price"].AsDouble)
                     .ToList();
                 history.Add(scrapedProduct.currentPrice);
@@ -191,19 +219,18 @@ namespace Scraper
                 float min = recentHistory.Min();
                 float max = recentHistory.Max();
 
-                // Detect if this is a special (more than 10% below 90d average)
                 bool isSpecial = scrapedProduct.currentPrice < (avg * 0.90f);
 
                 var update = Builders<BsonDocument>.Update
-                    .Push("priceHistory", newEntry)
-                    .Set("currentPrice", scrapedProduct.currentPrice)
-                    .Set("unitPrice", scrapedProduct.unitPrice ?? "")
-                    .Set("isSpecial", isSpecial)
-                    .Set("lastChecked", today)
-                    .Set("lastPriceChange", today)
-                    .Set("avgPrice90d", Math.Round(avg, 2))
-                    .Set("minPrice90d", Math.Round(min, 2))
-                    .Set("maxPrice90d", Math.Round(max, 2));
+                    .Push($"{storePrefix}.priceHistory", newEntry)
+                    .Set($"{storePrefix}.currentPrice", scrapedProduct.currentPrice)
+                    .Set($"{storePrefix}.unitPrice", scrapedProduct.unitPrice ?? "")
+                    .Set($"{storePrefix}.isSpecial", isSpecial)
+                    .Set($"{storePrefix}.lastChecked", today)
+                    .Set($"{storePrefix}.lastPriceChange", today)
+                    .Set($"{storePrefix}.avgPrice90d", Math.Round(avg, 2))
+                    .Set($"{storePrefix}.minPrice90d", Math.Round(min, 2))
+                    .Set($"{storePrefix}.maxPrice90d", Math.Round(max, 2));
 
                 await productsCollection!.UpdateOneAsync(filter, update);
 
@@ -220,13 +247,60 @@ namespace Scraper
             }
             else
             {
-                // Just update lastChecked
-                var update = Builders<BsonDocument>.Update
-                    .Set("lastChecked", today);
-
+                var update = Builders<BsonDocument>.Update.Set($"{storePrefix}.lastChecked", today);
                 await productsCollection!.UpdateOneAsync(filter, update);
                 return UpsertResponse.AlreadyUpToDate;
             }
+        }
+
+        // MigrateAndUpdateProduct()
+        // -------------------------
+        // Converts a legacy flat-schema document to the storePrice map format.
+        private static async Task<UpsertResponse> MigrateAndUpdateProduct(
+            BsonDocument existing,
+            Product scrapedProduct,
+            FilterDefinition<BsonDocument> filter
+        )
+        {
+            // Lift existing flat price fields into a storePrice entry for the current store
+            var legacyPriceHistory = existing.Contains("priceHistory")
+                ? existing["priceHistory"].AsBsonArray
+                : new BsonArray { new BsonDocument { { "date", today }, { "price", scrapedProduct.currentPrice } } };
+
+            var migratedStorePrice = new BsonDocument
+            {
+                { "currentPrice", scrapedProduct.currentPrice },
+                { "unitPrice", existing.Contains("unitPrice") ? existing["unitPrice"] : scrapedProduct.unitPrice ?? "" },
+                { "isSpecial", existing.Contains("isSpecial") ? existing["isSpecial"] : false },
+                { "priceHistory", legacyPriceHistory },
+                { "firstSeen", existing.Contains("firstSeen") ? existing["firstSeen"] : today },
+                { "lastChecked", today },
+                { "lastPriceChange", existing.Contains("lastPriceChange") ? existing["lastPriceChange"] : today },
+                { "avgPrice90d", existing.Contains("avgPrice90d") ? existing["avgPrice90d"] : scrapedProduct.currentPrice },
+                { "minPrice90d", existing.Contains("minPrice90d") ? existing["minPrice90d"] : scrapedProduct.currentPrice },
+                { "maxPrice90d", existing.Contains("maxPrice90d") ? existing["maxPrice90d"] : scrapedProduct.currentPrice }
+            };
+
+            // Remove legacy flat fields and set new storePrice map
+            var update = Builders<BsonDocument>.Update
+                .Set($"storePrice.{StoreId}", migratedStorePrice)
+                .Unset("currentPrice")
+                .Unset("unitPrice")
+                .Unset("isSpecial")
+                .Unset("priceHistory")
+                .Unset("firstSeen")
+                .Unset("lastChecked")
+                .Unset("lastPriceChange")
+                .Unset("avgPrice90d")
+                .Unset("minPrice90d")
+                .Unset("maxPrice90d")
+                .Unset("storeId");
+
+            await productsCollection!.UpdateOneAsync(filter, update);
+
+            LogWarn($"  Migrated: {existing["name"].AsString.PadRight(51).Substring(0, 51)} → storePrice.{StoreId}");
+
+            return UpsertResponse.NonPriceUpdated;
         }
 
         // FinaliseRun()

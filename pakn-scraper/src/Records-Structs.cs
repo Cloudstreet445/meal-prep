@@ -14,9 +14,20 @@ public record DBProduct(
     string? size,
     string category,
     string sourceSite,
+    Dictionary<string, StorePrice> storePrice
+);
+
+public record StorePrice(
+    float currentPrice,
+    string unitPrice,
+    bool isSpecial,
     DatedPrice[] priceHistory,
+    string firstSeen,
     string lastChecked,
-    string unitPrice
+    string lastPriceChange,
+    float avgPrice90d,
+    float minPrice90d,
+    float maxPrice90d
 );
 
 public record DatedPrice(
