@@ -4,19 +4,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-@dataclass
-class PriceProduct:
-    """A product from the Pak'nSave pricing database."""
-    name: str
-    size: str
-    price: float
-    unitPrice: str
-    category: str
-    isSpecial: bool
-    wasPrice: float
-    avgPrice90d: float
-    lastChecked: str
-
 
 @dataclass
 class MarketData:
