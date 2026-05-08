@@ -1105,14 +1105,44 @@ main {
   flex-shrink: 0;
 }
 
-.bundle-active-tag {
+.bundle-item.is-switching {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.bundle-tags {
   position: absolute;
   top: 8px;
   right: 10px;
-  font-size: var(--text-xs);
+  display: flex;
+  gap: 4px;
+}
+
+.bundle-tag {
+  font-size: 9px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--green);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.tag-active  { background: var(--green-glow); color: var(--green); }
+.tag-viewing { background: var(--bg2); color: var(--text-muted); border: 1px solid var(--border); }
+
+.sheet-footer {
+  padding: 12px 16px calc(12px + var(--safe-bot));
+  border-top: 1px solid var(--border);
+}
+
+.sheet-error {
+  background: rgba(248,113,113,0.1);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 13px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
 }
 
 .sheet-empty {
@@ -1783,18 +1813,17 @@ main {
 .build-own-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
   background: var(--bg2);
   border: 1px dashed var(--green-dim);
   border-radius: var(--radius-sm);
-  margin-bottom: 16px;
   cursor: pointer;
   color: var(--green);
   font-size: 13px;
   font-family: 'DM Mono', monospace;
   width: 100%;
-  text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
 

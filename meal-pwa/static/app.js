@@ -212,7 +212,6 @@ async function loadWeek() {
 
     document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
     document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
-    document.getElementById('bundle-switcher-btn').style.display = 'flex';
 
     document.getElementById('week-summary').innerHTML = `
       <div class="summary-text">${plan.weekSummary}</div>
@@ -693,9 +692,6 @@ async function renderBundleSheet() {
   const [thisWeek, ...pastWeeks] = historyData;
   let html = '';
 
-  // ── Build my own ──
-  html += `<button class="build-own-btn" onclick="openBuilder()">✏️ Build my own plan</button>`;
-
   // ── This week — fetch all bundles to show each one ──
   html += `<div class="history-week-label">This week · ${fmtWeek(thisWeek.week)}</div>`;
   try {
@@ -730,16 +726,17 @@ async function renderBundleSheet() {
 }
 
 function renderBundleCard(bundle, activeBundleId) {
-  // A bundle is "active" if it matches the week's activeBundleId
-  // AND it's the currently loaded plan
   const isWeekActive = bundle.bundleId === activeBundleId;
   const isLoaded     = bundle.bundleId === plan?.bundleId;
   const time         = fmtTime(bundle.createdAt);
 
   return `
-    <div class="bundle-item ${isWeekActive ? 'is-active' : ''}"
+    <div class="bundle-item ${isWeekActive ? 'is-active' : ''} ${isLoaded ? 'is-loaded' : ''}"
          onclick="selectBundle('${bundle.bundleId}', '${bundle.week}')">
-      ${isWeekActive ? '<div class="bundle-active-tag">Active</div>' : ''}
+      <div class="bundle-tags">
+        ${isLoaded     ? '<div class="bundle-tag tag-viewing">Viewing</div>' : ''}
+        ${isWeekActive ? '<div class="bundle-tag tag-active">Active</div>'   : ''}
+      </div>
       <div class="bundle-dot"></div>
       <div class="bundle-info">
         <div class="bundle-summary">${bundle.weekSummary || 'Meal plan'}</div>
@@ -780,17 +777,19 @@ async function toggleWeek(weekId) {
 }
 
 async function selectBundle(bundleId, week) {
-  // If already the active loaded plan, just close
   if (bundleId === plan?.bundleId) {
     closeBundleSheet();
     return;
   }
 
+  // Show loading state on the tapped card
+  const card = document.querySelector(`[onclick="selectBundle('${bundleId}', '${week}')"]`);
+  if (card) card.classList.add('is-switching');
+
   try {
     log('BUNDLES', 'Activating bundle', { bundleId, week });
     await apiPost(`/bundle/${bundleId}/activate`);
 
-    // Update local history so active badge updates immediately on next open
     historyData = historyData.map(w =>
       w.week === week ? { ...w, activeBundleId: bundleId } : w
     );
@@ -803,7 +802,13 @@ async function selectBundle(bundleId, week) {
     log('BUNDLES', 'Bundle switched successfully');
   } catch (e) {
     log('BUNDLES', 'Error activating bundle', { error: e.message });
-    alert('Could not switch to this plan. Please try again.');
+    if (card) card.classList.remove('is-switching');
+    const content = document.getElementById('bundle-sheet-content');
+    const err = document.createElement('div');
+    err.className = 'sheet-error';
+    err.textContent = 'Could not switch plan — please try again.';
+    content.prepend(err);
+    setTimeout(() => err.remove(), 4000);
   }
 }
 

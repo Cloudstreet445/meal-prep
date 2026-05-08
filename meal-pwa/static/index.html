@@ -25,7 +25,7 @@
         <div class="week-badge" id="week-badge">Loading...</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="bundle-btn" id="bundle-switcher-btn" style="display:none" onclick="openBundleSheet()">
+        <button class="bundle-btn" id="bundle-switcher-btn" onclick="openBundleSheet()">
           ↕ Weekly Plans
         </button>
         <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
@@ -201,9 +201,12 @@
 <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeBundleSheet()"></div>
 <div class="bottom-sheet" id="bundle-sheet">
   <div class="sheet-handle"></div>
-  <div class="sheet-title">Select a plan for this week</div>
+  <div class="sheet-title">Weekly Plans</div>
   <div class="sheet-content" id="bundle-sheet-content">
     <div class="sheet-empty">Loading...</div>
+  </div>
+  <div class="sheet-footer">
+    <button class="build-own-btn" onclick="openBuilder()">✏ Build my own plan</button>
   </div>
 </div>
 
