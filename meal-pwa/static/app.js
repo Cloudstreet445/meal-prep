@@ -577,7 +577,7 @@ async function suggestSubstitute(ingredientName, e) {
   e.stopPropagation();
   _subIngredient = ingredientName;
   document.getElementById('sub-ingredient-name').textContent = ingredientName;
-  document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Thinking…</div>';
+  document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Loading prices…</div>';
   document.getElementById('sub-overlay').classList.add('active');
 
   try {
@@ -587,11 +587,19 @@ async function suggestSubstitute(ingredientName, e) {
       body: JSON.stringify({ ingredient: ingredientName, store_id: settings.storeId || 'paknsave-lower-hutt' }),
     }).then(r => r.json());
 
-    document.getElementById('sub-results').innerHTML = (data.suggestions || []).map(s => `
+    const suggestions = data.suggestions || [];
+    if (!suggestions.length) {
+      document.getElementById('sub-results').innerHTML = '<div class="sub-loading">No substitutes found.</div>';
+      return;
+    }
+    document.getElementById('sub-results').innerHTML = suggestions.map(s => `
       <div class="sub-card">
-        <div class="sub-name">${s.name}${s.estimatedPrice ? ` <span class="sub-price">${fmt$(s.estimatedPrice)}</span>` : ''}</div>
-        <div class="sub-reason">${s.reason}</div>
-      </div>`).join('') || '<div class="sub-loading">No suggestions found.</div>';
+        <div class="sub-name">${s.name}</div>
+        <div class="sub-meta">
+          ${s.currentPrice != null ? `<span class="sub-price">${fmt$(s.currentPrice)}</span>` : '<span class="sub-no-price">price unavailable</span>'}
+          ${s.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
+        </div>
+      </div>`).join('');
   } catch {
     document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Could not reach AI. Try again.</div>';
   }

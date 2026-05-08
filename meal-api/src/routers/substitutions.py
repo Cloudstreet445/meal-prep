@@ -1,14 +1,62 @@
-"""Ingredient substitution suggestions via Claude."""
+"""Ingredient substitution suggestions — static map + live pricing lookup."""
 
-import os
-import json
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
-from anthropic import Anthropic
 from ..database import get_pricing_db
 
 router = APIRouter()
+
+# Substitution map: normalised keyword → list of search terms for the pricing DB
+_SUBS: dict[str, list[str]] = {
+    # Proteins
+    "pork":           ["chicken thigh", "beef mince", "tofu firm", "lamb mince"],
+    "chicken breast": ["chicken thigh", "pork loin", "turkey breast", "tofu firm"],
+    "chicken thigh":  ["chicken breast", "pork shoulder", "beef chuck"],
+    "chicken":        ["chicken thigh", "pork mince", "beef mince", "tofu firm"],
+    "beef":           ["pork mince", "chicken mince", "lamb mince", "lentils"],
+    "lamb":           ["beef mince", "pork mince", "chicken thigh"],
+    "mince":          ["chicken mince", "pork mince", "beef mince", "lentils"],
+    "steak":          ["pork loin", "chicken breast", "lamb chop"],
+    "bacon":          ["chicken breast", "pork belly", "turkey bacon"],
+    "sausage":        ["chicken sausage", "pork mince", "beef mince"],
+    "tofu":           ["chicken breast", "chickpeas", "paneer", "tempeh"],
+    "salmon":         ["chicken thigh", "pork loin", "tofu firm"],
+    # Dairy
+    "cream":          ["coconut cream", "sour cream", "greek yoghurt"],
+    "butter":         ["olive oil", "coconut oil", "margarine"],
+    "cheese":         ["feta cheese", "cheddar cheese", "parmesan"],
+    "milk":           ["oat milk", "coconut milk", "soy milk"],
+    # Veg
+    "broccoli":       ["cauliflower", "broccolini", "green beans"],
+    "capsicum":       ["courgette", "celery", "carrot"],
+    "courgette":      ["capsicum", "eggplant", "zucchini"],
+    "potato":         ["kumara", "pumpkin", "cauliflower"],
+    "kumara":         ["potato", "pumpkin", "parsnip"],
+    "spinach":        ["kale", "silverbeet", "bok choy"],
+    # Pantry
+    "pasta":          ["rice", "noodles", "couscous", "quinoa"],
+    "rice":           ["pasta", "couscous", "quinoa", "noodles"],
+    "noodles":        ["pasta", "rice", "vermicelli"],
+    "flour":          ["almond flour", "cornflour", "breadcrumbs"],
+    "olive oil":      ["vegetable oil", "coconut oil", "canola oil"],
+    "soy sauce":      ["tamari", "fish sauce", "coconut aminos"],
+    "stock":          ["vegetable stock", "chicken stock", "beef stock"],
+}
+
+# Resolve a raw ingredient name to the best substitution key
+def _match_key(name: str) -> str | None:
+    n = name.lower()
+    # Exact key match first
+    if n in _SUBS:
+        return n
+    # Longest keyword that appears in the ingredient name
+    best = None
+    for key in sorted(_SUBS, key=len, reverse=True):
+        if key in n:
+            best = key
+            break
+    return best
 
 
 class SubstituteRequest(BaseModel):
@@ -18,15 +66,17 @@ class SubstituteRequest(BaseModel):
 
 @router.post("/suggest")
 def suggest_substitutes(body: SubstituteRequest):
-    """Return 2-3 AI-suggested substitutes for an ingredient, with price context."""
+    """Return substitute options with live prices from the pricing DB."""
     pricing_db = get_pricing_db()
 
-    # Look up current price for the ingredient to give Claude useful context
-    words = [w for w in re.split(r'\W+', body.ingredient.lower()) if len(w) > 2]
-    matched_product = None
-    price_context = ""
+    key = _match_key(body.ingredient)
+    search_terms = _SUBS.get(key, []) if key else []
 
-    if words:
+    suggestions = []
+    for term in search_terms:
+        words = [w for w in re.split(r'\W+', term.lower()) if len(w) > 2]
+        if not words:
+            continue
         product = pricing_db["products"].find_one(
             {
                 "$text": {"$search": " ".join(words[:3])},
@@ -35,49 +85,28 @@ def suggest_substitutes(body: SubstituteRequest):
             {
                 "name": 1,
                 f"storePrice.{body.store_id}.currentPrice": 1,
+                f"storePrice.{body.store_id}.isSpecial": 1,
             }
         )
         if product:
-            matched_product = product.get("name")
             store_data = product.get("storePrice", {}).get(body.store_id, {})
-            price = store_data.get("currentPrice")
-            if price:
-                price_context = f" (currently ${price:.2f} at PAK'nSave)"
-
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="AI substitutions not configured")
-
-    client = Anthropic(api_key=api_key)
-
-    prompt = f"""Ingredient: {body.ingredient}{price_context}
-
-Suggest 2-3 practical alternatives that could substitute this in a typical weeknight dinner recipe in New Zealand. Prefer cheaper cuts or budget options where relevant.
-
-Respond ONLY with a valid JSON array, no markdown:
-[
-  {{"name": "chicken thigh", "reason": "Cheaper cut, same flavour when slow-cooked", "estimatedPrice": 4.99}},
-  ...
-]"""
-
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=400,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    raw = response.content[0].text.strip()
-    raw = re.sub(r'^```json\s*', '', raw, flags=re.MULTILINE)
-    raw = re.sub(r'^```\s*', '', raw, flags=re.MULTILINE)
-    raw = raw.strip().strip('`')
-
-    try:
-        suggestions = json.loads(raw)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=502, detail="Could not parse AI response")
+            suggestions.append({
+                "name": product["name"],
+                "searchTerm": term,
+                "currentPrice": store_data.get("currentPrice"),
+                "isSpecial": store_data.get("isSpecial", False),
+            })
+        else:
+            # Include without price if not in DB — still useful
+            suggestions.append({
+                "name": term.title(),
+                "searchTerm": term,
+                "currentPrice": None,
+                "isSpecial": False,
+            })
 
     return {
         "ingredient": body.ingredient,
-        "matchedProduct": matched_product,
+        "matchedKey": key,
         "suggestions": suggestions,
     }
