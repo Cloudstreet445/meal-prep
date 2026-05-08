@@ -109,13 +109,13 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation
 }"""
 
 
-def call1_analyse(market_data: MarketData) -> dict:
+def call1_analyse(market_data: MarketData, budget: float = BUDGET, serves: int = SERVES) -> dict:
     """Call 1: Analyse market data into a clean summary."""
     print("  [1/4] Analysing market data...")
 
     data = market_data.to_dict()
     prompt = f"""Analyse this week's Pak'nSave Lower Hutt pricing data.
-Budget: ${BUDGET} NZD for 5 dinners for {SERVES} people.
+Budget: ${budget} NZD for 5 dinners for {serves} people.
 
 PROTEINS ON SPECIAL:
 {json.dumps(data['proteins_on_special'], indent=2)}
@@ -189,11 +189,13 @@ Respond ONLY with a valid JSON array. No markdown, no backticks, no explanation.
 ]"""
 
 
-def call2_plan_meals(market_summary: dict) -> list:
+def call2_plan_meals(market_summary: dict, budget: float = BUDGET, serves: int = SERVES, exclusions: list = None) -> list:
     """Call 2: Plan 5 meals from the market summary."""
     print("  [2/4] Planning 5 meals...")
 
-    prompt = f"""Plan 5 winter dinners for {SERVES} people within a ${BUDGET} NZD total budget.
+    excl_note = f"\nAdditional exclusions (skip these): {', '.join(exclusions)}" if exclusions else ""
+
+    prompt = f"""Plan 5 winter dinners for {serves} people within a ${budget} NZD total budget.
 
 Available this week:
 {json.dumps(market_summary, indent=2)}
@@ -201,10 +203,10 @@ Available this week:
 Requirements:
 - Use proteins from bestProteins list only
 - Use vegetables from bestVegetables list only
-- Total of all estimatedMealCost must be under ${BUDGET}
+- Total of all estimatedMealCost must be under ${budget}
 - Meals should be hearty winter food
 - Maximise shared ingredients to reduce waste
-- At least 2 meals should produce leftovers"""
+- At least 2 meals should produce leftovers{excl_note}"""
 
     client = _client()
     raw = _call(client, SYSTEM_2, prompt, max_tokens=2000)
@@ -352,6 +354,7 @@ RECIPES:
 def generate_meal_plan(market_data: MarketData) -> dict:
     """
     Run the full 4-call pipeline and return a complete meal plan.
+    Budget, serves, and exclusions are read from the DB settings collection at run time.
 
     Returns:
         {
@@ -361,10 +364,16 @@ def generate_meal_plan(market_data: MarketData) -> dict:
             "shoppingList": [...]  # from call 4 — usedIn uses M1/M2 IDs
         }
     """
-    print("\n🤖 Running 4-call meal planning pipeline...")
+    from db.mongodb import get_settings
+    s          = get_settings()
+    budget     = s["budget"]
+    serves     = s["serves"]
+    exclusions = s["exclusions"]
 
-    market_summary = call1_analyse(market_data)
-    meal_plan      = call2_plan_meals(market_summary)
+    print(f"\n🤖 Running 4-call pipeline (budget=${budget}, serves={serves}, exclusions={exclusions})...")
+
+    market_summary = call1_analyse(market_data, budget=budget, serves=serves)
+    meal_plan      = call2_plan_meals(market_summary, budget=budget, serves=serves, exclusions=exclusions)
     recipes        = call3_generate_recipes(meal_plan, market_summary)
     shopping       = call4_shopping_list(recipes)
 
@@ -378,7 +387,7 @@ def generate_meal_plan(market_data: MarketData) -> dict:
     with open(RESPONSE_JSON, "w") as f:
         json.dump(final, f, indent=2)
     print(f"\n✅ Pipeline complete — saved to {RESPONSE_JSON}")
-    print(f"   Total: ${final['estimatedTotal']:.2f} / ${BUDGET:.2f} budget")
+    print(f"   Total: ${final['estimatedTotal']:.2f} / ${budget:.2f} budget")
 
     return final
 

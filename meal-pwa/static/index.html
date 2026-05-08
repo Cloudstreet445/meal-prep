@@ -28,6 +28,7 @@
         <button class="bundle-btn" id="bundle-switcher-btn" style="display:none" onclick="openBundleSheet()">
           ↕ Weekly Plans
         </button>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
         <div class="budget-pill" id="budget-pill">—</div>
       </div>
     </div>
@@ -123,6 +124,40 @@
     </div>
 
   </main>
+</div>
+
+<!-- Settings Sheet -->
+<div class="sheet-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
+<div class="bottom-sheet" id="settings-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Settings</div>
+  <div class="sheet-content">
+    <div class="settings-section">
+      <div class="settings-label">Weekly Budget</div>
+      <div class="settings-input-row">
+        <span class="settings-affix">$</span>
+        <input type="number" id="settings-budget" class="settings-num-input" min="20" max="500" step="5">
+        <span class="settings-affix">NZD</span>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">Household Size</div>
+      <div class="settings-input-row">
+        <input type="number" id="settings-serves" class="settings-num-input" min="1" max="10" step="1">
+        <span class="settings-affix">people</span>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">Ingredient Exclusions</div>
+      <div class="settings-hint">These will be skipped when generating new plans</div>
+      <div class="settings-exclusion-tags" id="settings-exclusion-tags"></div>
+      <div class="settings-exclusion-add">
+        <input type="text" id="settings-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom">
+        <button class="settings-add-btn" id="settings-exclusion-btn">+</button>
+      </div>
+    </div>
+    <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
+  </div>
 </div>
 
 <!-- Bundle Switcher Sheet -->

@@ -31,6 +31,7 @@ let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
+let settings      = { budget: 60, serves: 2, exclusions: [] };
 
 // ── Fetch helpers ───────────────────────────────────────────────
 async function apiFetch(path) {
@@ -41,11 +42,11 @@ async function apiFetch(path) {
   return res.json();
 }
 
-async function apiPost(path, body = null) {
+async function apiPost(path, body = null, method = 'POST') {
   const url = `${API}${path}`;
-  log('FETCH', `POST ${url}`);
-  const opts = { method: 'POST' };
-  if (body) {
+  log('FETCH', `${method} ${url}`);
+  const opts = { method };
+  if (body !== null) {
     opts.headers = { 'Content-Type': 'application/json' };
     opts.body = JSON.stringify(body);
   }
@@ -103,7 +104,7 @@ async function loadWeek() {
     log('WEEK', 'Bundle loaded', { week: currentWeek, recipes: plan.recipes?.length });
 
     document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
-    document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / $60`;
+    document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
     document.getElementById('bundle-switcher-btn').style.display = 'flex';
 
     document.getElementById('week-summary').innerHTML = `
@@ -118,7 +119,7 @@ async function loadWeek() {
           <div class="stat-label">Est. spend</div>
         </div>
         <div class="stat">
-          <div class="stat-val">${fmt$(60 - plan.estimatedTotal)}</div>
+          <div class="stat-val">${fmt$(settings.budget - plan.estimatedTotal)}</div>
           <div class="stat-label">Under budget</div>
         </div>
       </div>`;
@@ -198,6 +199,7 @@ function renderShoppingItems(items, storeKey) {
           <div class="item-name">
             ${item.name}
             ${item.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
+            ${item.dealStrength > 0 ? `<span class="item-deal">↓${item.dealStrength}% vs avg</span>` : ''}
             ${shared}
           </div>
           <div class="item-sub">${item.amount}${usedIn ? ' · ' + usedIn : ''}</div>
@@ -611,6 +613,92 @@ document.getElementById('rating-down').onclick  = () => submitRating(-1);
 document.getElementById('rating-skip').onclick  = () => closeRatingOverlay();
 
 // ══════════════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════════════
+
+async function loadSettings() {
+  try {
+    settings = await apiFetch('/settings/');
+    log('SETTINGS', 'Loaded', settings);
+  } catch (e) {
+    log('SETTINGS', 'Could not load settings, using defaults', { error: e.message });
+  }
+}
+
+function openSettings() {
+  document.getElementById('settings-budget').value  = settings.budget;
+  document.getElementById('settings-serves').value  = settings.serves;
+  renderExclusionTags();
+  document.getElementById('settings-backdrop').classList.add('active');
+  document.getElementById('settings-sheet').classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('settings-backdrop').classList.remove('active');
+  document.getElementById('settings-sheet').classList.remove('active');
+}
+
+function renderExclusionTags() {
+  const tags = document.getElementById('settings-exclusion-tags');
+  tags.innerHTML = (settings.exclusions || []).map((ex, i) => `
+    <span class="excl-tag">
+      ${ex}
+      <span class="excl-tag-remove" onclick="removeExclusion(${i})">✕</span>
+    </span>`).join('');
+}
+
+function removeExclusion(i) {
+  settings.exclusions = settings.exclusions.filter((_, idx) => idx !== i);
+  renderExclusionTags();
+}
+
+function addExclusion() {
+  const input = document.getElementById('settings-exclusion-input');
+  const val   = input.value.trim().toLowerCase();
+  if (!val || (settings.exclusions || []).includes(val)) { input.value = ''; return; }
+  settings.exclusions = [...(settings.exclusions || []), val];
+  input.value = '';
+  renderExclusionTags();
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('settings-save-btn');
+  const budget = parseFloat(document.getElementById('settings-budget').value);
+  const serves = parseInt(document.getElementById('settings-serves').value, 10);
+
+  if (!budget || budget < 20) { alert('Please enter a valid budget (minimum $20).'); return; }
+  if (!serves || serves < 1)  { alert('Please enter a valid household size.'); return; }
+
+  btn.textContent = 'Saving...';
+  btn.disabled    = true;
+
+  try {
+    settings = await apiPost('/settings/', { budget, serves, exclusions: settings.exclusions || [] }, 'PUT');
+    closeSettings();
+    // Refresh budget pill if a plan is loaded
+    if (plan) {
+      document.getElementById('budget-pill').textContent =
+        `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
+    }
+    log('SETTINGS', 'Saved', settings);
+  } catch (e) {
+    log('SETTINGS', 'Error saving', { error: e.message });
+    alert('Could not save settings. Please try again.');
+  } finally {
+    btn.textContent = 'Save Settings';
+    btn.disabled    = false;
+  }
+}
+
+document.getElementById('settings-save-btn').onclick = saveSettings;
+
+document.getElementById('settings-exclusion-btn').onclick = addExclusion;
+
+document.getElementById('settings-exclusion-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addExclusion();
+});
+
+// ══════════════════════════════════════════════════════════════
 // CUSTOM BUNDLE BUILDER
 // ══════════════════════════════════════════════════════════════
 
@@ -756,6 +844,7 @@ document.getElementById('picker-search-input').addEventListener('input', e => {
 
 // ── Init ────────────────────────────────────────────────────────
 (async () => {
+  await loadSettings();
   await loadWeek();
   loadRecipes();
   loadShopping();

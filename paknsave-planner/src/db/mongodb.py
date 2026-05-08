@@ -178,6 +178,22 @@ def store_bundle(plan: dict, week_id: str, recipe_ids: list[str]) -> str:
     return bundle_id
 
 
+def get_settings() -> dict:
+    """Read household settings from DB, falling back to config defaults."""
+    from config import BUDGET, SERVES, EXCLUDE_KEYS
+    try:
+        doc = _client[MEALS_DB]["settings"].find_one({"key": "default"})
+        if doc:
+            return {
+                "budget":     float(doc.get("budget", BUDGET)),
+                "serves":     int(doc.get("serves", SERVES)),
+                "exclusions": list(doc.get("exclusions", EXCLUDE_KEYS)),
+            }
+    except Exception:
+        pass
+    return {"budget": BUDGET, "serves": SERVES, "exclusions": list(EXCLUDE_KEYS)}
+
+
 def get_latest_active_bundle() -> dict:
     """Get the active bundle for the most recent week."""
     latest_week = _client[MEALS_DB]["bundles"].find_one(

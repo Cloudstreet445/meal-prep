@@ -57,7 +57,12 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
             "name": {"$regex": pattern, "$options": "i"},
             f"storePrice.{store_id}": {"$exists": True},
         },
-        {"name": 1, f"storePrice.{store_id}.currentPrice": 1, f"storePrice.{store_id}.isSpecial": 1}
+        {
+            "name": 1,
+            f"storePrice.{store_id}.currentPrice": 1,
+            f"storePrice.{store_id}.isSpecial": 1,
+            "avgPrice90d": 1,
+        }
     )
 
     if product:
@@ -65,6 +70,13 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
         item["isSpecial"]      = store_data.get("isSpecial", False)
         item["currentPrice"]   = store_data.get("currentPrice")
         item["matchedProduct"] = product.get("name")
+
+        avg     = product.get("avgPrice90d")
+        current = item["currentPrice"]
+        if item["isSpecial"] and avg and current and avg > 0:
+            pct = round((1 - current / avg) * 100)
+            if pct > 0:
+                item["dealStrength"] = pct
 
     return item
 

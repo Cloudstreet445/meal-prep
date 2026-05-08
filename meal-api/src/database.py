@@ -19,6 +19,7 @@ def _ensure_indexes():
         db["recipes"].create_index("recipeId", unique=True)
         db["bundles"].create_index("bundleId", unique=True)
         db["bundles"].create_index([("week", 1), ("active", 1)])
+        db["settings"].create_index("key", unique=True)
     except Exception:
         pass
 
