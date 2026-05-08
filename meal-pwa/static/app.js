@@ -1,3 +1,27 @@
+// ── Theme ───────────────────────────────────────────────────────
+(function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.dataset.theme = saved;
+  const isDark = saved ? saved === 'dark'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = isDark ? '☀' : '☾';
+  const meta = document.getElementById('theme-color-meta');
+  if (meta) meta.content = isDark ? '#0d1117' : '#f8fafc';
+})();
+
+function toggleTheme() {
+  const current = document.documentElement.dataset.theme
+    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('theme', next);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = next === 'dark' ? '☀' : '☾';
+  const meta = document.getElementById('theme-color-meta');
+  if (meta) meta.content = next === 'dark' ? '#0d1117' : '#f8fafc';
+}
+
 // ── Logging utility ──────────────────────────────────────────────
 function log(section, message, data = null) {
   const timestamp = new Date().toISOString();
@@ -28,7 +52,9 @@ let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
-let settings      = { budget: 60, serves: 2, exclusions: [], storeId: 'paknsave-lower-hutt' };
+const DEFAULT_STORE = 'paknsave-lower-hutt';
+
+let settings      = { budget: 60, serves: 2, exclusions: [], storeId: DEFAULT_STORE };
 let availableStores = [];
 
 const STORE_NAMES = {
@@ -41,6 +67,8 @@ const STORE_NAMES = {
 let pantry        = []; // [{name, canonical}] — localStorage only
 
 // ── Cooking terms glossary ───────────────────────────────────
+// Note: 'mince' is intentionally excluded — in NZ/AU it means ground meat (an ingredient),
+// not the cutting technique, so highlighting it would confuse recipe readers.
 const COOKING_TERMS = {
   'sauté':       'Cook quickly in a small amount of hot fat over medium-high heat, stirring frequently.',
   'saute':       'Cook quickly in a small amount of hot fat over medium-high heat, stirring frequently.',
@@ -52,7 +80,6 @@ const COOKING_TERMS = {
   'sear':        'Cook over very high heat for a short time to create a browned crust. Adds flavour and colour; does not "seal in" juices.',
   'julienne':    'Cut into thin, uniform matchstick strips — typically 3mm wide and 5–6cm long.',
   'dice':        'Cut into uniform cubes. Fine dice ≈6mm, medium ≈12mm, large ≈20mm.',
-  'mince':       'Chop into very fine, irregular pieces — smaller than a fine dice. Common for garlic, herbs, and ginger.',
   'sweat':       'Cook slowly in fat over low heat without browning. Softens vegetables and releases moisture and sweetness.',
   'reduce':      'Boil a liquid until some evaporates, concentrating the flavour and thickening the sauce.',
   'emulsify':    'Combine two liquids that don\'t normally mix (like oil and water) into a stable, creamy mixture — e.g. making a vinaigrette or hollandaise.',
@@ -177,6 +204,12 @@ async function loadWeek() {
     currentWeek = plan.week;
     log('WEEK', 'Bundle loaded', { week: currentWeek, recipes: plan.recipes?.length });
 
+    const lastBundleId = localStorage.getItem('lastSeenBundleId');
+    if (lastBundleId && plan.bundleId && plan.bundleId !== lastBundleId) {
+      notifyNewPlan(plan);
+    }
+    if (plan.bundleId) localStorage.setItem('lastSeenBundleId', plan.bundleId);
+
     document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
     document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
     document.getElementById('bundle-switcher-btn').style.display = 'flex';
@@ -229,7 +262,7 @@ async function loadWeek() {
 async function loadShopping() {
   try {
     log('SHOPPING', 'Loading...');
-    const storeParam = settings.storeId || 'paknsave-lower-hutt';
+    const storeParam = settings.storeId || DEFAULT_STORE;
     const data  = await apiFetch(`/shopping/latest?store_id=${storeParam}`);
     const items = data.shoppingList || [];
 
@@ -584,7 +617,7 @@ async function suggestSubstitute(ingredientName, e) {
     const data = await fetch(`${API}/substitutions/suggest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ingredient: ingredientName, store_id: settings.storeId || 'paknsave-lower-hutt' }),
+      body: JSON.stringify({ ingredient: ingredientName, store_id: settings.storeId || DEFAULT_STORE }),
     }).then(r => r.json());
 
     const suggestions = data.suggestions || [];
@@ -601,7 +634,7 @@ async function suggestSubstitute(ingredientName, e) {
         </div>
       </div>`).join('');
   } catch {
-    document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Could not reach AI. Try again.</div>';
+    document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Could not load suggestions. Try again.</div>';
   }
 }
 
@@ -829,7 +862,7 @@ async function loadSettings() {
     availableStores = await apiFetch('/settings/stores');
     log('SETTINGS', 'Stores loaded', { count: availableStores.length });
   } catch (e) {
-    availableStores = [settings.storeId || 'paknsave-lower-hutt'];
+    availableStores = [settings.storeId || DEFAULT_STORE];
   }
 }
 
@@ -841,7 +874,7 @@ function storeName(id) {
 function renderStoreSelector() {
   const container = document.getElementById('settings-store-options');
   if (!container) return;
-  const current = settings.storeId || 'paknsave-lower-hutt';
+  const current = settings.storeId || DEFAULT_STORE;
   const stores = availableStores.length ? availableStores : [current];
   container.innerHTML = stores.map(id => `
     <div class="store-option ${id === current ? 'active' : ''}" onclick="selectStore('${id}')">
@@ -905,7 +938,7 @@ async function saveSettings() {
   btn.disabled    = true;
 
   try {
-    settings = await apiPost('/settings/', { budget, serves, exclusions: settings.exclusions || [], storeId: settings.storeId || 'paknsave-lower-hutt' }, 'PUT');
+    settings = await apiPost('/settings/', { budget, serves, exclusions: settings.exclusions || [], storeId: settings.storeId || DEFAULT_STORE }, 'PUT');
     closeSettings();
     // Refresh budget pill if a plan is loaded
     if (plan) {
@@ -1140,6 +1173,80 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();  return; }
 });
 
+// ── Plan generation ──────────────────────────────────────────────
+
+async function generatePlan() {
+  const btn    = document.getElementById('generate-btn');
+  const status = document.getElementById('generate-status');
+
+  btn.disabled    = true;
+  btn.textContent = 'Generating...';
+  status.style.display = 'block';
+  status.textContent   = 'Calling Claude — this takes about 30 seconds...';
+
+  try {
+    const result = await apiPost('/plan/generate');
+    status.textContent = `Plan ready — ${result.recipeCount} meals, est. $${result.estimatedTotal?.toFixed(2)}`;
+    notifyNewPlan({ week: result.week, bundleId: result.bundleId });
+    await loadWeek();
+    await loadShopping();
+  } catch (e) {
+    status.textContent = 'Generation failed — is the planner service running?';
+    log('GENERATE', 'Error', { error: e.message });
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Generate new plan';
+    setTimeout(() => { status.style.display = 'none'; }, 6000);
+  }
+}
+
+// ── Notifications ────────────────────────────────────────────────
+
+function notifyNewPlan(plan) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  new Notification('New meal plan ready', {
+    body: `Your plan for week of ${fmtWeek(plan.week)} is ready.`,
+    icon: '/icon-192.png',
+  });
+}
+
+function showNotificationBanner() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'default') return;
+  if (localStorage.getItem('notifPromptDismissed')) return;
+  const banner = document.getElementById('notification-banner');
+  if (banner) banner.style.display = 'flex';
+}
+
+async function requestNotificationPermission() {
+  dismissNotificationBanner();
+  const result = await Notification.requestPermission();
+  log('NOTIFICATIONS', 'Permission', { result });
+}
+
+function dismissNotificationBanner() {
+  const banner = document.getElementById('notification-banner');
+  if (banner) banner.style.display = 'none';
+  localStorage.setItem('notifPromptDismissed', '1');
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    log('SW', 'Registered', { scope: reg.scope });
+    if ('periodicSync' in reg) {
+      const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+      if (status.state === 'granted') {
+        await reg.periodicSync.register('check-new-bundle', { minInterval: 6 * 60 * 60 * 1000 });
+        log('SW', 'Periodic sync registered');
+      }
+    }
+  } catch (e) {
+    log('SW', 'Registration failed', { error: e.message });
+  }
+}
+
 // ── Init ────────────────────────────────────────────────────────
 (async () => {
   loadPantry();
@@ -1147,4 +1254,6 @@ document.addEventListener('keydown', e => {
   await loadWeek();
   loadRecipes();
   loadShopping();
+  registerServiceWorker();
+  showNotificationBanner();
 })();

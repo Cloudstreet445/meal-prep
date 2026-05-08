@@ -4,6 +4,7 @@ import re
 from fastapi import APIRouter
 from pydantic import BaseModel
 from ..database import get_pricing_db
+from .settings import DEFAULT_STORE_ID
 
 router = APIRouter()
 
@@ -61,7 +62,7 @@ def _match_key(name: str) -> str | None:
 
 class SubstituteRequest(BaseModel):
     ingredient: str
-    store_id: str = "paknsave-lower-hutt"
+    store_id: str = DEFAULT_STORE_ID
 
 
 @router.post("/suggest")
@@ -77,9 +78,10 @@ def suggest_substitutes(body: SubstituteRequest):
         words = [w for w in re.split(r'\W+', term.lower()) if len(w) > 2]
         if not words:
             continue
+        name_pattern = re.compile(words[0], re.IGNORECASE)
         product = pricing_db["products"].find_one(
             {
-                "$text": {"$search": " ".join(words[:3])},
+                "name": name_pattern,
                 f"storePrice.{body.store_id}": {"$exists": True},
             },
             {

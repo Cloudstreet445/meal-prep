@@ -28,7 +28,6 @@ def _ensure_indexes():
         db["settings"].create_index("key", unique=True)
         pricing_db = _client[PRICING_DB]
         pricing_db["products"].create_index("category")
-        pricing_db["products"].create_index([("name", "text")])
     except Exception:
         pass
 

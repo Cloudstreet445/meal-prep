@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#0f1410" />
+  <meta name="theme-color" content="#0d1117" id="theme-color-meta" />
   <title>Kai Planner - Your Personal Meal Planner</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,11 +28,19 @@
         <button class="bundle-btn" id="bundle-switcher-btn" style="display:none" onclick="openBundleSheet()">
           ↕ Weekly Plans
         </button>
+        <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
         <div class="budget-pill" id="budget-pill">—</div>
       </div>
     </div>
   </header>
+
+  <!-- Notification permission banner -->
+  <div id="notification-banner" style="display:none">
+    <span class="notif-banner-text">Get notified when your plan is ready</span>
+    <button class="notif-banner-allow" onclick="requestNotificationPermission()">Allow</button>
+    <button class="notif-banner-dismiss" onclick="dismissNotificationBanner()">✕</button>
+  </div>
 
   <!-- Nav -->
   <nav>
@@ -57,7 +65,11 @@
       </div>
       <div id="week-content" style="display:none">
         <div class="week-summary" id="week-summary"></div>
-        <div class="section-label">This week's dinners</div>
+        <div class="section-label-row">
+          <span class="section-label">This week's dinners</span>
+          <button class="generate-btn" id="generate-btn" onclick="generatePlan()">Generate new plan</button>
+        </div>
+        <div id="generate-status" class="generate-status" style="display:none"></div>
         <div id="meal-cards"></div>
       </div>
     </div>

@@ -4,8 +4,8 @@
   "description": "Weekly meal planner powered by Pak'nSave pricing",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f1410",
-  "theme_color": "#0f1410",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
   "orientation": "portrait",
   "icons": [
     {

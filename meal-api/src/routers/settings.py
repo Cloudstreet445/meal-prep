@@ -7,7 +7,8 @@ from ..database import get_db, get_pricing_db
 
 router = APIRouter()
 
-_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "storeId": "paknsave-lower-hutt"}
+DEFAULT_STORE_ID = "paknsave-lower-hutt"
+_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "storeId": DEFAULT_STORE_ID}
 
 
 class SettingsIn(BaseModel):

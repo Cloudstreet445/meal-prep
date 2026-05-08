@@ -28,7 +28,6 @@ def _ensure_indexes():
         db["bundles"].create_index([("week", -1), ("createdAt", -1)])
         pricing_db = _client[os.environ.get("PRICING_DB", "paknsave-pricing")]
         pricing_db["products"].create_index("category")
-        pricing_db["products"].create_index([("name", "text")])
     except Exception:
         pass
 

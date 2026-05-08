@@ -51,9 +51,10 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     if not words:
         return item
 
+    name_pattern = re.compile(words[0], re.IGNORECASE)
     product = pricing_db["products"].find_one(
         {
-            "$text": {"$search": " ".join(words[:3])},
+            "name": name_pattern,
             f"storePrice.{store_id}": {"$exists": True},
         },
         {
