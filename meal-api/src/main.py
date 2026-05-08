@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import bundles, recipes, shopping, plans, settings
+from .routers import bundles, recipes, shopping, plans, settings, substitutions
 import time
 
 app = FastAPI(
@@ -32,7 +32,8 @@ app.include_router(bundles.router,  prefix="/api/bundle",   tags=["Bundles"])
 app.include_router(recipes.router,  prefix="/api/recipes",  tags=["Recipes"])
 app.include_router(shopping.router, prefix="/api/shopping", tags=["Shopping"])
 app.include_router(plans.router,    prefix="/api/plan",     tags=["Plans (legacy)"])
-app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(settings.router,       prefix="/api/settings",       tags=["Settings"])
+app.include_router(substitutions.router,  prefix="/api/substitutions",  tags=["Substitutions"])
 
 
 @app.get("/health")

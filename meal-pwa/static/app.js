@@ -282,6 +282,7 @@ function renderShoppingItems(items, storeKey) {
           <div class="item-sub">${item.amount}${usedIn ? ' · ' + usedIn : ''}</div>
         </div>
         <div class="item-price">${item.estimatedCost != null ? fmt$(item.estimatedCost) : '—'}</div>
+        ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
       </div>`;
   }).join('');
 }
@@ -565,6 +566,43 @@ document.addEventListener('click', e => {
   if (term) { showTermTooltip(term.dataset.term); return; }
   if (!e.target.closest('#term-tooltip')) closeTermTooltip();
 });
+
+// ══════════════════════════════════════════════════════════════
+// INGREDIENT SUBSTITUTIONS
+// ══════════════════════════════════════════════════════════════
+
+let _subIngredient = null;
+
+async function suggestSubstitute(ingredientName, e) {
+  e.stopPropagation();
+  _subIngredient = ingredientName;
+  document.getElementById('sub-ingredient-name').textContent = ingredientName;
+  document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Thinking…</div>';
+  document.getElementById('sub-overlay').classList.add('active');
+
+  try {
+    const data = await fetch(`${API}/substitutions/suggest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ingredient: ingredientName, store_id: settings.storeId || 'paknsave-lower-hutt' }),
+    }).then(r => r.json());
+
+    document.getElementById('sub-results').innerHTML = (data.suggestions || []).map(s => `
+      <div class="sub-card">
+        <div class="sub-name">${s.name}${s.estimatedPrice ? ` <span class="sub-price">${fmt$(s.estimatedPrice)}</span>` : ''}</div>
+        <div class="sub-reason">${s.reason}</div>
+      </div>`).join('') || '<div class="sub-loading">No suggestions found.</div>';
+  } catch {
+    document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Could not reach AI. Try again.</div>';
+  }
+}
+
+function closeSubOverlay() {
+  document.getElementById('sub-overlay').classList.remove('active');
+}
+
+document.getElementById('sub-close').onclick = closeSubOverlay;
+document.getElementById('sub-backdrop').onclick = closeSubOverlay;
 
 // ══════════════════════════════════════════════════════════════
 // BUNDLE SWITCHER
