@@ -96,3 +96,18 @@ class TestGetLatestShopping:
         data = resp.json()
         assert data["shoppingList"] == []
         assert data["estimatedTotal"] == 0.0
+
+    def test_scraped_at_included_when_products_exist(self, client, meals_db, pricing_db):
+        meals_db["bundles"].insert_one(dict(BUNDLE))
+        pricing_db["products"].insert_one({"name": "Chicken", "lastChecked": "2026-05-09"})
+
+        resp = client.get("/api/shopping/latest")
+        assert resp.status_code == 200
+        assert resp.json()["scrapedAt"] == "2026-05-09"
+
+    def test_scraped_at_is_none_when_no_products(self, client, meals_db):
+        meals_db["bundles"].insert_one(dict(BUNDLE))
+
+        resp = client.get("/api/shopping/latest")
+        assert resp.status_code == 200
+        assert resp.json()["scrapedAt"] is None

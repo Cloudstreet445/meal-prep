@@ -26,6 +26,8 @@ def _ensure_indexes():
         # Index to support aggregation pipeline initial sort
         db["bundles"].create_index([("week", -1), ("createdAt", -1)])
         db["settings"].create_index("key", unique=True)
+        db["enhancements"].create_index("enhancementId", unique=True)
+        db["enhancements"].create_index("tags")
         pricing_db = _client[PRICING_DB]
         pricing_db["products"].create_index("category")
     except Exception:

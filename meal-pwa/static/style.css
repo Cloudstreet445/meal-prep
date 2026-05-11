@@ -150,6 +150,21 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* On very small screens, hide the budget pill from the header (it shows in week view) */
+@media (max-width: 360px) {
+  .header-actions .budget-pill { display: none; }
+  .bundle-btn { padding: 6px 8px; }
 }
 
 .logo {
@@ -946,6 +961,69 @@ main {
 .cook-btn:active { transform: scale(0.97); }
 .cook-btn:disabled { opacity: 0.3; }
 
+.enhance-btn {
+  width: 100%;
+  padding: 13px 16px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  margin-top: 16px;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--dur-normal) var(--ease), color var(--dur-normal) var(--ease);
+}
+.enhance-btn:active,
+.enhance-btn:hover { border-color: var(--green); color: var(--green); }
+
+/* ── Enhancement cards ────────────────────────────────────── */
+.enhance-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.enhance-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.enhance-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.enhance-cost {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--green);
+}
+.enhance-desc {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.enhance-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.enhance-tag {
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--text-muted);
+}
+
 .start-cooking-btn {
   width: 100%;
   padding: 16px;
@@ -1479,8 +1557,9 @@ main {
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: 15px;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1909,6 +1988,51 @@ main {
   cursor: pointer;
   padding: 4px;
   flex-shrink: 0;
+}
+
+/* ── Toast notification ───────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: var(--text-sm);
+  font-family: 'DM Mono', monospace;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 200;
+  transition: opacity var(--dur-normal) var(--ease), transform var(--dur-normal) var(--ease);
+}
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Improved bundle active tag ───────────────────────────── */
+.tag-active {
+  background: var(--green-glow);
+  color: var(--green);
+  border-color: var(--green-dim);
+  font-weight: 600;
+}
+
+/* ── Mobile layout — notification banner wrapping ──────────── */
+.notif-banner-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Ensure generate-status text wraps ─────────────────────── */
+.generate-status {
+  word-break: break-word;
 }
 
 /* ── Focus states ─────────────────────────────────────────── */

@@ -24,10 +24,8 @@
         <div class="logo">Kai <span>Planner __VERSION__</span></div>
         <div class="week-badge" id="week-badge">Loading...</div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="bundle-btn" id="bundle-switcher-btn" onclick="openBundleSheet()">
-          ↕ Weekly Plans
-        </button>
+      <div class="header-actions">
+        <button class="bundle-btn" id="bundle-switcher-btn" onclick="openBundleSheet()">↕ Plans</button>
         <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
         <div class="budget-pill" id="budget-pill">—</div>
@@ -142,6 +140,7 @@
         <div class="section-label" id="method-label">Method</div>
         <ol class="recipe-method" id="detail-method"></ol>
         <div class="recipe-detail-rating" id="detail-rating"></div>
+        <button class="enhance-btn" id="enhance-btn" onclick="openEnhancements()">✨ Enhance this meal</button>
         <button class="start-cooking-btn" id="start-cooking-btn">Start Cooking →</button>
       </div>
     </div>
@@ -286,6 +285,16 @@
   <div class="sub-results" id="sub-results"></div>
 </div>
 
+<!-- Enhancements Sheet -->
+<div class="sheet-backdrop" id="enhance-backdrop" onclick="closeEnhancements()"></div>
+<div class="bottom-sheet" id="enhance-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">✨ Enhance this meal</div>
+  <div class="sheet-content" id="enhance-content">
+    <div class="sub-loading">Loading enhancements…</div>
+  </div>
+</div>
+
 <!-- Cooking Term Tooltip -->
 <div class="term-tooltip" id="term-tooltip">
   <div class="term-tooltip-header">
@@ -295,6 +304,7 @@
   <div class="term-tooltip-def" id="term-tooltip-def"></div>
 </div>
 
+<div id="toast" class="toast" aria-live="polite"></div>
 <script src="/app.js"></script>
 </body>
 </html>
