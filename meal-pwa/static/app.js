@@ -172,6 +172,17 @@ function switchTab(name) {
   if (tab) tab.click();
 }
 
+// ── Toast ────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg, durationMs = 2800) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('toast-visible');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('toast-visible'), durationMs);
+}
+
 // ── Format helpers ───────────────────────────────────────────────
 const fmt$ = n => `$${Number(n).toFixed(2)}`;
 
@@ -210,10 +221,6 @@ async function loadWeek() {
     currentWeek = plan.week;
     log('WEEK', 'Bundle loaded', { week: currentWeek, recipes: plan.recipes?.length });
 
-    const lastBundleId = localStorage.getItem('lastSeenBundleId');
-    if (lastBundleId && plan.bundleId && plan.bundleId !== lastBundleId) {
-      notifyNewPlan(plan);
-    }
     if (plan.bundleId) localStorage.setItem('lastSeenBundleId', plan.bundleId);
 
     document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
@@ -448,6 +455,9 @@ function openRecipe(id) {
   const meal = allRecipes.find(m => m.recipeId === id)
             || (plan?.recipes || []).find(m => m.recipeId === id);
   if (!meal) return;
+
+  // Show notification banner after first meaningful interaction
+  showNotificationBanner();
 
   // Switch to recipes tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -806,6 +816,7 @@ async function selectBundle(bundleId, week) {
     await loadWeek();
     loadRecipes();
     loadShopping();
+    showToast('Plan switched');
     log('BUNDLES', 'Bundle switched successfully');
   } catch (e) {
     log('BUNDLES', 'Error activating bundle', { error: e.message });
@@ -1200,11 +1211,12 @@ async function generatePlan() {
   try {
     const result = await apiPost('/plan/generate');
     status.textContent = `Plan ready — ${result.recipeCount} meals, est. $${result.estimatedTotal?.toFixed(2)}`;
-    notifyNewPlan({ week: result.week, bundleId: result.bundleId });
+    await notifyNewPlan({ week: result.week });
     await loadWeek();
+    loadRecipes();
     await loadShopping();
   } catch (e) {
-    status.textContent = 'Generation failed — is the planner service running?';
+    status.textContent = 'Generation failed — tap "Generate" to retry.';
     log('GENERATE', 'Error', { error: e.message });
   } finally {
     btn.disabled    = false;
@@ -1215,12 +1227,19 @@ async function generatePlan() {
 
 // ── Notifications ────────────────────────────────────────────────
 
-function notifyNewPlan(plan) {
+async function notifyNewPlan(planData) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  new Notification('New meal plan ready', {
-    body: `Your plan for week of ${fmtWeek(plan.week)} is ready.`,
-    icon: '/icon-192.png',
-  });
+  const body = `Your plan for week of ${fmtWeek(planData.week)} is ready.`;
+  const opts = { body, icon: '/icon-192.png', tag: 'new-plan', data: { url: '/' } };
+
+  // Prefer SW notification — persists and handled by sw.js notificationclick
+  const swReg = await navigator.serviceWorker?.getRegistration?.().catch(() => null);
+  if (swReg) {
+    await swReg.showNotification('New meal plan ready', opts).catch(() => null);
+  } else {
+    const n = new Notification('New meal plan ready', opts);
+    n.onclick = () => { window.focus(); n.close(); };
+  }
 }
 
 function showNotificationBanner() {
@@ -1235,6 +1254,8 @@ async function requestNotificationPermission() {
   dismissNotificationBanner();
   const result = await Notification.requestPermission();
   log('NOTIFICATIONS', 'Permission', { result });
+  // Persist deny so we never prompt again
+  if (result === 'denied') localStorage.setItem('notifPromptDismissed', '1');
 }
 
 function dismissNotificationBanner() {
@@ -1310,7 +1331,6 @@ function closeEnhancements() {
   loadRecipes();
   loadShopping();
   registerServiceWorker();
-  showNotificationBanner();
 
   // Honour ?tab= param — used by notification click-through (e.g. ?tab=shopping)
   const urlTab = new URLSearchParams(window.location.search).get('tab');

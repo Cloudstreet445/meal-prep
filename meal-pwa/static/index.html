@@ -24,10 +24,8 @@
         <div class="logo">Kai <span>Planner __VERSION__</span></div>
         <div class="week-badge" id="week-badge">Loading...</div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="bundle-btn" id="bundle-switcher-btn" onclick="openBundleSheet()">
-          ↕ Weekly Plans
-        </button>
+      <div class="header-actions">
+        <button class="bundle-btn" id="bundle-switcher-btn" onclick="openBundleSheet()">↕ Plans</button>
         <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
         <div class="budget-pill" id="budget-pill">—</div>
@@ -306,6 +304,7 @@
   <div class="term-tooltip-def" id="term-tooltip-def"></div>
 </div>
 
+<div id="toast" class="toast" aria-live="polite"></div>
 <script src="/app.js"></script>
 </body>
 </html>

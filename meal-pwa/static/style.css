@@ -150,6 +150,21 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* On very small screens, hide the budget pill from the header (it shows in week view) */
+@media (max-width: 360px) {
+  .header-actions .budget-pill { display: none; }
+  .bundle-btn { padding: 6px 8px; }
 }
 
 .logo {
@@ -1542,8 +1557,9 @@ main {
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: 15px;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1972,6 +1988,51 @@ main {
   cursor: pointer;
   padding: 4px;
   flex-shrink: 0;
+}
+
+/* ── Toast notification ───────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: var(--text-sm);
+  font-family: 'DM Mono', monospace;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 200;
+  transition: opacity var(--dur-normal) var(--ease), transform var(--dur-normal) var(--ease);
+}
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Improved bundle active tag ───────────────────────────── */
+.tag-active {
+  background: var(--green-glow);
+  color: var(--green);
+  border-color: var(--green-dim);
+  font-weight: 600;
+}
+
+/* ── Mobile layout — notification banner wrapping ──────────── */
+.notif-banner-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Ensure generate-status text wraps ─────────────────────── */
+.generate-status {
+  word-break: break-word;
 }
 
 /* ── Focus states ─────────────────────────────────────────── */
