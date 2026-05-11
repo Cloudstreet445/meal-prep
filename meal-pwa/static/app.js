@@ -41,6 +41,7 @@ const API = _apiParam
 log('CONFIG', 'API endpoint set to:', API);
 
 // ── State ───────────────────────────────────────────────────────
+let _detailRecipeId = null; // recipeId currently shown in recipe detail
 let plan          = null;   // active bundle with recipes
 let checked       = {};
 let currentWeek   = null;
@@ -165,6 +166,11 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
   });
 });
+
+function switchTab(name) {
+  const tab = document.querySelector(`.tab[data-view="${name}"]`);
+  if (tab) tab.click();
+}
 
 // ── Format helpers ───────────────────────────────────────────────
 const fmt$ = n => `$${Number(n).toFixed(2)}`;
@@ -438,6 +444,7 @@ document.getElementById('time-chips').addEventListener('click', e => {
 });
 
 function openRecipe(id) {
+  _detailRecipeId = id;
   const meal = allRecipes.find(m => m.recipeId === id)
             || (plan?.recipes || []).find(m => m.recipeId === id);
   if (!meal) return;
@@ -1170,12 +1177,13 @@ document.getElementById('rating-overlay').addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('picker-overlay').classList.contains('active'))  { closePicker();       return; }
-  if (document.getElementById('builder-overlay').classList.contains('active')) { closeBuilder();      return; }
-  if (document.getElementById('cook-mode').classList.contains('active'))       { _exitCookMode(); return; }
-  if (document.getElementById('rating-overlay').classList.contains('active'))  { closeRatingOverlay();return; }
-  if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();     return; }
-  if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();  return; }
+  if (document.getElementById('picker-overlay').classList.contains('active'))  { closePicker();          return; }
+  if (document.getElementById('builder-overlay').classList.contains('active')) { closeBuilder();         return; }
+  if (document.getElementById('cook-mode').classList.contains('active'))       { _exitCookMode();        return; }
+  if (document.getElementById('rating-overlay').classList.contains('active'))  { closeRatingOverlay();   return; }
+  if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();        return; }
+  if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();     return; }
+  if (document.getElementById('enhance-sheet').classList.contains('active'))   { closeEnhancements();    return; }
 });
 
 // ── Plan generation ──────────────────────────────────────────────
@@ -1243,13 +1251,55 @@ async function registerServiceWorker() {
     if ('periodicSync' in reg) {
       const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
       if (status.state === 'granted') {
-        await reg.periodicSync.register('check-new-bundle', { minInterval: 6 * 60 * 60 * 1000 });
-        log('SW', 'Periodic sync registered');
+        const interval = 6 * 60 * 60 * 1000;
+        await reg.periodicSync.register('check-new-bundle', { minInterval: interval });
+        await reg.periodicSync.register('check-new-prices', { minInterval: interval });
+        log('SW', 'Periodic syncs registered');
       }
     }
   } catch (e) {
     log('SW', 'Registration failed', { error: e.message });
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MEAL ENHANCEMENTS (MEA-51)
+// ══════════════════════════════════════════════════════════════
+
+async function openEnhancements() {
+  if (!_detailRecipeId) return;
+  const content = document.getElementById('enhance-content');
+  content.innerHTML = '<div class="sub-loading">Loading enhancements…</div>';
+  document.getElementById('enhance-backdrop').classList.add('active');
+  document.getElementById('enhance-sheet').classList.add('active');
+
+  try {
+    const data = await apiFetch(`/enhancements/for-recipe/${_detailRecipeId}`);
+    const items = data.enhancements || [];
+    if (!items.length) {
+      content.innerHTML = '<div class="sub-loading">No enhancements found for this meal.</div>';
+      return;
+    }
+    content.innerHTML = items.map(e => `
+      <div class="enhance-card">
+        <div class="enhance-card-header">
+          <div class="enhance-name">${e.name}</div>
+          <div class="enhance-cost">${fmt$(e.estimatedCost)}</div>
+        </div>
+        <div class="enhance-desc">${e.description}</div>
+        <div class="enhance-ingredients">
+          ${(e.ingredients || []).map(i => `<span class="enhance-tag">${i.name} · ${i.amount}</span>`).join('')}
+        </div>
+      </div>`).join('');
+  } catch (err) {
+    log('ENHANCEMENTS', 'Error loading', { error: err.message });
+    content.innerHTML = '<div class="sub-loading">Could not load enhancements.</div>';
+  }
+}
+
+function closeEnhancements() {
+  document.getElementById('enhance-backdrop').classList.remove('active');
+  document.getElementById('enhance-sheet').classList.remove('active');
 }
 
 // ── Init ────────────────────────────────────────────────────────
@@ -1261,4 +1311,8 @@ async function registerServiceWorker() {
   loadShopping();
   registerServiceWorker();
   showNotificationBanner();
+
+  // Honour ?tab= param — used by notification click-through (e.g. ?tab=shopping)
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  if (urlTab) switchTab(urlTab);
 })();

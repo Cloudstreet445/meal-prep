@@ -11,6 +11,21 @@ import { describe, it, expect } from 'vitest';
 // ── Mirrors of app.js utility functions ─────────────────────────────
 const fmt$ = n => `$${Number(n).toFixed(2)}`;
 
+// Mirror of the enhancements card renderer
+function renderEnhancementCard(e) {
+  return `
+      <div class="enhance-card">
+        <div class="enhance-card-header">
+          <div class="enhance-name">${e.name}</div>
+          <div class="enhance-cost">${fmt$(e.estimatedCost)}</div>
+        </div>
+        <div class="enhance-desc">${e.description}</div>
+        <div class="enhance-ingredients">
+          ${(e.ingredients || []).map(i => `<span class="enhance-tag">${i.name} · ${i.amount}</span>`).join('')}
+        </div>
+      </div>`;
+}
+
 function fmtWeek(str) {
   if (!str) return '';
   return new Date(str).toLocaleDateString('en-NZ', {
@@ -65,6 +80,44 @@ describe('fmtWeek', () => {
   it('includes the year', () => {
     const result = fmtWeek('2026-05-05');
     expect(result).toContain('2026');
+  });
+});
+
+// ── renderEnhancementCard ────────────────────────────────────────────
+describe('renderEnhancementCard', () => {
+  it('includes the enhancement name and cost', () => {
+    const html = renderEnhancementCard({
+      name: 'Garlic Bread',
+      description: 'Classic side',
+      estimatedCost: 3.00,
+      ingredients: [{ name: 'Baguette', amount: '1 loaf' }],
+    });
+    expect(html).toContain('Garlic Bread');
+    expect(html).toContain('$3.00');
+  });
+
+  it('renders each ingredient as a tag', () => {
+    const html = renderEnhancementCard({
+      name: 'Test',
+      description: '',
+      estimatedCost: 1.00,
+      ingredients: [
+        { name: 'Fresh Coriander', amount: '1 bunch' },
+        { name: 'Lime', amount: '1' },
+      ],
+    });
+    expect(html).toContain('Fresh Coriander · 1 bunch');
+    expect(html).toContain('Lime · 1');
+  });
+
+  it('handles empty ingredients gracefully', () => {
+    const html = renderEnhancementCard({
+      name: 'Empty',
+      description: '',
+      estimatedCost: 0,
+      ingredients: [],
+    });
+    expect(html).toContain('enhance-ingredients');
   });
 });
 

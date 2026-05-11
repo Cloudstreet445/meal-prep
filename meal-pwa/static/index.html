@@ -142,6 +142,7 @@
         <div class="section-label" id="method-label">Method</div>
         <ol class="recipe-method" id="detail-method"></ol>
         <div class="recipe-detail-rating" id="detail-rating"></div>
+        <button class="enhance-btn" id="enhance-btn" onclick="openEnhancements()">✨ Enhance this meal</button>
         <button class="start-cooking-btn" id="start-cooking-btn">Start Cooking →</button>
       </div>
     </div>
@@ -284,6 +285,16 @@
     <div class="cook-close" id="sub-close">✕</div>
   </div>
   <div class="sub-results" id="sub-results"></div>
+</div>
+
+<!-- Enhancements Sheet -->
+<div class="sheet-backdrop" id="enhance-backdrop" onclick="closeEnhancements()"></div>
+<div class="bottom-sheet" id="enhance-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">✨ Enhance this meal</div>
+  <div class="sheet-content" id="enhance-content">
+    <div class="sub-loading">Loading enhancements…</div>
+  </div>
 </div>
 
 <!-- Cooking Term Tooltip -->

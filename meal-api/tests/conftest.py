@@ -27,5 +27,6 @@ def client(meals_db, pricing_db):
          patch("src.routers.shopping.get_pricing_db", return_value=pricing_db), \
          patch("src.routers.recipes.get_db", return_value=meals_db), \
          patch("src.routers.settings.get_db", return_value=meals_db), \
-         patch("src.routers.substitutions.get_pricing_db", return_value=pricing_db):
+         patch("src.routers.substitutions.get_pricing_db", return_value=pricing_db), \
+         patch("src.routers.enhancements.get_db", return_value=meals_db):
         yield TestClient(app)

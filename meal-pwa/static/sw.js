@@ -19,12 +19,47 @@ self.addEventListener('notificationclick', e => {
 // Periodic Background Sync — fires when browser schedules it (installed PWA, Chrome/Android)
 self.addEventListener('periodicsync', e => {
   if (e.tag === 'check-new-bundle') e.waitUntil(checkForNewBundle());
+  if (e.tag === 'check-new-prices') e.waitUntil(checkForNewPrices());
 });
 
-// Main thread can also trigger a check by posting { type: 'CHECK_BUNDLE' }
+// Main thread can also trigger checks by posting message types
 self.addEventListener('message', e => {
   if (e.data?.type === 'CHECK_BUNDLE') checkForNewBundle();
+  if (e.data?.type === 'CHECK_PRICES') checkForNewPrices();
 });
+
+// ── IndexedDB helpers ────────────────────────────────────────────
+
+function _openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('meal-prep-idb', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('kv', { keyPath: 'key' });
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function _idbGet(key) {
+  const db = await _openIDB();
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction('kv', 'readonly');
+    const req = tx.objectStore('kv').get(key);
+    req.onsuccess = e => resolve(e.target.result?.value ?? null);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function _idbSet(key, value) {
+  const db = await _openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put({ key, value });
+    tx.oncomplete = () => resolve();
+    tx.onerror    = e => reject(e.target.error);
+  });
+}
+
+// ── Check for new bundle ─────────────────────────────────────────
 
 async function checkForNewBundle() {
   try {
@@ -48,6 +83,37 @@ async function checkForNewBundle() {
     }
 
     await cache.put(BUNDLE_KEY, new Response(bundleId));
+  } catch {
+    // API unreachable — skip silently
+  }
+}
+
+// ── Check for new prices (scrape timestamp) ──────────────────────
+
+async function checkForNewPrices() {
+  try {
+    // Don't notify when app is in the foreground
+    const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (allClients.some(c => c.visibilityState === 'visible')) return;
+
+    const res = await fetch('/api/shopping/latest');
+    if (!res.ok) return;
+    const data = await res.json();
+    const scrapedAt = data.scrapedAt;
+    if (!scrapedAt) return;
+
+    const lastScrapedAt = await _idbGet('lastScrapedAt');
+
+    if (lastScrapedAt && scrapedAt !== lastScrapedAt) {
+      await self.registration.showNotification('New specials available', {
+        body: 'Your shopping list has been updated with the latest prices.',
+        icon: '/icon-192.png',
+        data: { url: '/?tab=shopping' },
+        tag: 'new-prices',
+      });
+    }
+
+    await _idbSet('lastScrapedAt', scrapedAt);
   } catch {
     // API unreachable — skip silently
   }
