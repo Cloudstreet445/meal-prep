@@ -299,20 +299,12 @@ async function loadWeek() {
     document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
 
     document.getElementById('week-summary').innerHTML = `
-      <div class="summary-text">${plan.weekSummary}</div>
-      <div class="summary-stats">
-        <div class="stat">
-          <div class="stat-val">${plan.recipes?.length || 0}</div>
-          <div class="stat-label">Dinners</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">${fmt$(plan.estimatedTotal)}</div>
-          <div class="stat-label">Est. spend</div>
-        </div>
-        <div class="stat">
-          <div class="stat-val">${fmt$(settings.budget - plan.estimatedTotal)}</div>
-          <div class="stat-label">Under budget</div>
-        </div>
+      <div class="week-stat-bar">
+        <span>${plan.recipes?.length || 0} dinners</span>
+        <span class="stat-sep">·</span>
+        <span>${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}</span>
+        <span class="stat-sep">·</span>
+        <span class="week-summary-text">${plan.weekSummary}</span>
       </div>`;
 
     renderMealCards();
@@ -349,7 +341,11 @@ async function loadShopping() {
       checked = {};
       localStorage.setItem(storeKey, JSON.stringify(checked));
       renderShoppingItems(items, storeKey);
+      document.getElementById('clear-btn').style.display = 'none';
     };
+
+    const anyChecked = Object.values(checked).some(Boolean);
+    document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
 
     document.getElementById('shopping-loading').style.display = 'none';
     document.getElementById('shopping-content').style.display = 'block';
@@ -358,6 +354,14 @@ async function loadShopping() {
     document.getElementById('shopping-loading').innerHTML =
       '<span class="icon">⚠️</span>Could not load shopping list.<br><small>Check console for details.</small>';
   }
+}
+
+function dealBadge(item) {
+  const pct = item.dealStrength;
+  if (!pct || pct < 5) return '';
+  const tier = pct >= 20 ? 'strong' : pct >= 10 ? 'good' : 'fair';
+  const savings = item.priceSavings ? ` · save $${item.priceSavings.toFixed(2)}` : '';
+  return `<span class="item-deal item-deal--${tier}">–${pct}%${savings}</span>`;
 }
 
 function renderShoppingItems(items, storeKey) {
@@ -378,8 +382,8 @@ function renderShoppingItems(items, storeKey) {
         <div class="item-info">
           <div class="item-name">
             ${item.name}
-            ${item.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
-            ${item.dealStrength > 0 ? `<span class="item-deal">↓${item.dealStrength}% vs avg</span>` : ''}
+            ${item.isSpecial && !(item.dealStrength >= 5) ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
+            ${dealBadge(item)}
             ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
             ${shared}
           </div>
@@ -404,6 +408,8 @@ function toggleItem(index, storeKey) {
   });
   document.getElementById('progress-fill').style.width =
     `${items.length ? (done/items.length)*100 : 0}%`;
+  const anyChecked = Object.values(checked).some(Boolean);
+  document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -452,15 +458,21 @@ function renderWeekRecipesInTab() {
   if (!recipes.length) { section.style.display = 'none'; return; }
 
   section.style.display = 'block';
-  container.innerHTML = recipes.map(meal => `
+  container.innerHTML = recipes.map(meal => {
+    const rating = lastRating(meal);
+    const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
+                 : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
+                 : '';
+    return `
     <div class="recipe-list-item week-recipe-item" onclick="openRecipe('${meal.recipeId}')">
       <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
       <div style="flex:1">
-        <div class="recipe-list-name">${meal.name}</div>
+        <div class="recipe-list-name">${meal.name}${badge}</div>
         <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
       </div>
       <div style="color:var(--text-muted)">›</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderRecipeList() {

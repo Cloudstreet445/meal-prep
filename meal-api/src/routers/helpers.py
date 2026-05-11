@@ -133,6 +133,7 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
             pct = round((1 - current / avg) * 100)
             if pct > 0:
                 item["dealStrength"] = pct
+                item["priceSavings"] = round(avg - current, 2)
 
     return item
 

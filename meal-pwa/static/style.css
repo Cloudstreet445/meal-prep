@@ -14,7 +14,7 @@
   --green-glow: rgba(59,130,246,0.15);
   --text:       #e2e8f0;
   --text-dim:   #94a3b8;
-  --text-muted: #475569;
+  --text-muted: #6b7f9e;
   --red:        #f87171;
   --amber:      #fbbf24;
   /* Aliases */
@@ -326,34 +326,32 @@ main {
   background: linear-gradient(90deg, var(--green), transparent);
 }
 
-.summary-text {
+.week-stat-bar {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.week-stat-bar > span:not(.stat-sep):not(.week-summary-text) {
+  color: var(--text);
+}
+
+.stat-sep {
+  margin: 0 6px;
+  opacity: 0.4;
+}
+
+.week-summary-text {
   font-family: 'Fraunces', serif;
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 300;
   font-style: italic;
-  color: var(--text);
-  line-height: 1.55;
-  margin-bottom: 16px;
-}
-
-.summary-stats {
-  display: flex;
-  gap: 16px;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.stat-val {
-  font-family: 'Fraunces', serif;
-  font-size: var(--text-3xl);
-  font-weight: 600;
-  color: var(--green);
-  line-height: 1;
-  letter-spacing: -0.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .stat-label {
@@ -1362,10 +1360,9 @@ main {
 /* ── Recipe rating badge (on library cards) ──────────────── */
 .recipe-rating-badge {
   display: inline-block;
-  font-size: 11px;
+  font-size: 12px;
   margin-left: 6px;
   vertical-align: middle;
-  opacity: 0.8;
 }
 
 /* ── Rating overlay ───────────────────────────────────────── */
@@ -1621,6 +1618,20 @@ main {
 .icon-btn:active { border-color: var(--green-dim); color: var(--text); }
 
 /* ── Settings Sheet ───────────────────────────────────────── */
+.settings-group-label {
+  font-size: var(--text-xs);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 16px;
+}
+
+.settings-group-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0 20px;
+}
+
 .settings-section {
   margin-bottom: 24px;
 }
@@ -1804,14 +1815,27 @@ main {
   display: inline-block;
   font-size: var(--text-xs);
   letter-spacing: 0.5px;
-  color: var(--green);
-  background: var(--green-glow);
-  border: 1px solid var(--green-dim);
   border-radius: 8px;
   padding: 1px 6px;
   margin-left: 5px;
   vertical-align: middle;
   font-weight: 500;
+  border: 1px solid transparent;
+}
+.item-deal--strong {
+  color: var(--green);
+  background: var(--green-glow);
+  border-color: var(--green-dim);
+}
+.item-deal--good {
+  color: #60a5fa;
+  background: rgba(96,165,250,0.12);
+  border-color: rgba(96,165,250,0.3);
+}
+.item-deal--fair {
+  color: var(--amber);
+  background: rgba(251,191,36,0.1);
+  border-color: rgba(251,191,36,0.25);
 }
 
 /* ── Custom Bundle Builder ────────────────────────────────── */
@@ -1938,25 +1962,22 @@ main {
 
 .builder-save-btn:disabled { opacity: 0.35; cursor: default; }
 
-/* ── Build My Own button in sheet ─────────────────────────── */
-.build-own-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg2);
-  border: 1px dashed var(--green-dim);
-  border-radius: var(--radius-sm);
+/* ── Sheet footer text link ───────────────────────────────── */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 8px 0;
   cursor: pointer;
-  color: var(--green);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 12px;
   font-family: 'DM Mono', monospace;
-  width: 100%;
   -webkit-tap-highlight-color: transparent;
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
-.build-own-btn:active { border-style: solid; }
+.link-btn:active { color: var(--green); }
 
 /* ── Recipe Picker Overlay ────────────────────────────────── */
 .picker-overlay {

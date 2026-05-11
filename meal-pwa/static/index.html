@@ -25,7 +25,7 @@
         <div class="week-badge" id="week-badge">Loading...</div>
       </div>
       <div class="header-actions">
-        <button class="bundle-btn" id="bundle-switcher-btn" onclick="openBundleSheet()">↕ Plans</button>
+        <button class="icon-btn" id="bundle-switcher-btn" onclick="openBundleSheet()" aria-label="Weekly plans" title="Weekly plans">↕</button>
         <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
         <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
         <div class="budget-pill" id="budget-pill">—</div>
@@ -86,7 +86,7 @@
             <div class="shop-total" id="shop-total">$0.00</div>
             <div class="shop-total-label">estimated total</div>
           </div>
-          <button class="clear-btn" id="clear-btn">Reset ↺</button>
+          <button class="clear-btn" id="clear-btn" style="display:none">Reset ↺</button>
         </div>
         <div class="progress-bar">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
@@ -162,6 +162,7 @@
   <div class="sheet-handle"></div>
   <div class="sheet-title">Settings</div>
   <div class="sheet-content">
+    <div class="settings-group-label">Planning</div>
     <div class="settings-section">
       <div class="settings-label">Weekly Budget</div>
       <div class="settings-input-row">
@@ -177,6 +178,13 @@
         <span class="settings-affix">people</span>
       </div>
     </div>
+    <div class="settings-section">
+      <div class="settings-label">PAK'nSave Store</div>
+      <div class="settings-hint">Which store's prices to use for your shopping list</div>
+      <div class="store-options" id="settings-store-options"></div>
+    </div>
+    <div class="settings-group-divider"></div>
+    <div class="settings-group-label">Preferences</div>
     <div class="settings-section">
       <div class="settings-label">Ingredient Exclusions</div>
       <div class="settings-hint">These will be skipped when generating new plans</div>
@@ -195,11 +203,6 @@
         <button class="settings-add-btn" id="settings-pantry-btn">+</button>
       </div>
     </div>
-    <div class="settings-section">
-      <div class="settings-label">PAK'nSave Store</div>
-      <div class="settings-hint">Which store's prices to use for your shopping list</div>
-      <div class="store-options" id="settings-store-options"></div>
-    </div>
     <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
   </div>
 </div>
@@ -213,7 +216,7 @@
     <div class="sheet-empty">Loading...</div>
   </div>
   <div class="sheet-footer">
-    <button class="build-own-btn" onclick="openBuilder()">✏ Build my own plan</button>
+    <button class="link-btn" onclick="openBuilder()">✏ Build my own plan</button>
   </div>
 </div>
 
