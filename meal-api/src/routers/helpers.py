@@ -3,6 +3,62 @@
 import re
 
 
+_AMOUNT_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)$')
+
+_UNIT_NORMALIZE = {
+    "grams": "g", "gram": "g",
+    "kgs": "kg", "kilogram": "kg", "kilograms": "kg",
+    "millilitres": "ml", "millilitre": "ml", "milliliters": "ml", "milliliter": "ml",
+    "litres": "l", "litre": "l", "liters": "l", "liter": "l",
+    "cloves": "clove",
+    "cups": "cup",
+    "teaspoons": "tsp", "teaspoon": "tsp",
+    "tablespoons": "tbsp", "tablespoon": "tbsp",
+    "heads": "head",
+    "bunches": "bunch",
+    "items": "item",
+}
+
+
+def _parse_amount(raw: str) -> dict | None:
+    """Parse a free-text amount string to {value, unit}, or None if unparseable."""
+    if not raw:
+        return None
+    m = _AMOUNT_RE.match(raw.strip())
+    if not m:
+        return None
+    unit = _UNIT_NORMALIZE.get(m.group(2).lower(), m.group(2).lower())
+    return {"value": float(m.group(1)), "unit": unit}
+
+
+def _normalise_unit(value: float, unit: str) -> tuple[float, str]:
+    """Promote g→kg if ≥1000g, ml→L if ≥1000ml."""
+    if unit == "g" and value >= 1000:
+        return value / 1000, "kg"
+    if unit == "ml" and value >= 1000:
+        return value / 1000, "L"
+    return value, unit
+
+
+def _add_amounts(a: dict, b: dict) -> dict | None:
+    """Sum two parsed amounts if units are compatible; returns None if not."""
+    ua, ub = a["unit"], b["unit"]
+    va, vb = a["value"], b["value"]
+
+    if ua == ub:
+        return {"value": va + vb, "unit": ua}
+
+    if {ua, ub} == {"g", "kg"}:
+        total_g = (va if ua == "g" else va * 1000) + (vb if ub == "g" else vb * 1000)
+        return {"value": total_g, "unit": "g"}
+
+    if {ua, ub} == {"ml", "l"}:
+        total_ml = (va if ua == "ml" else va * 1000) + (vb if ub == "ml" else vb * 1000)
+        return {"value": total_ml, "unit": "ml"}
+
+    return None
+
+
 def _clean(doc) -> dict:
     if not doc:
         return {}
@@ -114,9 +170,28 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
                     "category":      _guess_category(ing.get("name", "")),
                 }
             else:
-                ingredient_map[key]["estimatedCost"] += ing.get("estimatedCost", 0)
+                existing = ingredient_map[key]
+                existing["estimatedCost"] += ing.get("estimatedCost", 0)
                 if ing.get("fromSpecial"):
-                    ingredient_map[key]["fromSpecial"] = True
+                    existing["fromSpecial"] = True
+
+                new_raw = ing.get("amount", "")
+                if "amount_parts" not in existing:
+                    parsed_existing = _parse_amount(existing.get("amount", ""))
+                    parsed_new = _parse_amount(new_raw)
+                    if parsed_existing and parsed_new:
+                        summed = _add_amounts(parsed_existing, parsed_new)
+                        if summed:
+                            total_val, total_unit = _normalise_unit(summed["value"], summed["unit"])
+                            existing["amount"] = f"{total_val:g} {total_unit}"
+                        else:
+                            existing["amount_parts"] = [
+                                {"amount": existing["amount"], "recipe": existing["usedInNames"][0]},
+                                {"amount": new_raw, "recipe": recipe_name},
+                            ]
+                            existing["amount"] = ""
+                else:
+                    existing["amount_parts"].append({"amount": new_raw, "recipe": recipe_name})
 
             if recipe_id not in ingredient_map[key]["usedIn"]:
                 ingredient_map[key]["usedIn"].append(recipe_id)

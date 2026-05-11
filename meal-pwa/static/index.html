@@ -65,7 +65,10 @@
         <div class="week-summary" id="week-summary"></div>
         <div class="section-label-row">
           <span class="section-label">This week's dinners</span>
-          <button class="generate-btn" id="generate-btn" onclick="generatePlan()">Generate new plan</button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="cooked-progress" id="cooked-progress"></span>
+            <button class="generate-btn" id="generate-btn" onclick="generatePlan()">Generate new plan</button>
+          </div>
         </div>
         <div id="generate-status" class="generate-status" style="display:none"></div>
         <div id="meal-cards"></div>
@@ -96,6 +99,11 @@
     <div class="view" id="view-recipes">
       <!-- Recipe List -->
       <div id="recipe-list">
+        <div id="week-recipes-section" style="display:none">
+          <div class="section-label" style="padding: 16px 0 8px">This week's meals</div>
+          <div id="week-recipe-items"></div>
+          <div class="section-divider"></div>
+        </div>
         <div class="library-controls">
           <div class="recipe-search-wrap">
             <span class="recipe-search-icon">⌕</span>

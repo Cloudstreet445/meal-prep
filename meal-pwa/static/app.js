@@ -45,6 +45,77 @@ let _detailRecipeId = null; // recipeId currently shown in recipe detail
 let plan          = null;   // active bundle with recipes
 let checked       = {};
 let currentWeek   = null;
+
+// ── Cooked-meal tracking (MEA-49) ───────────────────────────────
+function getCookedSet(bundleId) {
+  return new Set(JSON.parse(localStorage.getItem(`cooked-${bundleId}`) || '[]'));
+}
+function saveCookedSet(bundleId, set) {
+  localStorage.setItem(`cooked-${bundleId}`, JSON.stringify([...set]));
+}
+function toggleCookedMeal(recipeId) {
+  if (!plan?.bundleId) return;
+  const s = getCookedSet(plan.bundleId);
+  s.has(recipeId) ? s.delete(recipeId) : s.add(recipeId);
+  saveCookedSet(plan.bundleId, s);
+  renderMealCards();
+}
+function renderMealCards() {
+  const cooked = plan?.bundleId ? getCookedSet(plan.bundleId) : new Set();
+  const recipes = plan?.recipes || [];
+
+  document.getElementById('meal-cards').innerHTML = recipes.map((meal, i) => {
+    const isCooked = cooked.has(meal.recipeId);
+    return `
+      <div class="meal-card${isCooked ? ' cooked' : ''}" data-recipe-id="${meal.recipeId}" onclick="openRecipe('${meal.recipeId}')">
+        <div class="meal-card-swipe-hint">✓ Cooked</div>
+        <div class="meal-card-header">
+          <div>
+            <div class="meal-id">Meal ${i + 1}</div>
+            <div class="meal-name">${meal.name}</div>
+            <div class="meal-meta">
+              <div class="pill">⏱ ${meal.cookTime}</div>
+              <div class="pill">👥 Serves ${meal.serves}</div>
+              ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
+            </div>
+          </div>
+          <div class="meal-arrow">${isCooked ? '✓' : '›'}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const cookedCount = recipes.filter(m => cooked.has(m.recipeId)).length;
+  const progressEl = document.getElementById('cooked-progress');
+  if (progressEl) {
+    progressEl.textContent = cookedCount > 0 ? `${cookedCount} of ${recipes.length} cooked` : '';
+  }
+
+  attachMealCardSwipe();
+}
+function attachMealCardSwipe() {
+  document.querySelectorAll('.meal-card').forEach(card => {
+    let startX = 0, startY = 0;
+    card.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+    card.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - startX;
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      if (dx > 20 && dy < 30) card.classList.add('swiping');
+      else card.classList.remove('swiping');
+    }, { passive: true });
+    card.addEventListener('touchend', e => {
+      card.classList.remove('swiping');
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = Math.abs(e.changedTouches[0].clientY - startY);
+      if (dx > 60 && dy < 30) {
+        e.preventDefault();
+        toggleCookedMeal(card.dataset.recipeId);
+      }
+    });
+  });
+}
 let cookSteps     = [];
 let cookIndex     = 0;
 let historyData   = [];     // [{week, activeBundleId, weekSummary, bundleCount, ...}]
@@ -164,6 +235,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
+    if (tab.dataset.view === 'recipes') renderWeekRecipesInTab();
   });
 });
 
@@ -243,21 +315,8 @@ async function loadWeek() {
         </div>
       </div>`;
 
-    document.getElementById('meal-cards').innerHTML = (plan.recipes || []).map((meal, i) => `
-      <div class="meal-card" onclick="openRecipe('${meal.recipeId}')">
-        <div class="meal-card-header">
-          <div>
-            <div class="meal-id">Meal ${i + 1}</div>
-            <div class="meal-name">${meal.name}</div>
-            <div class="meal-meta">
-              <div class="pill">⏱ ${meal.cookTime}</div>
-              <div class="pill">👥 Serves ${meal.serves}</div>
-              ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
-            </div>
-          </div>
-          <div class="meal-arrow">›</div>
-        </div>
-      </div>`).join('');
+    renderMealCards();
+    renderWeekRecipesInTab();
 
     document.getElementById('week-loading').style.display = 'none';
     document.getElementById('week-content').style.display = 'block';
@@ -324,7 +383,9 @@ function renderShoppingItems(items, storeKey) {
             ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
             ${shared}
           </div>
-          <div class="item-sub">${item.amount}${usedIn ? ' · ' + usedIn : ''}</div>
+          <div class="item-sub">${item.amount_parts?.length
+            ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
+            : (item.amount || '')}${usedIn ? ' · ' + usedIn : ''}</div>
         </div>
         <div class="item-price">${item.estimatedCost != null ? fmt$(item.estimatedCost) : '—'}</div>
         ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
@@ -381,6 +442,25 @@ async function loadRecipes() {
     document.getElementById('recipes-loading').innerHTML =
       '<span class="icon">⚠️</span>Could not load recipes.<br><small>Check console for details.</small>';
   }
+}
+
+function renderWeekRecipesInTab() {
+  const section = document.getElementById('week-recipes-section');
+  const container = document.getElementById('week-recipe-items');
+  if (!section || !container) return;
+  const recipes = plan?.recipes || [];
+  if (!recipes.length) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  container.innerHTML = recipes.map(meal => `
+    <div class="recipe-list-item week-recipe-item" onclick="openRecipe('${meal.recipeId}')">
+      <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
+      <div style="flex:1">
+        <div class="recipe-list-name">${meal.name}</div>
+        <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
+      </div>
+      <div style="color:var(--text-muted)">›</div>
+    </div>`).join('');
 }
 
 function renderRecipeList() {

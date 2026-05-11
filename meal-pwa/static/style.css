@@ -388,6 +388,40 @@ main {
 
 .meal-card:active { background: var(--bg3); }
 
+.meal-card.cooked {
+  opacity: 0.5;
+}
+.meal-card.cooked .meal-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.meal-card.cooked::before {
+  background: var(--text-muted);
+}
+
+.meal-card-swipe-hint {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%) translateX(-10px);
+  opacity: 0;
+  color: var(--green);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.meal-card.swiping .meal-card-swipe-hint {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.cooked-progress {
+  font-size: var(--text-xs);
+  color: var(--green);
+  font-weight: 500;
+}
+
 .meal-card-header {
   display: flex;
   align-items: flex-start;
@@ -552,6 +586,11 @@ main {
   margin-top: 2px;
 }
 
+.amount-recipe {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .item-special {
   font-size: var(--text-xs);
   color: var(--amber);
@@ -684,6 +723,17 @@ main {
 }
 
 #recipe-list-items { padding-top: 12px; }
+
+.section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--sp-4) 0 var(--sp-3);
+}
+
+.week-recipe-item {
+  border-left: 3px solid var(--green-dim);
+  padding-left: calc(16px - 3px);
+}
 
 .recipe-list-item {
   display: flex;
