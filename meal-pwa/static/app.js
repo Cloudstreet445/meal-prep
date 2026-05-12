@@ -1298,7 +1298,7 @@ async function generatePlan() {
   btn.disabled    = true;
   btn.textContent = 'Generating...';
   status.style.display = 'block';
-  status.textContent   = 'Calling Claude — this takes about 30 seconds...';
+  status.textContent   = 'Finding meals from your library...';
 
   try {
     const result = await apiPost('/plan/generate');

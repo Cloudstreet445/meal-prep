@@ -78,6 +78,101 @@ def _normalise_name(name: str) -> str:
     return re.sub(r'[^a-z0-9]', '', name.lower())
 
 
+_PROTEIN_KEYWORDS: dict[str, list[str]] = {
+    "chicken":    ["chicken"],
+    "pork":       ["pork", "sausage"],
+    "beef":       ["beef", "mince"],
+    "lamb":       ["lamb"],
+    "vegetarian": [],
+}
+
+
+def _infer_protein(recipe: dict) -> str:
+    """Infer primary protein from ingredient names and recipe title."""
+    text = " ".join(i.get("name", "").lower() for i in recipe.get("ingredients", []))
+    text += " " + recipe.get("name", "").lower()
+    for protein, keywords in _PROTEIN_KEYWORDS.items():
+        if any(kw in text for kw in keywords):
+            return protein
+    return "other"
+
+
+def _recipe_cost(recipe: dict) -> float:
+    """Sum estimatedCost across all ingredients."""
+    return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
+
+
+def _select_from_library(
+    db,
+    budget: float,
+    exclusions: list[str],
+    exclude_ids: set[str],
+    n: int = 5,
+) -> list[dict] | None:
+    """
+    Pick n recipes from the library that fit within budget with protein variety.
+
+    Selection strategy:
+      1. Filter out recipes that contain any excluded ingredient.
+      2. Filter out recipes in exclude_ids (current active bundle — avoid repeats).
+      3. Sort candidates by lastUsedWeek ascending (prefer least-recently-used),
+         then by cost ascending as a tiebreaker.
+      4. Pass 1 — pick one recipe per protein group (chicken → pork → beef → lamb → other),
+         taking the top candidate from each group that fits in the remaining budget.
+      5. Pass 2 — fill remaining slots with the cheapest remaining candidates that fit.
+
+    Returns the selected recipe docs, or None if fewer than n candidates exist
+    or the budget cannot accommodate n meals.
+    """
+    excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
+
+    raw = list(db["recipes"].find(
+        {"recipeId": {"$nin": list(exclude_ids)}} if exclude_ids else {}
+    ))
+
+    def _has_excluded(r: dict) -> bool:
+        if not excl_terms:
+            return False
+        text = " ".join(i.get("name", "").lower() for i in r.get("ingredients", []))
+        return any(t in text for t in excl_terms)
+
+    candidates = [r for r in raw if not _has_excluded(r)]
+
+    if len(candidates) < n:
+        return None
+
+    for r in candidates:
+        r["_protein"]   = _infer_protein(r)
+        r["_cost"]      = _recipe_cost(r)
+        r["_last_used"] = r.get("lastUsedWeek") or "2000-01-01"
+
+    candidates.sort(key=lambda r: (r["_last_used"], r["_cost"]))
+
+    selected: list[dict] = []
+    total = 0.0
+
+    # Pass 1: one per protein type, least-recently-used first
+    for protein in ("chicken", "pork", "beef", "lamb", "other"):
+        if len(selected) >= n:
+            break
+        for r in candidates:
+            if r["_protein"] == protein and r not in selected:
+                if total + r["_cost"] <= budget:
+                    selected.append(r)
+                    total += r["_cost"]
+                    break
+
+    # Pass 2: fill remaining slots
+    for r in candidates:
+        if len(selected) >= n:
+            break
+        if r not in selected and total + r["_cost"] <= budget:
+            selected.append(r)
+            total += r["_cost"]
+
+    return selected if len(selected) >= n else None
+
+
 def _guess_category(name: str) -> str:
     """Rough category assignment for sorting."""
     name_lower = name.lower()

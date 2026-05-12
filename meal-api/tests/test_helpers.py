@@ -4,6 +4,7 @@ import pytest
 from src.routers.helpers import (
     _normalise_name, _guess_category, _derive_shopping_list,
     _parse_amount, _normalise_unit, _add_amounts,
+    _infer_protein, _recipe_cost, _select_from_library,
 )
 
 
@@ -428,3 +429,153 @@ class TestDeriveShoppingList:
         items, _ = _derive_shopping_list(recipes, pricing_db)
         garlic = next(i for i in items if i["name"] == "Garlic")
         assert garlic["fromSpecial"] is True
+
+
+# ── Helpers for library selection tests ──────────────────────────────────────
+
+def _make_recipe(recipe_id, name, ingredients, last_used="2025-01-01"):
+    return {
+        "recipeId": recipe_id,
+        "name": name,
+        "ingredients": [
+            {"name": ing, "amount": "500g", "estimatedCost": cost}
+            for ing, cost in ingredients
+        ],
+        "lastUsedWeek": last_used,
+    }
+
+
+class FakeDB:
+    """Minimal stand-in for a pymongo Database for selection tests."""
+    def __init__(self, recipes):
+        self._recipes = recipes
+
+    def __getitem__(self, coll):
+        return self
+
+    def find(self, query=None):
+        if not query:
+            return list(self._recipes)
+        nin = (query or {}).get("recipeId", {}).get("$nin", [])
+        return [r for r in self._recipes if r["recipeId"] not in nin]
+
+
+# ── TestInferProtein ──────────────────────────────────────────────────────────
+
+class TestInferProtein:
+    def test_chicken_from_ingredient(self):
+        r = _make_recipe("r1", "Soup", [("Chicken Drumsticks", 6.0)])
+        assert _infer_protein(r) == "chicken"
+
+    def test_pork_from_ingredient(self):
+        r = _make_recipe("r1", "Stir Fry", [("Pork Mince", 5.0)])
+        assert _infer_protein(r) == "pork"
+
+    def test_sausage_maps_to_pork(self):
+        r = _make_recipe("r1", "Bake", [("Hellers Pork Sausages", 7.0)])
+        assert _infer_protein(r) == "pork"
+
+    def test_beef_from_ingredient(self):
+        r = _make_recipe("r1", "Bolognese", [("Beef Mince", 8.0)])
+        assert _infer_protein(r) == "beef"
+
+    def test_lamb_from_ingredient(self):
+        r = _make_recipe("r1", "Stew", [("Lamb Shoulder", 10.0)])
+        assert _infer_protein(r) == "lamb"
+
+    def test_falls_back_to_other(self):
+        r = _make_recipe("r1", "Salad", [("Lettuce", 2.0), ("Tomato", 1.5)])
+        assert _infer_protein(r) == "other"
+
+    def test_infers_from_recipe_name(self):
+        r = _make_recipe("r1", "Chicken Curry", [("Onion", 1.0)])
+        assert _infer_protein(r) == "chicken"
+
+
+# ── TestRecipeCost ─────────────────────────────────────────────────────────────
+
+class TestRecipeCost:
+    def test_sums_ingredient_costs(self):
+        r = _make_recipe("r1", "Meal", [("Chicken", 6.0), ("Potato", 2.0), ("Garlic", 0.5)])
+        assert _recipe_cost(r) == pytest.approx(8.5)
+
+    def test_empty_ingredients(self):
+        assert _recipe_cost({"ingredients": []}) == 0.0
+
+    def test_missing_estimatedCost_treated_as_zero(self):
+        r = {"ingredients": [{"name": "Onion", "amount": "1"}]}
+        assert _recipe_cost(r) == 0.0
+
+
+# ── TestSelectFromLibrary ──────────────────────────────────────────────────────
+
+def _make_library():
+    return [
+        _make_recipe("chicken-1", "Chicken Soup",       [("Chicken Drumsticks", 6.0), ("Carrot", 1.5)], "2025-01-01"),
+        _make_recipe("chicken-2", "Chicken Curry",      [("Chicken Thighs", 7.0), ("Onion", 1.0)],      "2025-06-01"),
+        _make_recipe("pork-1",    "Pork Bolognese",     [("Pork Mince", 5.0), ("Pasta", 2.0)],           "2025-01-01"),
+        _make_recipe("pork-2",    "Pork Stir Fry",      [("Pork Mince", 5.0), ("Cabbage", 1.5)],         "2025-03-01"),
+        _make_recipe("beef-1",    "Beef Bolognese",     [("Beef Mince", 8.0), ("Tomato", 1.0)],          "2025-01-01"),
+        _make_recipe("lamb-1",    "Lamb Stew",          [("Lamb Shoulder", 10.0), ("Potato", 2.0)],      "2025-01-01"),
+        _make_recipe("veg-1",     "Vege Noodles",       [("Noodles", 2.0), ("Cabbage", 1.5)],            "2025-01-01"),
+    ]
+
+
+class TestSelectFromLibrary:
+    def test_returns_five_recipes(self):
+        db = FakeDB(_make_library())
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids=set())
+        assert result is not None
+        assert len(result) == 5
+
+    def test_total_within_budget(self):
+        db = FakeDB(_make_library())
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids=set())
+        assert result is not None
+        total = sum(r["_cost"] for r in result)
+        assert total <= 60
+
+    def test_excludes_current_bundle(self):
+        library = _make_library()
+        db = FakeDB(library)
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids={"chicken-1"})
+        assert result is not None
+        ids = [r["recipeId"] for r in result]
+        assert "chicken-1" not in ids
+
+    def test_exclusion_ingredient_filtered(self):
+        db = FakeDB(_make_library())
+        result = _select_from_library(db, budget=60, exclusions=["lamb"], exclude_ids=set())
+        assert result is not None
+        for r in result:
+            for ing in r["ingredients"]:
+                assert "lamb" not in ing["name"].lower()
+
+    def test_returns_none_when_too_few_candidates(self):
+        tiny_library = _make_library()[:3]
+        db = FakeDB(tiny_library)
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids=set(), n=5)
+        assert result is None
+
+    def test_prefers_least_recently_used(self):
+        # chicken-1 last used 2025-01-01, chicken-2 last used 2025-06-01
+        # Should prefer chicken-1
+        db = FakeDB(_make_library())
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids=set())
+        assert result is not None
+        ids = [r["recipeId"] for r in result]
+        assert "chicken-1" in ids
+
+    def test_protein_variety(self):
+        db = FakeDB(_make_library())
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids=set())
+        assert result is not None
+        proteins = {r["_protein"] for r in result}
+        # Should have at least 3 different protein types
+        assert len(proteins) >= 3
+
+    def test_budget_too_tight_returns_none(self):
+        db = FakeDB(_make_library())
+        # $5 can't fit 5 meals
+        result = _select_from_library(db, budget=5, exclusions=[], exclude_ids=set())
+        assert result is None
