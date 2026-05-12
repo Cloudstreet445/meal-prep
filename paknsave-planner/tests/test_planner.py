@@ -8,25 +8,27 @@ from datetime import datetime, timedelta
 
 STORE_ID = "paknsave-lower-hutt"
 
+_STORE_NAME_MAP = {
+    "paknsave-lower-hutt": "PAK'nSAVE Lower Hutt",
+    "paknsave-porirua":    "PAK'nSAVE Porirua",
+}
+
 
 def make_product(name, category, price, is_special=False, days_ago=0, store_id=STORE_ID):
-    """Build a product document using the multi-store storePrice schema."""
+    """Build a product document using the flat pricing schema."""
     last_checked = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
     return {
-        "name": name,
-        "category": category,
-        "size": "500g",
-        "sourceSite": "paknsave",
-        "storePrice": {
-            store_id: {
-                "currentPrice": price,
-                "isSpecial": is_special,
-                "unitPrice": f"${price:.2f}/kg",
-                "maxPrice90d": price + 2.00,
-                "avgPrice90d": price + 1.00,
-                "lastChecked": last_checked,
-            }
-        },
+        "name":          name,
+        "category":      category,
+        "size":          "500g",
+        "sourceSite":    "paknsave",
+        "storeId":       _STORE_NAME_MAP.get(store_id, store_id),
+        "currentPrice":  price,
+        "isSpecial":     is_special,
+        "unitPrice":     f"${price:.2f}/kg",
+        "maxPrice90d":   price + 2.00,
+        "avgPrice90d":   price + 1.00,
+        "lastChecked":   last_checked,
     }
 
 

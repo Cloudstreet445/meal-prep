@@ -69,10 +69,10 @@ class TestSuggestSubstitutes:
 
     def test_attaches_live_price_when_product_in_db(self, client, pricing_db):
         pricing_db["products"].insert_one({
-            "name": "Chicken Thigh 1kg",
-            "storePrice": {
-                "paknsave-lower-hutt": {"currentPrice": 8.99, "isSpecial": True},
-            },
+            "name":         "Chicken Thigh 1kg",
+            "storeId":      "PAK'nSAVE Lower Hutt",
+            "currentPrice": 8.99,
+            "isSpecial":    True,
         })
         resp = client.post("/api/substitutions/suggest", json={"ingredient": "pork"})
         suggestions = resp.json()["suggestions"]
@@ -93,10 +93,10 @@ class TestSuggestSubstitutes:
 
     def test_respects_store_id(self, client, pricing_db):
         pricing_db["products"].insert_one({
-            "name": "Chicken Thigh 1kg",
-            "storePrice": {
-                "paknsave-porirua": {"currentPrice": 9.49, "isSpecial": False},
-            },
+            "name":         "Chicken Thigh 1kg",
+            "storeId":      "PAK'nSAVE Porirua",
+            "currentPrice": 9.49,
+            "isSpecial":    False,
         })
         # Ask for lower-hutt — product only exists for porirua, so no price
         resp = client.post("/api/substitutions/suggest", json={
@@ -109,10 +109,10 @@ class TestSuggestSubstitutes:
 
     def test_default_store_id_used_when_omitted(self, client, pricing_db):
         pricing_db["products"].insert_one({
-            "name": "Chicken Thigh 1kg",
-            "storePrice": {
-                "paknsave-lower-hutt": {"currentPrice": 8.99, "isSpecial": False},
-            },
+            "name":         "Chicken Thigh 1kg",
+            "storeId":      "PAK'nSAVE Lower Hutt",
+            "currentPrice": 8.99,
+            "isSpecial":    False,
         })
         # No store_id in request — should default to paknsave-lower-hutt
         resp = client.post("/api/substitutions/suggest", json={"ingredient": "pork"})

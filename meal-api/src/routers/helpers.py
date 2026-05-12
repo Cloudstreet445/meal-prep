@@ -197,32 +197,44 @@ def _guess_category(name: str) -> str:
 def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     """
     Try to match an ingredient name against paknsave-pricing products.
-    Attaches isSpecial and currentPrice from the store-specific storePrice entry.
+
+    The pricing DB uses a flat schema: currentPrice, isSpecial, avgPrice90d are
+    top-level fields. storeId is the full store name. We match by ingredient name
+    keywords and optionally filter by storeId if a name mapping is available.
     """
-    name = item.get("name", "")
+    _STORE_NAME_MAP = {
+        "paknsave-lower-hutt": "PAK'nSAVE Lower Hutt",
+        "paknsave-porirua":    "PAK'nSAVE Porirua",
+        "paknsave-petone":     "PAK'nSAVE Petone",
+        "paknsave-kilbirnie":  "PAK'nSAVE Kilbirnie",
+    }
+
+    name = item.get("name", "") or item.get("searchKey", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
 
     if not words:
         return item
 
+    store_name = _STORE_NAME_MAP.get(store_id)
+    store_filter = {"storeId": store_name} if store_name else {}
+
     name_pattern = re.compile(words[0], re.IGNORECASE)
     product = pricing_db["products"].find_one(
         {
-            "name": name_pattern,
-            f"storePrice.{store_id}": {"$exists": True},
+            "name":         name_pattern,
+            **store_filter,
         },
         {
-            "name": 1,
-            f"storePrice.{store_id}.currentPrice": 1,
-            f"storePrice.{store_id}.isSpecial": 1,
+            "name":        1,
+            "currentPrice": 1,
+            "isSpecial":   1,
             "avgPrice90d": 1,
         }
     )
 
     if product:
-        store_data = product.get("storePrice", {}).get(store_id, {})
-        item["isSpecial"]      = store_data.get("isSpecial", False)
-        item["currentPrice"]   = store_data.get("currentPrice")
+        item["isSpecial"]      = product.get("isSpecial", False)
+        item["currentPrice"]   = product.get("currentPrice")
         item["matchedProduct"] = product.get("name")
 
         avg     = product.get("avgPrice90d")

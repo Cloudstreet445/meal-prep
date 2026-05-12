@@ -37,5 +37,14 @@ MAX_DAIRY_PRICE   = 8.00
 # ── Scraper freshness ─────────────────────────────────────────────
 MAX_DATA_AGE_DAYS = 5   # ignore products not checked within this many days
 
+# ── Store slug → full storeId name as written by the scraper ──────
+# Used to filter paknsave-pricing.products by storeId field
+STORE_NAME_MAP: dict[str, str] = {
+    "paknsave-lower-hutt": "PAK'nSAVE Lower Hutt",
+    "paknsave-porirua":    "PAK'nSAVE Porirua",
+    "paknsave-petone":     "PAK'nSAVE Petone",
+    "paknsave-kilbirnie":  "PAK'nSAVE Kilbirnie",
+}
+
 # ── Paths ─────────────────────────────────────────────────────────
 RESPONSE_JSON = "response.json"
