@@ -38,7 +38,11 @@ def get_latest_bundle():
         raise HTTPException(status_code=404, detail="No active bundles found")
 
     bundle = _clean(doc)
-    return _get_bundle_with_recipes(bundle, db, pricing_db)
+    bundle = _get_bundle_with_recipes(bundle, db, pricing_db)
+    # Recompute total from live recipe data so it matches the shopping list
+    _, fresh_total = _derive_shopping_list(bundle["recipes"], pricing_db)
+    bundle["estimatedTotal"] = fresh_total
+    return bundle
 
 
 @router.get("/history")
