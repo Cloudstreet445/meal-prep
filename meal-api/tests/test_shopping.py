@@ -56,14 +56,15 @@ class TestGetLatestShopping:
         garlic_items = [i for i in data["shoppingList"] if i["name"] == "Garlic"]
         assert len(garlic_items) == 1
 
-    def test_sums_cost_for_shared_ingredients(self, client, meals_db):
+    def test_cost_is_zero_when_no_product_match(self, client, meals_db):
         meals_db["bundles"].insert_one(dict(BUNDLE))
         meals_db["recipes"].insert_many([dict(r) for r in RECIPES])
 
         resp = client.get("/api/shopping/latest")
         data = resp.json()
         garlic = next(i for i in data["shoppingList"] if i["name"] == "Garlic")
-        assert garlic["estimatedCost"] == 1.00
+        # No product in pricing DB → cost falls back to 0 (live price drives cost, not stored field)
+        assert garlic["estimatedCost"] == 0
 
     def test_shared_with_populated_for_garlic(self, client, meals_db):
         meals_db["bundles"].insert_one(dict(BUNDLE))

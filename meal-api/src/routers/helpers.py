@@ -98,7 +98,10 @@ def _infer_protein(recipe: dict) -> str:
 
 
 def _recipe_cost(recipe: dict) -> float:
-    """Sum estimatedCost across all ingredients."""
+    """Return the recipe's baseline cost. Prefers recipe-level baselineCost (Phase 0 schema),
+    falls back to summing legacy per-ingredient estimatedCost for older docs."""
+    if "baselineCost" in recipe:
+        return recipe["baselineCost"]
     return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
 
 
@@ -255,22 +258,17 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
 
             if key not in ingredient_map:
                 ingredient_map[key] = {
-                    "name":          ing.get("name"),
-                    "amount":        ing.get("amount", ""),
-                    "estimatedCost": ing.get("estimatedCost", 0),
-                    "fromSpecial":   ing.get("fromSpecial", False),
-                    "isSpecial":     False,
-                    "currentPrice":  None,
-                    "usedIn":        [],
-                    "usedInNames":   [],
-                    "category":      _guess_category(ing.get("name", "")),
+                    "name":         ing.get("name"),
+                    "amount":       ing.get("amount", ""),
+                    "searchKey":    ing.get("searchKey", ""),
+                    "isSpecial":    False,
+                    "currentPrice": None,
+                    "usedIn":       [],
+                    "usedInNames":  [],
+                    "category":     _guess_category(ing.get("name", "")),
                 }
             else:
                 existing = ingredient_map[key]
-                existing["estimatedCost"] += ing.get("estimatedCost", 0)
-                if ing.get("fromSpecial"):
-                    existing["fromSpecial"] = True
-
                 new_raw = ing.get("amount", "")
                 if "amount_parts" not in existing:
                     parsed_existing = _parse_amount(existing.get("amount", ""))
@@ -297,7 +295,8 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
     for item in ingredient_map.values():
         enriched = _enrich_ingredient(item, pricing_db, store_id)
         enriched["sharedWith"] = enriched["usedInNames"] if len(enriched["usedIn"]) > 1 else []
-        enriched["estimatedCost"] = round(enriched["estimatedCost"], 2)
+        # Use live price as cost; fall back to 0 if no product was matched
+        enriched["estimatedCost"] = round(enriched.get("currentPrice") or 0, 2)
         items.append(enriched)
 
     category_order = {"protein": 0, "vegetable": 1, "pantry": 2, "dairy": 3, "other": 4}

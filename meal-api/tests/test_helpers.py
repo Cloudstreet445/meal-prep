@@ -181,22 +181,27 @@ class TestDeriveShoppingList:
         garlic_items = [i for i in items if i["name"] == "Garlic"]
         assert len(garlic_items) == 1
 
-    def test_sums_cost_for_shared_ingredients(self, pricing_db):
+    def test_cost_comes_from_live_price(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Garlic Bulb",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 1.29, "isSpecial": False}},
+        })
         recipes = [
             {
                 "recipeId": "r1",
                 "name": "Pasta",
-                "ingredients": [{"name": "Garlic", "amount": "2 cloves", "estimatedCost": 0.50}],
+                "ingredients": [{"name": "Garlic", "amount": "2 cloves"}],
             },
             {
                 "recipeId": "r2",
                 "name": "Stir Fry",
-                "ingredients": [{"name": "Garlic", "amount": "3 cloves", "estimatedCost": 0.75}],
+                "ingredients": [{"name": "Garlic", "amount": "3 cloves"}],
             },
         ]
         items, _ = _derive_shopping_list(recipes, pricing_db)
         garlic = next(i for i in items if i["name"] == "Garlic")
-        assert garlic["estimatedCost"] == 1.25
+        # Cost is the live currentPrice, not an accumulated sum of stored values
+        assert garlic["estimatedCost"] == 1.29
 
     def test_shared_with_populated_for_multi_recipe_ingredients(self, pricing_db):
         recipes = [
@@ -246,13 +251,21 @@ class TestDeriveShoppingList:
         assert indices == sorted(indices)
 
     def test_total_calculation(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Pams Pasta 500g",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 1.00, "isSpecial": False}},
+        })
+        pricing_db["products"].insert_one({
+            "name": "Tomato Sauce Jar",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 2.50, "isSpecial": False}},
+        })
         recipes = [
             {
                 "recipeId": "r1",
                 "name": "Dinner",
                 "ingredients": [
-                    {"name": "Pasta", "amount": "200g", "estimatedCost": 1.00},
-                    {"name": "Sauce", "amount": "1 jar", "estimatedCost": 2.50},
+                    {"name": "Pasta", "amount": "200g"},
+                    {"name": "Sauce", "amount": "1 jar"},
                 ],
             }
         ]
@@ -260,13 +273,21 @@ class TestDeriveShoppingList:
         assert total == 3.50
 
     def test_total_rounded_to_two_decimal_places(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Pams Pasta 500g",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 1.333, "isSpecial": False}},
+        })
+        pricing_db["products"].insert_one({
+            "name": "Tomato Sauce Jar",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 2.666, "isSpecial": False}},
+        })
         recipes = [
             {
                 "recipeId": "r1",
                 "name": "Dinner",
                 "ingredients": [
-                    {"name": "Pasta", "amount": "200g", "estimatedCost": 1.333},
-                    {"name": "Sauce", "amount": "1 jar", "estimatedCost": 2.666},
+                    {"name": "Pasta", "amount": "200g"},
+                    {"name": "Sauce", "amount": "1 jar"},
                 ],
             }
         ]
@@ -409,26 +430,27 @@ class TestDeriveShoppingList:
         salt = next(i for i in items if i["name"] == "Salt")
         assert salt["amount"] == ""
 
-    def test_from_special_flag_propagates(self, pricing_db):
+    def test_isspecial_comes_from_live_enrichment(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Garlic Bulb",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 0.99, "isSpecial": True}},
+        })
         recipes = [
             {
                 "recipeId": "r1",
                 "name": "Pasta",
-                "ingredients": [
-                    {"name": "Garlic", "amount": "2 cloves", "estimatedCost": 0.50, "fromSpecial": False},
-                ],
+                "ingredients": [{"name": "Garlic", "amount": "2 cloves"}],
             },
             {
                 "recipeId": "r2",
                 "name": "Stir Fry",
-                "ingredients": [
-                    {"name": "Garlic", "amount": "3 cloves", "estimatedCost": 0.75, "fromSpecial": True},
-                ],
+                "ingredients": [{"name": "Garlic", "amount": "3 cloves"}],
             },
         ]
         items, _ = _derive_shopping_list(recipes, pricing_db)
         garlic = next(i for i in items if i["name"] == "Garlic")
-        assert garlic["fromSpecial"] is True
+        # isSpecial comes from the live product, not from a stored ingredient flag
+        assert garlic["isSpecial"] is True
 
 
 # ── Helpers for library selection tests ──────────────────────────────────────

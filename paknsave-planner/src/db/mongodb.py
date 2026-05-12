@@ -22,12 +22,22 @@ def _ensure_indexes():
         db["recipes"].create_index("recipeId", unique=True)
         db["recipes"].create_index("usageHistory")
         db["recipes"].create_index("bundleHistory")
+        db["recipes"].create_index("primaryProtein")
+        db["recipes"].create_index("tags")
+        db["recipes"].create_index("season")
+        db["recipes"].create_index("cookTimeMinutes")
+        db["recipes"].create_index("lastUsedWeek")
+        db["recipes"].create_index([
+            ("primaryProtein", 1), ("cookTimeMinutes", 1), ("lastUsedWeek", 1)
+        ])
         db["bundles"].create_index("bundleId", unique=True)
         db["bundles"].create_index([("week", 1), ("active", 1)])
         db["bundles"].create_index([("active", 1), ("week", -1), ("createdAt", -1)])
         db["bundles"].create_index([("week", -1), ("createdAt", -1)])
         pricing_db = _client[os.environ.get("PRICING_DB", "paknsave-pricing")]
         pricing_db["products"].create_index("category")
+        pricing_db["products"].create_index([("name", "text")])
+        pricing_db["products"].create_index([("category", 1)])
     except Exception:
         pass
 
@@ -85,13 +95,15 @@ def store_recipes(plan: dict, week_id: str = None) -> tuple[int, list[str]]:
     count = 0
     recipe_ids = []
 
+    _PRICE_FIELDS = {"estimatedCost", "fromSpecial", "sharedWith"}
+
     for meal in plan.get("meals", []):
         recipe_id = generate_recipe_id(meal)
         recipe_ids.append(recipe_id)
 
-        # Strip sharedWith from ingredients if Claude included it anyway
+        # Strip price/relationship fields — these never belong on the recipe itself
         ingredients = [
-            {k: v for k, v in ing.items() if k != "sharedWith"}
+            {k: v for k, v in ing.items() if k not in _PRICE_FIELDS}
             for ing in meal.get("ingredients", [])
         ]
 
@@ -99,18 +111,24 @@ def store_recipes(plan: dict, week_id: str = None) -> tuple[int, list[str]]:
             {"recipeId": recipe_id},
             {
                 "$set": {
-                    "recipeId":    recipe_id,
-                    "name":        meal.get("name"),
-                    "serves":      meal.get("serves"),
-                    "leftovers":   meal.get("leftovers", False),
-                    "cookTime":    meal.get("cookTime"),
-                    "description": meal.get("description"),
-                    "recipeUrl":   meal.get("recipeUrl"),
-                    "ingredients": ingredients,
-                    "method":      meal.get("method", []),
-                    "source":      "claude",
-                    "lastUsedWeek": week_id,
-                    "updatedAt":   datetime.now(),
+                    "recipeId":        recipe_id,
+                    "name":            meal.get("name"),
+                    "serves":          meal.get("serves"),
+                    "leftovers":       meal.get("leftovers", False),
+                    "cookTime":        meal.get("cookTime"),
+                    "cookTimeMinutes": meal.get("cookTimeMinutes", 0),
+                    "description":     meal.get("description"),
+                    "recipeUrl":       meal.get("recipeUrl"),
+                    "ingredients":     ingredients,
+                    "method":          meal.get("method", []),
+                    "primaryProtein":  meal.get("primaryProtein", ""),
+                    "tags":            meal.get("tags", []),
+                    "season":          meal.get("season", ["all"]),
+                    "dietaryFlags":    meal.get("dietaryFlags", []),
+                    "baselineCost":    meal.get("baselineCost", 0.0),
+                    "source":          "claude",
+                    "lastUsedWeek":    week_id,
+                    "updatedAt":       datetime.now(),
                 },
                 "$addToSet": {
                     "usageHistory": week_id

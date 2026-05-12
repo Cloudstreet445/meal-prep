@@ -42,9 +42,9 @@ class Ingredient:
     """An ingredient in a meal."""
     name: str
     amount: str
-    estimatedCost: float
-    fromSpecial: bool = False
-    sharedWith: list = field(default_factory=list)
+    unit: str = ""
+    quantity: float = 0.0
+    searchKey: str = ""
 
 
 @dataclass
@@ -55,10 +55,15 @@ class Meal:
     serves: int
     leftovers: bool
     cookTime: str
+    cookTimeMinutes: int
     description: str
     recipeUrl: str
     ingredients: list
     method: list
+    primaryProtein: str = ""
+    tags: list = field(default_factory=list)
+    season: list = field(default_factory=lambda: ["all"])
+    dietaryFlags: list = field(default_factory=list)
 
 
 @dataclass

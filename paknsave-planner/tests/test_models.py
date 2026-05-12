@@ -151,9 +151,10 @@ class TestMarketDataToDict:
 
 class TestDataclasses:
     def test_ingredient_defaults(self):
-        ing = Ingredient(name="Garlic", amount="2 cloves", estimatedCost=0.50)
-        assert ing.fromSpecial is False
-        assert ing.sharedWith == []
+        ing = Ingredient(name="Garlic", amount="2 cloves")
+        assert ing.unit == ""
+        assert ing.quantity == 0.0
+        assert ing.searchKey == ""
 
     def test_meal_construction(self):
         meal = Meal(
@@ -162,6 +163,7 @@ class TestDataclasses:
             serves=4,
             leftovers=True,
             cookTime="30 mins",
+            cookTimeMinutes=30,
             description="Quick weeknight meal",
             recipeUrl="",
             ingredients=[],
@@ -169,6 +171,11 @@ class TestDataclasses:
         )
         assert meal.name == "Chicken Stir Fry"
         assert meal.serves == 4
+        assert meal.cookTimeMinutes == 30
+        assert meal.primaryProtein == ""
+        assert meal.tags == []
+        assert meal.season == ["all"]
+        assert meal.dietaryFlags == []
 
     def test_meal_plan_construction(self):
         plan = MealPlan(
