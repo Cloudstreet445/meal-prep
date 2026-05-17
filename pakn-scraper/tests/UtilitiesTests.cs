@@ -107,5 +107,34 @@ namespace ScraperTests
             var result = CheckProductOverrides("P501234");
             Assert.AreEqual<string>(result.size, "");
         }
+
+        // ── GenerateSearchTokens (MEA-111) ──────────────────────────
+
+        [TestMethod]
+        public void GenerateSearchTokens_StripsBrandsQualifiersAndUnits()
+        {
+            var tokens = GenerateSearchTokens("Pams Fresh NZ Chicken Drumsticks 1kg");
+            CollectionAssert.AreEqual(new List<string> { "chicken", "drumsticks" }, tokens);
+        }
+
+        [TestMethod]
+        public void GenerateSearchTokens_StripsPunctuation()
+        {
+            var tokens = GenerateSearchTokens("Wattie's Tomato Paste");
+            CollectionAssert.AreEqual(new List<string> { "tomato", "paste" }, tokens);
+        }
+
+        [TestMethod]
+        public void GenerateSearchTokens_DeduplicatesPreservingOrder()
+        {
+            var tokens = GenerateSearchTokens("Chicken Chicken Stock");
+            CollectionAssert.AreEqual(new List<string> { "chicken", "stock" }, tokens);
+        }
+
+        [TestMethod]
+        public void GenerateSearchTokens_EmptyNameReturnsEmptyList()
+        {
+            Assert.AreEqual(0, GenerateSearchTokens("").Count);
+        }
     }
 }

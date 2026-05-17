@@ -511,6 +511,48 @@ namespace Scraper
             return null;
         }
 
+        // Stop words for GenerateSearchTokens() — brands, NZ qualifiers,
+        // descriptors, and bare unit words that add no search value.
+        // MUST stay in sync with paknsave-planner/scripts/pricing_tokens.py.
+        public static readonly HashSet<string> TokenStopWords = new HashSet<string>
+        {
+            "pams", "anchor", "meadow", "fresh", "dairyworks", "hellers",
+            "wattie", "watties", "homebrand", "san", "remo", "mainland", "value",
+            "tegel", "countdown", "essentials", "budget",
+            "nz", "new", "zealand", "imported",
+            "pack", "free", "range", "boneless", "skinless", "brushed",
+            "organic", "trim", "lean", "premium", "classic", "select",
+            "large", "medium", "small", "extra", "family", "bulk",
+            "kg", "g", "ml", "l", "pk", "ea", "each"
+        };
+
+        // GenerateSearchTokens()
+        // ----------------------
+        // Normalises a product name into a deduplicated, order-preserving token
+        // list stored as `searchTokens` for fuzzy ingredient matching (MEA-111).
+        // 'Pams Fresh NZ Chicken Drumsticks 1kg' returns ['chicken','drumsticks'].
+        // Output MUST match paknsave-planner/scripts/pricing_tokens.py tokenise().
+
+        public static List<string> GenerateSearchTokens(string name)
+        {
+            List<string> tokens = new List<string>();
+            if (string.IsNullOrWhiteSpace(name)) return tokens;
+
+            string lowered = Regex.Replace(name.ToLower(), "[^a-z0-9 ]", " ");
+
+            foreach (string token in lowered.Split(
+                ' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                // Drop single chars, stop words, and digit-led size tokens (1kg).
+                if (token.Length <= 1) continue;
+                if (TokenStopWords.Contains(token)) continue;
+                if (char.IsDigit(token[0])) continue;
+                if (!tokens.Contains(token)) tokens.Add(token);
+            }
+
+            return tokens;
+        }
+
         // Log()
         // -----
         // Shorthand function for logging with provided colour

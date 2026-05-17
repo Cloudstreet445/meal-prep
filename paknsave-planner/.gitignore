@@ -26,3 +26,7 @@ ENV/
 env/
 .vscode/
 .idea/
+
+# Bulk recipe puller — staged data, raw API responses, validation reports
+recipe_data/
+reports/
