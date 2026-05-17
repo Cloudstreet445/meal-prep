@@ -67,7 +67,10 @@ def backfill_search_tokens(db, dry_run: bool):
         print("[searchTokens] all products already up to date")
 
     products.create_index([("searchTokens", TEXT)], name="idx_searchTokens_text")
-    print("[searchTokens] created text index idx_searchTokens_text")
+    # Plain multikey index — serves the matcher's `$in` token query
+    # (MEA-115); the text index above only serves `$text` search.
+    products.create_index([("searchTokens", ASCENDING)], name="idx_searchTokens")
+    print("[searchTokens] created indexes idx_searchTokens_text, idx_searchTokens")
 
 
 # ---------------------------------------------------------------------------
