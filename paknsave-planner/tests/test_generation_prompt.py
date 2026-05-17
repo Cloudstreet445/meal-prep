@@ -44,6 +44,23 @@ class TestParseResponse:
         assert parse_generation_response('{"recipes": [{"name": "A"}]}') == [{"name": "A"}]
 
 
+class TestBatches:
+    def test_ids_are_contiguous_from_one(self):
+        ids = [b["id"] for b in BATCHES]
+        assert ids == list(range(1, len(BATCHES) + 1))
+
+    def test_labels_are_unique(self):
+        labels = [b["label"] for b in BATCHES]
+        assert len(labels) == len(set(labels))
+
+    def test_every_batch_has_a_focus(self):
+        assert all(b["focus"].strip() for b in BATCHES)
+
+    def test_count_supports_five_hundred_recipes(self):
+        # 25 batches x 20 recipes per batch = 500.
+        assert len(BATCHES) == 25
+
+
 class TestMakeRecipeId:
     def test_deterministic(self):
         assert make_recipe_id("Thai Chicken Curry") == make_recipe_id("Thai Chicken Curry")

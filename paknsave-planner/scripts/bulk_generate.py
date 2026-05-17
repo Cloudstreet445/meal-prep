@@ -378,8 +378,10 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     g = sub.add_parser("generate", help="Generate recipes to staging files")
-    g.add_argument("--batch", type=int, help="Run a single batch by ID (1-10)")
-    g.add_argument("--all", action="store_true", help="Run all 10 batches")
+    g.add_argument("--batch", type=int,
+                   help=f"Run a single batch by ID (1-{len(BATCHES)})")
+    g.add_argument("--all", action="store_true",
+                   help=f"Run all {len(BATCHES)} batches")
     g.add_argument("--from-batch", type=int, default=1,
                    help="Start batch (use with --all)")
 
@@ -394,7 +396,7 @@ def main():
         if args.batch:
             run_generate([args.batch])
         elif args.all:
-            run_generate(list(range(args.from_batch, 11)))
+            run_generate(list(range(args.from_batch, len(BATCHES) + 1)))
         else:
             g.print_help()
             sys.exit(1)
