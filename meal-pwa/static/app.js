@@ -1759,6 +1759,30 @@ function closeEnhancements() {
   document.getElementById('enhance-sheet').classList.remove('active');
 }
 
+// ── Capacitor deep links ─────────────────────────────────────────
+// When the Android app is opened via kaiplannerapp://auth?token=... ,
+// Capacitor fires appUrlOpen before the page navigates. We extract the
+// token and run the same auth callback used by the PWA magic link flow.
+if (window.Capacitor?.isNativePlatform?.()) {
+  document.addEventListener('deviceready', () => {
+    window.Capacitor.Plugins.App.addListener('appUrlOpen', async (data) => {
+      const url = data?.url;
+      if (!url) return;
+      try {
+        const parsed = new URL(url);
+        // kaiplannerapp://auth?token=XXX
+        const token = parsed.searchParams.get('token') || parsed.searchParams.get('auth_token');
+        if (token) {
+          await handleAuthCallback(token);
+        }
+        // kaiplannerapp://?tab=shopping
+        const tab = parsed.searchParams.get('tab');
+        if (tab) switchTab(tab);
+      } catch (_) {}
+    });
+  });
+}
+
 // ── Init ────────────────────────────────────────────────────────
 (async () => {
   await initAuth();
