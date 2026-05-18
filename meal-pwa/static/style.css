@@ -139,32 +139,30 @@ html, body {
 
 /* ── Header ───────────────────────────────────────────────── */
 header {
-  padding: 20px 20px 14px;
+  padding: 14px 20px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   position: relative;
   z-index: 10;
 }
 
-.header-top {
+.header-row-1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
+  margin-bottom: 6px;
+}
+
+.header-row-2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
-}
-
-/* On very small screens, hide the budget pill from the header (it shows in week view) */
-@media (max-width: 360px) {
-  .header-actions .budget-pill { display: none; }
-  .bundle-btn { padding: 6px 8px; }
 }
 
 .logo {
