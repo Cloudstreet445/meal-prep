@@ -2,9 +2,13 @@
 Ingredient match validation script.
 MEA-75: Report match rates across the full recipe library.
 
+Recipes live in `paknsave-meals`; products live in `paknsave-pricing`
+(MEA-115). The matcher is built from the pricing database.
+
 Usage:
-    python validate_matches.py --uri mongodb://localhost:27017 --db kai --store "PAK'nSAVE Lower Hutt"
-    python validate_matches.py --uri mongodb://localhost:27017 --db kai --store "PAK'nSAVE Lower Hutt" --output report.json
+    python validate_matches.py --uri mongodb://localhost:27017 --store paknsave-lower-hutt
+    python validate_matches.py --recipes-db paknsave-meals --pricing-db paknsave-pricing \\
+        --store paknsave-lower-hutt --output report.json
 """
 
 import argparse
@@ -29,11 +33,11 @@ THRESHOLD_GOOD = 0.7
 THRESHOLD_WEAK = 0.5  # anything below this = unmatched
 
 
-def run_validation(uri: str, db_name: str, store_id: str, output_path: str = None):
+def run_validation(uri: str, recipes_db: str, pricing_db: str,
+                   store_id: str, output_path: str = None):
     client = MongoClient(uri)
-    db = client[db_name]
-    matcher = IngredientMatcher(db)
-    recipes = db["recipes"]
+    matcher = IngredientMatcher(client[pricing_db])
+    recipes = client[recipes_db]["recipes"]
 
     total_ingredients = 0
     exact_matches = 0     # confidence >= 0.9
@@ -47,7 +51,7 @@ def run_validation(uri: str, db_name: str, store_id: str, output_path: str = Non
     searchkey_results = defaultdict(list)  # searchKey → list of confidence scores
 
     print(f"\nValidating ingredient matches against store: {store_id}")
-    print(f"DB: {db_name}.recipes")
+    print(f"Recipes: {recipes_db}.recipes")
     print("-" * 60)
 
     recipe_count = 0
@@ -159,9 +163,10 @@ def run_validation(uri: str, db_name: str, store_id: str, output_path: str = Non
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Validate ingredient→product match rates (MEA-75)")
     parser.add_argument("--uri", default="mongodb://localhost:27017")
-    parser.add_argument("--db", default="kai")
-    parser.add_argument("--store", default="PAK'nSAVE Lower Hutt", help="storeId to match against")
+    parser.add_argument("--recipes-db", default="paknsave-meals", help="Recipes database")
+    parser.add_argument("--pricing-db", default="paknsave-pricing", help="Pricing database")
+    parser.add_argument("--store", default="paknsave-lower-hutt", help="storeId to match against")
     parser.add_argument("--output", help="Save JSON report to this path")
     args = parser.parse_args()
 
-    run_validation(args.uri, args.db, args.store, args.output)
+    run_validation(args.uri, args.recipes_db, args.pricing_db, args.store, args.output)

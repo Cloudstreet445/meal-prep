@@ -151,6 +151,8 @@ namespace Scraper
                     { "size", scrapedProduct.size ?? "" },
                     { "category", scrapedProduct.category },
                     { "sourceSite", scrapedProduct.sourceSite },
+                    // searchTokens — precomputed fuzzy-match tokens (MEA-111)
+                    { "searchTokens", new BsonArray(GenerateSearchTokens(scrapedProduct.name)) },
                     { "storePrice", new BsonDocument { { StoreId, storePriceEntry } } }
                 };
 
@@ -179,6 +181,19 @@ namespace Scraper
         )
         {
             var filter = Builders<BsonDocument>.Filter.Eq("_id", scrapedProduct.id);
+
+            // Backfill searchTokens on products that predate MEA-111.
+            // Tokens derive only from the name, so this is a one-time write.
+            if (!existing.Contains("searchTokens"))
+            {
+                await productsCollection!.UpdateOneAsync(
+                    filter,
+                    Builders<BsonDocument>.Update.Set(
+                        "searchTokens",
+                        new BsonArray(GenerateSearchTokens(existing["name"].AsString))
+                    )
+                );
+            }
 
             // Migrate legacy flat-schema documents to storePrice map on first encounter
             if (!existing.Contains("storePrice"))
