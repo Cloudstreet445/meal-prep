@@ -65,10 +65,258 @@ const API = _apiParam
 log('CONFIG', 'API endpoint set to:', API);
 
 // ── State ───────────────────────────────────────────────────────
-let _detailRecipeId = null; // recipeId currently shown in recipe detail
-let plan          = null;   // active bundle with recipes
+let _detailRecipeId = null;
+let plan          = null;
 let checked       = {};
 let currentWeek   = null;
+let currentUser   = null;   // { userId, email, householdId } or null
+
+// ── Auth ─────────────────────────────────────────────────────────
+async function initAuth() {
+  // Process magic link token if present in URL
+  const params = new URLSearchParams(window.location.search);
+  const authToken = params.get('auth_token');
+  if (authToken) {
+    window.history.replaceState({}, '', window.location.pathname);
+    await handleAuthCallback(authToken);
+    return;
+  }
+
+  // Handle invite token (from household invite link)
+  const inviteToken = params.get('invite_token');
+  if (inviteToken) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  // Check existing session
+  try {
+    const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
+    if (res.ok) {
+      currentUser = await res.json();
+      log('AUTH', 'Signed in', { email: currentUser.email });
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) logoutBtn.style.display = '';
+      if (inviteToken) await handleInviteToken(inviteToken);
+      return;
+    }
+  } catch (_) { /* network error — allow app to load without auth */ return; }
+
+  // No session — show login screen
+  showLoginOverlay();
+  await waitForLogin();
+}
+
+function waitForLogin() {
+  return new Promise(resolve => {
+    window._authResolve = resolve;
+  });
+}
+
+function showLoginOverlay() {
+  const overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function hideLoginOverlay() {
+  const overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.style.display = 'none';
+  if (window._authResolve) { window._authResolve(); window._authResolve = null; }
+}
+
+function showEmailStep() {
+  document.getElementById('auth-email-step').style.display = '';
+  document.getElementById('auth-sent-step').style.display = 'none';
+  document.getElementById('auth-processing-step').style.display = 'none';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+async function submitLogin() {
+  const input = document.getElementById('auth-email-input');
+  const email = input?.value?.trim();
+  if (!email || !email.includes('@')) {
+    showAuthError('Please enter a valid email address');
+    return;
+  }
+  const errEl = document.getElementById('auth-error');
+  if (errEl) errEl.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/auth/send-magic-link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error('Request failed');
+    document.getElementById('auth-email-step').style.display = 'none';
+    document.getElementById('auth-sent-step').style.display = '';
+    const sentEmail = document.getElementById('auth-sent-email');
+    if (sentEmail) sentEmail.textContent = `We sent a link to ${email}`;
+  } catch (_) {
+    showAuthError('Could not send email. Please try again.');
+  }
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  if (el) { el.textContent = msg; el.style.display = ''; }
+}
+
+async function handleAuthCallback(token) {
+  document.getElementById('auth-email-step').style.display = 'none';
+  document.getElementById('auth-sent-step').style.display = 'none';
+  document.getElementById('auth-processing-step').style.display = '';
+  showLoginOverlay();
+
+  try {
+    const res = await fetch(`${API}/auth/verify?token=${encodeURIComponent(token)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Invalid link');
+    const data = await res.json();
+    currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.style.display = '';
+    hideLoginOverlay();
+    if (data.isNewUser) {
+      await showOnboarding();
+    }
+  } catch (_) {
+    showEmailStep();
+    showAuthError('Login link invalid or expired. Please request a new one.');
+  }
+}
+
+async function logout() {
+  await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
+  currentUser = null;
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) logoutBtn.style.display = 'none';
+  showLoginOverlay();
+  showEmailStep();
+  await waitForLogin();
+  await loadSettings();
+  await loadWeek();
+  loadShopping();
+}
+
+// ── Onboarding ──────────────────────────────────────────────────
+let _obStep = 0;
+const _obStepCount = 5;
+let _obExclusions = [];
+let _obStore = null;
+
+async function showOnboarding() {
+  _obStep = 0;
+  _obExclusions = [];
+  // Load stores for step 1
+  try {
+    const stores = await apiFetch('/settings/stores');
+    const el = document.getElementById('ob-store-options');
+    if (el) {
+      el.innerHTML = stores.map(s => `
+        <div class="ob-store-option${s === 'paknsave-lower-hutt' ? ' selected' : ''}" data-store="${s}" onclick="obSelectStore(this, '${s}')">
+          ${s.replace('paknsave-', 'PAK\'nSave ').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+        </div>`).join('');
+      _obStore = 'paknsave-lower-hutt';
+    }
+  } catch (_) {}
+
+  renderObDots();
+  document.getElementById('onboarding-overlay').style.display = 'flex';
+  return new Promise(resolve => { window._obResolve = resolve; });
+}
+
+function renderObDots() {
+  const el = document.getElementById('onboarding-dots');
+  if (!el) return;
+  el.innerHTML = Array.from({ length: _obStepCount }, (_, i) =>
+    `<div class="ob-dot${i === _obStep ? ' active' : ''}"></div>`
+  ).join('');
+}
+
+function obSelectStore(el, storeId) {
+  document.querySelectorAll('.ob-store-option').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  _obStore = storeId;
+}
+
+function obAddExclusion() {
+  const input = document.getElementById('ob-exclusion-input');
+  const val = input?.value?.trim().toLowerCase();
+  if (!val || _obExclusions.includes(val)) return;
+  _obExclusions.push(val);
+  input.value = '';
+  renderObExclusions();
+}
+
+function renderObExclusions() {
+  const el = document.getElementById('ob-exclusion-tags');
+  if (!el) return;
+  el.innerHTML = _obExclusions.map(t =>
+    `<div class="exclusion-tag">${t}<button class="exclusion-remove" onclick="obRemoveExclusion('${t}')">×</button></div>`
+  ).join('');
+}
+
+function obRemoveExclusion(term) {
+  _obExclusions = _obExclusions.filter(t => t !== term);
+  renderObExclusions();
+}
+
+function obNext() {
+  document.getElementById(`ob-step-${_obStep}`).style.display = 'none';
+  _obStep++;
+  if (_obStep >= _obStepCount) { finishOnboarding(); return; }
+  document.getElementById(`ob-step-${_obStep}`).style.display = '';
+  renderObDots();
+}
+
+async function finishOnboarding() {
+  const budget = parseFloat(document.getElementById('ob-budget')?.value) || 60;
+  const serves = parseInt(document.getElementById('ob-serves')?.value) || 2;
+  const storeId = _obStore || 'paknsave-lower-hutt';
+
+  try {
+    await apiFetch('/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ budget, serves, storeId, exclusions: _obExclusions }),
+    });
+  } catch (_) {}
+
+  document.getElementById('onboarding-overlay').style.display = 'none';
+  if (window._obResolve) { window._obResolve(); window._obResolve = null; }
+
+  // Show install prompt after onboarding
+  showInstallBannerIfAvailable();
+}
+
+// ── PWA Install Prompt ───────────────────────────────────────────
+let _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+});
+
+function showInstallBannerIfAvailable() {
+  if (!_deferredInstallPrompt) return;
+  if (localStorage.getItem('installBannerDismissed')) return;
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.style.display = 'flex';
+}
+
+async function triggerInstallPrompt() {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  const { outcome } = await _deferredInstallPrompt.userChoice;
+  _deferredInstallPrompt = null;
+  dismissInstallBanner();
+  log('INSTALL', 'Outcome:', outcome);
+}
+
+function dismissInstallBanner() {
+  localStorage.setItem('installBannerDismissed', '1');
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.style.display = 'none';
+}
 
 // ── Cooked-meal tracking (MEA-49) ───────────────────────────────
 function getCookedSet(bundleId) {
@@ -231,25 +479,23 @@ function highlightCookingTerms(plainText) {
 }
 
 // ── Fetch helpers ───────────────────────────────────────────────
-async function apiFetch(path) {
-  const url = `${API}${path}`;
-  log('FETCH', `GET ${url}`);
-  const res = await fetch(url);
+async function apiFetch(path, opts = {}) {
+  const { method = 'GET', body, params } = opts;
+  let url = `${API}${path}`;
+  if (params) url += '?' + new URLSearchParams(params).toString();
+  log('FETCH', `${method} ${url}`);
+  const fetchOpts = { method, credentials: 'include' };
+  if (body !== undefined) {
+    fetchOpts.headers = { 'Content-Type': 'application/json' };
+    fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
+  }
+  const res = await fetch(url, fetchOpts);
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (${url})`);
   return res.json();
 }
 
 async function apiPost(path, body = null, method = 'POST') {
-  const url = `${API}${path}`;
-  log('FETCH', `${method} ${url}`);
-  const opts = { method };
-  if (body !== null) {
-    opts.headers = { 'Content-Type': 'application/json' };
-    opts.body = JSON.stringify(body);
-  }
-  const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (${url})`);
-  return res.json();
+  return apiFetch(path, { method, body });
 }
 
 // ── Tab switching ───────────────────────────────────────────────
@@ -1034,8 +1280,80 @@ function openSettings() {
   renderExclusionTags();
   renderPantryTags();
   renderStoreSelector();
+  renderHouseholdSection();
   document.getElementById('settings-backdrop').classList.add('active');
   document.getElementById('settings-sheet').classList.add('active');
+}
+
+async function renderHouseholdSection() {
+  if (!currentUser) {
+    document.getElementById('household-section').innerHTML =
+      '<div class="settings-hint">Sign in to manage your household</div>';
+    return;
+  }
+
+  // Show account info
+  const accountSection = document.getElementById('account-section');
+  const accountEmail = document.getElementById('account-email');
+  if (accountSection) accountSection.style.display = '';
+  if (accountEmail) accountEmail.textContent = currentUser.email;
+
+  const el = document.getElementById('household-section');
+  el.innerHTML = '<div class="settings-hint">Loading…</div>';
+  try {
+    const h = await apiFetch('/household/');
+    const members = h.members || [];
+    const isOwner = h.createdBy === currentUser.userId;
+    el.innerHTML = `
+      <div class="settings-section">
+        <div class="settings-label">${h.name}</div>
+        <div class="household-members">
+          ${members.map(m => `
+            <div class="household-member">
+              <span class="member-avatar">${(m.userId || '?')[0].toUpperCase()}</span>
+              <span class="member-role-badge ${m.role}">${m.role}</span>
+              ${isOwner && m.role !== 'owner' ? `<button class="member-remove-btn" onclick="removeMember('${m.userId}')">Remove</button>` : ''}
+            </div>`).join('')}
+        </div>
+        <button class="settings-link-btn" onclick="copyInviteLink()" style="margin-top:8px">📋 Copy invite link</button>
+      </div>`;
+  } catch (_) {
+    el.innerHTML = '<div class="settings-hint">Could not load household info</div>';
+  }
+}
+
+async function copyInviteLink() {
+  try {
+    const data = await apiFetch('/household/invite');
+    const link = `${window.location.origin}/?invite_token=${data.token}`;
+    await navigator.clipboard.writeText(link);
+    showToast('Invite link copied to clipboard!');
+  } catch (_) {
+    showToast('Could not generate invite link');
+  }
+}
+
+async function removeMember(userId) {
+  if (!confirm('Remove this member from your household?')) return;
+  try {
+    await apiFetch(`/household/members/${userId}`, { method: 'DELETE' });
+    renderHouseholdSection();
+  } catch (_) {
+    showToast('Could not remove member');
+  }
+}
+
+async function handleInviteToken(token) {
+  try {
+    await apiFetch('/household/join', { method: 'POST', params: { token } });
+    showToast("You've joined the household!");
+    if (currentUser) {
+      const me = await apiFetch('/auth/me');
+      currentUser.householdId = me.householdId;
+    }
+  } catch (_) {
+    showToast('Invite link invalid or expired');
+  }
 }
 
 function closeSettings() {
@@ -1443,6 +1761,7 @@ function closeEnhancements() {
 
 // ── Init ────────────────────────────────────────────────────────
 (async () => {
+  await initAuth();
   loadPantry();
   await loadSettings();
   await loadWeek();
@@ -1450,7 +1769,6 @@ function closeEnhancements() {
   loadShopping();
   registerServiceWorker();
 
-  // Honour ?tab= param — used by notification click-through (e.g. ?tab=shopping)
   const urlTab = new URLSearchParams(window.location.search).get('tab');
   if (urlTab) switchTab(urlTab);
 })();

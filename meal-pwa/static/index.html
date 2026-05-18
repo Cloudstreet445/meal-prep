@@ -19,17 +19,18 @@
 
   <!-- Header -->
   <header>
-    <div class="header-row-1">
-      <div class="logo">Kai <span>Planner</span></div>
-      <button class="hamburger-btn" id="nav-menu-btn" onclick="openNavMenu()" aria-label="Open menu">
-        <span class="hamburger-bar"></span>
-        <span class="hamburger-bar"></span>
-        <span class="hamburger-bar"></span>
-      </button>
-    </div>
-    <div class="header-row-2">
-      <div class="week-badge" id="week-badge">Loading...</div>
-      <div class="budget-pill" id="budget-pill">—</div>
+    <div class="header-top">
+      <div>
+        <div class="logo">Kai <span>Planner __VERSION__</span></div>
+        <div class="week-badge" id="week-badge">Loading...</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="bundle-switcher-btn" onclick="openBundleSheet()" aria-label="Weekly plans" title="Weekly plans">↕</button>
+        <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+        <button class="icon-btn" id="logout-btn" onclick="logout()" aria-label="Sign out" title="Sign out" style="display:none">⏏</button>
+        <div class="budget-pill" id="budget-pill">—</div>
+      </div>
     </div>
   </header>
 
@@ -204,6 +205,16 @@
       </div>
     </div>
     <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
+    <div class="settings-group-divider"></div>
+    <div class="settings-group-label">Household</div>
+    <div id="household-section">
+      <div class="settings-hint" id="household-loading">Loading…</div>
+    </div>
+    <div class="settings-section" id="account-section" style="display:none">
+      <div class="settings-label">Account</div>
+      <div class="settings-hint" id="account-email"></div>
+      <button class="settings-link-btn" onclick="logout()">Sign out</button>
+    </div>
   </div>
 </div>
 
@@ -346,6 +357,105 @@
   </div>
   <div class="term-tooltip-def" id="term-tooltip-def"></div>
 </div>
+
+<!-- Login Overlay -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">Kai <span>Planner</span></div>
+    <div class="auth-tagline">Your weekly meal planner</div>
+
+    <div id="auth-email-step">
+      <div class="auth-label">Enter your email to sign in</div>
+      <input type="email" id="auth-email-input" class="auth-input" placeholder="you@example.com"
+        onkeydown="if(event.key==='Enter')submitLogin()">
+      <button class="auth-submit-btn" onclick="submitLogin()">Send me a login link</button>
+      <div class="auth-error" id="auth-error" style="display:none"></div>
+    </div>
+
+    <div id="auth-sent-step" style="display:none">
+      <div class="auth-sent-icon">📬</div>
+      <div class="auth-sent-msg">Check your email</div>
+      <div class="auth-sent-sub" id="auth-sent-email"></div>
+      <div class="auth-sent-hint">Click the link in the email to sign in. It expires in 30 minutes.</div>
+      <button class="auth-link-btn" onclick="showEmailStep()">Use a different email</button>
+    </div>
+
+    <div id="auth-processing-step" style="display:none">
+      <div class="auth-sent-icon">⏳</div>
+      <div class="auth-sent-msg">Signing you in…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding Overlay -->
+<div class="onboarding-overlay" id="onboarding-overlay" style="display:none">
+  <div class="onboarding-card">
+    <div class="onboarding-dots" id="onboarding-dots"></div>
+
+    <div class="onboarding-step" id="ob-step-0">
+      <div class="ob-emoji">👋</div>
+      <div class="ob-title">Welcome to Kai Planner</div>
+      <div class="ob-desc">Plan 5 dinners a week using PAK'nSave prices. Let's get your household set up.</div>
+      <button class="ob-next-btn" onclick="obNext()">Get started →</button>
+      <button class="ob-skip-btn" onclick="finishOnboarding()">Skip setup</button>
+    </div>
+
+    <div class="onboarding-step" id="ob-step-1" style="display:none">
+      <div class="ob-emoji">🏪</div>
+      <div class="ob-title">Your PAK'nSave store</div>
+      <div class="ob-desc">We'll use prices from your nearest store for your shopping list.</div>
+      <div class="ob-store-options" id="ob-store-options">
+        <div class="ob-loading">Loading stores…</div>
+      </div>
+      <button class="ob-next-btn" onclick="obNext()">Continue →</button>
+    </div>
+
+    <div class="onboarding-step" id="ob-step-2" style="display:none">
+      <div class="ob-emoji">💰</div>
+      <div class="ob-title">Weekly budget</div>
+      <div class="ob-desc">How much do you want to spend on dinners each week?</div>
+      <div class="ob-input-row">
+        <span class="ob-affix">$</span>
+        <input type="number" id="ob-budget" class="ob-num-input" value="60" min="20" max="500" step="5">
+        <span class="ob-affix">NZD</span>
+      </div>
+      <button class="ob-next-btn" onclick="obNext()">Continue →</button>
+    </div>
+
+    <div class="onboarding-step" id="ob-step-3" style="display:none">
+      <div class="ob-emoji">👥</div>
+      <div class="ob-title">Household size</div>
+      <div class="ob-desc">How many people are you cooking for?</div>
+      <div class="ob-input-row">
+        <input type="number" id="ob-serves" class="ob-num-input" value="2" min="1" max="10" step="1">
+        <span class="ob-affix">people</span>
+      </div>
+      <button class="ob-next-btn" onclick="obNext()">Continue →</button>
+    </div>
+
+    <div class="onboarding-step" id="ob-step-4" style="display:none">
+      <div class="ob-emoji">🚫</div>
+      <div class="ob-title">Any dietary restrictions?</div>
+      <div class="ob-desc">Add ingredients to avoid (you can always change this later).</div>
+      <div class="settings-exclusion-tags" id="ob-exclusion-tags"></div>
+      <div class="settings-exclusion-add" style="margin-top:12px">
+        <input type="text" id="ob-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom"
+          onkeydown="if(event.key==='Enter')obAddExclusion()">
+        <button class="settings-add-btn" onclick="obAddExclusion()">+</button>
+      </div>
+      <button class="ob-next-btn" onclick="finishOnboarding()" style="margin-top:20px">Finish setup →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PWA Install Banner -->
+<div class="install-banner" id="install-banner" style="display:none">
+  <span class="install-banner-text">Add Kai Planner to your home screen for the best experience</span>
+  <button class="install-banner-btn" onclick="triggerInstallPrompt()">Add</button>
+  <button class="install-banner-dismiss" onclick="dismissInstallBanner()">✕</button>
+</div>
+
+<!-- Household Settings Section (injected into settings sheet dynamically) -->
 
 <div id="toast" class="toast" aria-live="polite"></div>
 <script src="/app.js"></script>

@@ -1,0 +1,49 @@
+version: '3.9'
+
+# Local development stack — full Kai Planner setup
+# Usage: docker-compose up
+
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+      MONGO_INITDB_DATABASE: paknsave-meals
+    volumes:
+      - mongo_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api:
+    build: ./meal-api
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URI: mongodb://paknsave_app:letmein@mongo:27017/paknsave-meals?authSource=admin
+      JWT_SECRET: dev-secret-change-in-prod
+      APP_URL: http://localhost:3000
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./meal-api/src:/app/src  # hot-reload in dev
+
+  pwa:
+    build:
+      context: ./meal-pwa
+      args:
+        API_HOST: localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  mongo_data:

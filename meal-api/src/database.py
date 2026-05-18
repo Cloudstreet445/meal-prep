@@ -25,7 +25,16 @@ def _ensure_indexes():
         db["bundles"].create_index([("active", 1), ("week", -1), ("createdAt", -1)])
         # Index to support aggregation pipeline initial sort
         db["bundles"].create_index([("week", -1), ("createdAt", -1)])
-        db["settings"].create_index("key", unique=True)
+        db["settings"].create_index("key", sparse=True)
+        db["settings"].create_index("userId", sparse=True, unique=True)
+        db["users"].create_index("userId", unique=True)
+        db["users"].create_index("email", unique=True)
+        db["magic_tokens"].create_index("token", unique=True)
+        db["magic_tokens"].create_index("expiresAt", expireAfterSeconds=0)
+        db["household_invites"].create_index("token", unique=True)
+        db["household_invites"].create_index("expiresAt", expireAfterSeconds=0)
+        db["households"].create_index("householdId", unique=True)
+        db["user_pantry"].create_index([("userId", 1), ("canonical", 1)], unique=True)
         db["enhancements"].create_index("enhancementId", unique=True)
         db["enhancements"].create_index("tags")
         pricing_db = _client[PRICING_DB]

@@ -10,6 +10,7 @@ Thumbs.db
 # ── Secrets / Environment ─────────────────────────────────────────────────────
 .env
 .env.*
+!.env.example
 secrets/
 *.pem
 *.key
@@ -58,3 +59,25 @@ docker-compose.override.yml
 *.tar
 *.gz
 runner
+
+
+# -- Terraform ───────────────────────────────────────────────────────────────────
+# Terraform state — contains passwords, never commit
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.d/
+.terraform/
+.terraform.lock.hcl
+ 
+# Your actual vars file
+terraform.tfvars
+ 
+# Crash logs
+crash.log
+ 
+*.sh
+*.pub
+*.key
+*.key.pem
+*.key.pub
+*.oci

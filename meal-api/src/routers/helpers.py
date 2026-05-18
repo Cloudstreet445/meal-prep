@@ -20,11 +20,21 @@ _UNIT_NORMALIZE = {
 }
 
 
-def _parse_amount(raw: str) -> dict | None:
-    """Parse a free-text amount string to {value, unit}, or None if unparseable."""
+def _parse_amount(raw) -> dict | None:
+    """Parse an amount to {value, unit}. Accepts a string or a v2 amount object."""
     if not raw:
         return None
-    m = _AMOUNT_RE.match(raw.strip())
+    # v2 schema: {"value": 1.2, "unit": "kg", "display": "1.2kg"}
+    if isinstance(raw, dict):
+        v, u = raw.get("value"), raw.get("unit", "")
+        if v is not None and u:
+            unit = _UNIT_NORMALIZE.get(u.lower(), u.lower())
+            return {"value": float(v), "unit": unit}
+        # Fall back to display string if value/unit missing
+        raw = raw.get("display", "")
+    if not raw:
+        return None
+    m = _AMOUNT_RE.match(str(raw).strip())
     if not m:
         return None
     unit = _UNIT_NORMALIZE.get(m.group(2).lower(), m.group(2).lower())
@@ -88,7 +98,10 @@ _PROTEIN_KEYWORDS: dict[str, list[str]] = {
 
 
 def _infer_protein(recipe: dict) -> str:
-    """Infer primary protein from ingredient names and recipe title."""
+    """Return primaryProtein if set (v2 schema), otherwise infer from ingredient names."""
+    if recipe.get("primaryProtein"):
+        p = recipe["primaryProtein"].lower()
+        return p if p in _PROTEIN_KEYWORDS else "other"
     text = " ".join(i.get("name", "").lower() for i in recipe.get("ingredients", []))
     text += " " + recipe.get("name", "").lower()
     for protein, keywords in _PROTEIN_KEYWORDS.items():
@@ -97,11 +110,22 @@ def _infer_protein(recipe: dict) -> str:
     return "other"
 
 
+_COST_TIER_ESTIMATE = {"budget": 10.0, "mid": 17.0, "premium": 28.0}
+
+
 def _recipe_cost(recipe: dict) -> float:
-    """Return the recipe's baseline cost. Prefers recipe-level baselineCost (Phase 0 schema),
-    falls back to summing legacy per-ingredient estimatedCost for older docs."""
-    if "baselineCost" in recipe:
+    """Return the recipe's estimated cost.
+
+    Priority order:
+      1. recipe.baselineCost — explicit price from scraper/pricing pass
+      2. recipe.costTier     — v2 recipes use tier as a proxy (budget/mid/premium)
+      3. sum of ingredient.estimatedCost — legacy v1 per-ingredient prices
+    """
+    if recipe.get("baselineCost") is not None:
         return recipe["baselineCost"]
+    tier = recipe.get("costTier")
+    if tier in _COST_TIER_ESTIMATE:
+        return _COST_TIER_ESTIMATE[tier]
     return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
 
 
@@ -252,10 +276,15 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
             if not key:
                 continue
 
+            # Normalise v2 amount object to display string for storage
+            raw_amount = ing.get("amount", "")
+            if isinstance(raw_amount, dict):
+                raw_amount = raw_amount.get("display", "") or ""
+
             if key not in ingredient_map:
                 ingredient_map[key] = {
                     "name":         ing.get("name"),
-                    "amount":       ing.get("amount", ""),
+                    "amount":       raw_amount,
                     "searchKey":    ing.get("searchKey", ""),
                     "isSpecial":    False,
                     "currentPrice": None,
@@ -266,6 +295,8 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
             else:
                 existing = ingredient_map[key]
                 new_raw = ing.get("amount", "")
+                if isinstance(new_raw, dict):
+                    new_raw = new_raw.get("display", "") or ""
                 if "amount_parts" not in existing:
                     parsed_existing = _parse_amount(existing.get("amount", ""))
                     parsed_new = _parse_amount(new_raw)
