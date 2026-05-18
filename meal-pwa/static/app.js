@@ -23,8 +23,17 @@ function toggleTheme() {
 function _setLogoutVisible(visible) {
   const btn = document.getElementById('nav-logout-btn');
   if (btn) btn.style.display = visible ? '' : 'none';
-  const emailEl = document.getElementById('nav-user-email');
-  if (emailEl && currentUser?.email) emailEl.textContent = currentUser.email;
+  // Update header avatar
+  const icon = document.getElementById('header-avatar-icon');
+  const letter = document.getElementById('header-avatar-letter');
+  const avatarBtn = document.getElementById('nav-menu-btn');
+  const initial = currentUser?.email?.[0]?.toUpperCase() || '';
+  if (icon && letter) {
+    icon.style.display = visible ? 'none' : '';
+    letter.style.display = visible ? '' : 'none';
+    letter.textContent = initial;
+  }
+  if (avatarBtn) avatarBtn.classList.toggle('signed-in', visible && !!initial);
 }
 
 function openNavMenu() {
@@ -33,6 +42,25 @@ function openNavMenu() {
   updateNavThemeItem();
   updateNavPlanDesc();
   _setLogoutVisible(!!currentUser);
+  // Update drawer profile
+  const drawerAvatar = document.getElementById('drawer-avatar');
+  const drawerName = document.getElementById('drawer-user-name');
+  const drawerEmail = document.getElementById('drawer-user-email');
+  const emailEl = document.getElementById('nav-user-email');
+  if (currentUser?.email) {
+    const initial = currentUser.email[0].toUpperCase();
+    if (drawerAvatar) { drawerAvatar.innerHTML = initial; drawerAvatar.classList.add('signed-in'); }
+    if (drawerName) drawerName.textContent = initial + currentUser.email.slice(1, currentUser.email.indexOf('@')) || 'You';
+    if (drawerEmail) { drawerEmail.textContent = currentUser.email; drawerEmail.style.display = ''; }
+    if (emailEl) emailEl.textContent = currentUser.email;
+  } else {
+    if (drawerAvatar) {
+      drawerAvatar.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
+      drawerAvatar.classList.remove('signed-in');
+    }
+    if (drawerName) drawerName.textContent = 'Kai Planner';
+    if (drawerEmail) drawerEmail.style.display = 'none';
+  }
 }
 
 function closeNavMenu() {
@@ -45,8 +73,12 @@ function updateNavThemeItem() {
     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
   const icon = document.getElementById('nav-theme-icon');
   const name = document.getElementById('nav-theme-name');
-  if (icon) icon.textContent = isDark ? '☾' : '☀';
+  const toggle = document.getElementById('drawer-theme-toggle');
+  const moonSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>`;
+  const sunSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+  if (icon) icon.innerHTML = isDark ? moonSVG : sunSVG;
   if (name) name.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+  if (toggle) toggle.classList.toggle('on', isDark);
 }
 
 function updateNavPlanDesc() {
