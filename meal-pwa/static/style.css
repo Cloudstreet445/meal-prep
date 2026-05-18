@@ -204,37 +204,63 @@ header {
   font-weight: 500;
 }
 
-/* ── Nav Tabs ─────────────────────────────────────────────── */
+/* ── Bottom Nav ───────────────────────────────────────────── */
 nav {
   display: flex;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  padding: 0 8px;
+  border-top: 1px solid var(--border);
+  padding: 0 4px;
+  padding-bottom: var(--safe-bot);
+  flex-shrink: 0;
 }
 
 .tab {
   flex: 1;
-  padding: 14px 8px;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px 8px;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  border-bottom: 2px solid transparent;
-  transition: all var(--dur-normal) var(--ease);
+  transition: color var(--dur-normal) var(--ease);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  position: relative;
 }
 
 .tab.active {
   color: var(--green);
-  border-bottom-color: var(--green);
+}
+
+.tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--green);
+  border-radius: 0 0 2px 2px;
 }
 
 .tab-icon {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-family: 'DM Mono', monospace;
 }
 
 /* ── Content Area ─────────────────────────────────────────── */
@@ -243,6 +269,7 @@ main {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  /* Content won't be hidden behind bottom nav since nav is in the flex column */
 }
 
 .view { display: none; padding: 16px; }
@@ -1445,7 +1472,7 @@ main {
 /* ── Cooking term tooltip ─────────────────────────────────── */
 .term-tooltip {
   position: fixed;
-  bottom: calc(var(--safe-bot) + 80px); /* above nav */
+  bottom: calc(var(--safe-bot) + 84px); /* above bottom nav */
   left: 20px;
   right: 20px;
   background: var(--bg3);
@@ -2127,7 +2154,7 @@ main {
 /* ── Toast notification ───────────────────────────────────── */
 .toast {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  bottom: calc(var(--safe-bot) + 76px);
   left: 50%;
   transform: translateX(-50%) translateY(12px);
   background: var(--text);
@@ -2187,60 +2214,136 @@ button:focus-visible,
     animation-duration: 0.01ms !important;
   }
 }
-/* ── Auth Overlay ──────────────────────────────────────────── */
-.auth-overlay {
+/* ── Auth Pages (full-screen router) ───────────────────────── */
+#auth-root {
   position: fixed; inset: 0; z-index: 1000;
   background: var(--bg);
   display: none;
+  overflow-y: auto;
+}
+#auth-root.visible { display: block; }
+
+.auth-page {
+  min-height: 100dvh;
+  display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 24px;
+  padding: 32px 24px calc(32px + var(--safe-bot, 0px));
+  box-sizing: border-box;
 }
-.auth-card {
-  width: 100%; max-width: 360px;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 8px;
+.auth-page-logo {
+  font-family: 'Fraunces', serif;
+  font-size: 36px; font-weight: 600;
+  color: var(--green); letter-spacing: -1px;
+  margin-bottom: 4px; text-align: center;
 }
-.auth-logo {
-  font-family: 'DM Mono', monospace;
-  font-size: 28px; font-weight: 600;
-  color: var(--text); margin-bottom: 4px;
+.auth-page-logo span { color: var(--text); font-weight: 300; }
+.auth-page-tagline {
+  font-size: 13px; color: var(--text-muted);
+  text-align: center; margin-bottom: 32px;
 }
-.auth-logo span { color: var(--green); font-weight: 400; }
-.auth-tagline {
-  font-size: 14px; color: var(--text-dim); margin-bottom: 24px;
+.auth-card-title {
+  font-size: 18px; font-weight: 600; color: var(--text);
+  margin-bottom: 20px; text-align: center;
 }
-.auth-label {
-  font-size: 15px; color: var(--text); margin-bottom: 12px;
-  text-align: center;
+.auth-form {
+  width: 100%; max-width: 400px;
+  display: flex; flex-direction: column; gap: 0;
+}
+.auth-field {
+  display: flex; flex-direction: column; margin-bottom: 12px;
 }
 .auth-input {
-  width: 100%; padding: 12px 16px;
-  background: var(--bg2); border: 1px solid var(--bg3);
-  border-radius: 10px; color: var(--text);
-  font-family: inherit; font-size: 16px;
-  box-sizing: border-box; margin-bottom: 12px;
+  width: 100%; padding: 13px 16px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 15px;
+  box-sizing: border-box;
+  transition: border-color var(--dur-fast) var(--ease);
 }
 .auth-input:focus { outline: none; border-color: var(--green); }
+.auth-input::placeholder { color: var(--text-muted); }
+.auth-input.valid { border-color: var(--green); }
+.auth-input.invalid { border-color: var(--red); }
+.auth-field-error {
+  font-size: 12px; color: var(--red);
+  margin-top: 4px; display: none;
+}
+.auth-field-error.visible { display: block; }
+
+/* Password strength bar */
+.pw-strength-wrap { margin-top: 6px; display: none; }
+.pw-strength-wrap.visible { display: block; }
+.pw-strength-bar {
+  height: 3px; border-radius: 2px; width: 100%;
+  background: var(--border);
+  overflow: hidden;
+}
+.pw-strength-fill {
+  height: 100%; border-radius: 2px; width: 0%;
+  transition: width 0.2s var(--ease), background 0.2s var(--ease);
+}
+.pw-strength-label {
+  font-size: 11px; color: var(--text-muted);
+  margin-top: 3px; text-align: right;
+}
+
+/* Form-level error */
+.auth-form-error {
+  font-size: 13px; color: var(--red);
+  text-align: center; margin-bottom: 12px;
+  display: none;
+}
+.auth-form-error.visible { display: block; }
+
 .auth-submit-btn {
-  width: 100%; padding: 14px;
-  background: var(--green); color: #0f1410;
-  border: none; border-radius: 10px;
-  font-family: inherit; font-size: 15px; font-weight: 600;
-  cursor: pointer;
+  width: 100%; padding: 15px;
+  background: var(--green); color: var(--bg);
+  border: none; border-radius: var(--radius-sm);
+  font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500;
+  letter-spacing: 0.3px; cursor: pointer; margin-top: 4px;
+  transition: filter var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
 }
-.auth-submit-btn:hover { filter: brightness(1.1); }
-.auth-error {
-  color: #e05555; font-size: 13px; text-align: center; margin-top: 8px;
+.auth-submit-btn:active { filter: brightness(0.9); }
+.auth-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.auth-switch {
+  font-size: 13px; color: var(--text-muted);
+  text-align: center; margin-top: 20px;
 }
-.auth-sent-icon { font-size: 48px; margin-bottom: 16px; }
-.auth-sent-msg { font-size: 20px; font-weight: 600; color: var(--text); }
-.auth-sent-sub { font-size: 14px; color: var(--green); margin: 4px 0 12px; }
-.auth-sent-hint { font-size: 13px; color: var(--text-dim); text-align: center; line-height: 1.5; }
-.auth-link-btn {
-  margin-top: 20px; background: none; border: none;
-  color: var(--text-dim); font-size: 13px; cursor: pointer;
-  text-decoration: underline;
+.auth-switch a {
+  color: var(--green); text-decoration: none; cursor: pointer;
 }
+.auth-switch a:hover { text-decoration: underline; }
+
+.auth-confirm-msg {
+  font-size: 15px; color: var(--text);
+  text-align: center; line-height: 1.6;
+  max-width: 320px; margin: 0 auto 20px;
+}
+
+/* Sessions in settings */
+.session-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.session-card:last-child { border-bottom: none; }
+.session-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.session-device { font-size: 13px; color: var(--text); }
+.session-meta { font-size: 11px; color: var(--text-muted); }
+.session-badge {
+  font-size: 10px; font-weight: 600;
+  background: var(--green); color: var(--bg);
+  padding: 2px 6px; border-radius: 10px;
+  margin-left: 6px; vertical-align: middle;
+}
+.session-revoke-btn {
+  font-size: 12px; color: var(--red);
+  background: none; border: 1px solid var(--red);
+  border-radius: var(--radius-sm); padding: 4px 10px;
+  cursor: pointer; flex-shrink: 0; margin-left: 12px;
+}
+.danger-btn { color: var(--red) !important; }
 
 /* ── Onboarding Overlay ─────────────────────────────────────── */
 .onboarding-overlay {

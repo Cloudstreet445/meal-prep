@@ -42,19 +42,6 @@
     <button class="notif-banner-dismiss" onclick="dismissNotificationBanner()">✕</button>
   </div>
 
-  <!-- Nav -->
-  <nav>
-    <div class="tab active" data-view="week">
-      <span class="tab-icon">🗓</span>This Week
-    </div>
-    <div class="tab" data-view="shopping">
-      <span class="tab-icon">🛒</span>Shopping
-    </div>
-    <div class="tab" data-view="recipes">
-      <span class="tab-icon">🍳</span>Recipes
-    </div>
-  </nav>
-
   <!-- Main Content -->
   <main>
 
@@ -156,6 +143,47 @@
     </div>
 
   </main>
+
+  <!-- Bottom Nav -->
+  <nav>
+    <div class="tab active" data-view="week">
+      <span class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+          <line x1="8" y1="14" x2="8" y2="14" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="12" y1="14" x2="12" y2="14" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="16" y1="14" x2="16" y2="14" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="8" y1="18" x2="8" y2="18" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="12" y1="18" x2="12" y2="18" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="tab-label">This Week</span>
+    </div>
+    <div class="tab" data-view="shopping">
+      <span class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+      </span>
+      <span class="tab-label">Shopping</span>
+    </div>
+    <div class="tab" data-view="recipes">
+      <span class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a7 7 0 0 1 7 7c0 4-3 6-3 9H8c0-3-3-5-3-9a7 7 0 0 1 7-7Z"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+          <line x1="9" y1="18" x2="15" y2="18"/>
+        </svg>
+      </span>
+      <span class="tab-label">Recipes</span>
+    </div>
+  </nav>
+
 </div>
 
 <!-- Settings Sheet -->
@@ -215,6 +243,11 @@
       <div class="settings-label">Account</div>
       <div class="settings-hint" id="account-email"></div>
       <button class="settings-link-btn" onclick="logout()">Sign out</button>
+    </div>
+    <div class="settings-section" id="sessions-section" style="display:none">
+      <div class="settings-label">Active Sessions</div>
+      <div id="sessions-list"></div>
+      <button class="settings-link-btn danger-btn" style="margin-top:8px" onclick="revokeAllSessions()">Log out of all devices</button>
     </div>
   </div>
 </div>
@@ -366,34 +399,7 @@
   <div class="term-tooltip-def" id="term-tooltip-def"></div>
 </div>
 
-<!-- Login Overlay -->
-<div class="auth-overlay" id="auth-overlay">
-  <div class="auth-card">
-    <div class="auth-logo">Kai <span>Planner</span></div>
-    <div class="auth-tagline">Your weekly meal planner</div>
-
-    <div id="auth-email-step">
-      <div class="auth-label">Enter your email to sign in</div>
-      <input type="email" id="auth-email-input" class="auth-input" placeholder="you@example.com"
-        onkeydown="if(event.key==='Enter')submitLogin()">
-      <button class="auth-submit-btn" onclick="submitLogin()">Send me a login link</button>
-      <div class="auth-error" id="auth-error" style="display:none"></div>
-    </div>
-
-    <div id="auth-sent-step" style="display:none">
-      <div class="auth-sent-icon">📬</div>
-      <div class="auth-sent-msg">Check your email</div>
-      <div class="auth-sent-sub" id="auth-sent-email"></div>
-      <div class="auth-sent-hint">Click the link in the email to sign in. It expires in 30 minutes.</div>
-      <button class="auth-link-btn" onclick="showEmailStep()">Use a different email</button>
-    </div>
-
-    <div id="auth-processing-step" style="display:none">
-      <div class="auth-sent-icon">⏳</div>
-      <div class="auth-sent-msg">Signing you in…</div>
-    </div>
-  </div>
-</div>
+<div id="auth-root"></div>
 
 <!-- Onboarding Overlay -->
 <div class="onboarding-overlay" id="onboarding-overlay" style="display:none">

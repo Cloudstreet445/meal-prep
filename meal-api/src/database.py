@@ -37,6 +37,11 @@ def _ensure_indexes():
         db["user_pantry"].create_index([("userId", 1), ("canonical", 1)], unique=True)
         db["enhancements"].create_index("enhancementId", unique=True)
         db["enhancements"].create_index("tags")
+        db["sessions"].create_index("sessionId", unique=True)
+        db["sessions"].create_index("userId")
+        db["sessions"].create_index("expiresAt", expireAfterSeconds=0)
+        db["password_reset_tokens"].create_index("token", unique=True)
+        db["password_reset_tokens"].create_index("expiresAt", expireAfterSeconds=0)
         pricing_db = _client[PRICING_DB]
         pricing_db["products"].create_index("category")
     except Exception:

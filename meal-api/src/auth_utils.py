@@ -10,11 +10,14 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
 
 
-def create_jwt(user_id: str, email: str) -> str:
+def create_jwt(user_id: str, email: str, session_id: str) -> str:
+    now = datetime.utcnow()
     payload = {
         "sub": user_id,
         "email": email,
-        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
+        "sid": session_id,
+        "iat": int(now.timestamp()),
+        "exp": now + timedelta(days=JWT_EXPIRY_DAYS),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -27,7 +30,7 @@ def decode_jwt(token: str) -> dict | None:
 
 
 def get_current_user(request: Request) -> dict | None:
-    """Return user payload from JWT cookie, or None if unauthenticated."""
+    """Return decoded JWT payload from cookie, or None. No DB check — use for optional auth."""
     token = request.cookies.get("access_token")
     if not token:
         return None
@@ -35,8 +38,21 @@ def get_current_user(request: Request) -> dict | None:
 
 
 def require_user(request: Request) -> dict:
-    """FastAPI dependency — raises 401 if not authenticated."""
-    user = get_current_user(request)
-    if not user:
+    """FastAPI dependency — decodes JWT and verifies the session still exists in DB."""
+    token = request.cookies.get("access_token")
+    if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
-    return user
+    payload = decode_jwt(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    sid = payload.get("sid")
+    if sid:
+        from .database import get_db
+        db = get_db()
+        session = db["sessions"].find_one({"sessionId": sid, "userId": payload["sub"]})
+        if not session:
+            raise HTTPException(status_code=401, detail="Session has been revoked")
+        db["sessions"].update_one({"sessionId": sid}, {"$set": {"lastSeenAt": datetime.utcnow()}})
+
+    return payload
