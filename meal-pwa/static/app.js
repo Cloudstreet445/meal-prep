@@ -4,8 +4,6 @@
   if (saved) document.documentElement.dataset.theme = saved;
   const isDark = saved ? saved === 'dark'
     : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = isDark ? '☀' : '☾';
   const meta = document.getElementById('theme-color-meta');
   if (meta) meta.content = isDark ? '#0d1117' : '#f8fafc';
 })();
@@ -16,10 +14,36 @@ function toggleTheme() {
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem('theme', next);
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = next === 'dark' ? '☀' : '☾';
   const meta = document.getElementById('theme-color-meta');
   if (meta) meta.content = next === 'dark' ? '#0d1117' : '#f8fafc';
+  updateNavThemeItem();
+}
+
+// ── Nav menu ─────────────────────────────────────────────────────
+function openNavMenu() {
+  document.getElementById('nav-menu-backdrop').classList.add('active');
+  document.getElementById('nav-menu-sheet').classList.add('active');
+  updateNavThemeItem();
+  updateNavPlanDesc();
+}
+
+function closeNavMenu() {
+  document.getElementById('nav-menu-backdrop').classList.remove('active');
+  document.getElementById('nav-menu-sheet').classList.remove('active');
+}
+
+function updateNavThemeItem() {
+  const isDark = (document.documentElement.dataset.theme ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+  const icon = document.getElementById('nav-theme-icon');
+  const name = document.getElementById('nav-theme-name');
+  if (icon) icon.textContent = isDark ? '☾' : '☀';
+  if (name) name.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+}
+
+function updateNavPlanDesc() {
+  const desc = document.getElementById('nav-plan-desc');
+  if (desc && plan?.week) desc.textContent = `Week of ${fmtWeek(plan.week)}`;
 }
 
 // ── Logging utility ──────────────────────────────────────────────
@@ -297,6 +321,7 @@ async function loadWeek() {
 
     document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
     document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
+    updateNavPlanDesc();
 
     document.getElementById('week-summary').innerHTML = `
       <div class="week-stat-bar">
@@ -1284,6 +1309,7 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('builder-overlay').classList.contains('active')) { closeBuilder();         return; }
   if (document.getElementById('cook-mode').classList.contains('active'))       { _exitCookMode();        return; }
   if (document.getElementById('rating-overlay').classList.contains('active'))  { closeRatingOverlay();   return; }
+  if (document.getElementById('nav-menu-sheet').classList.contains('active'))  { closeNavMenu();         return; }
   if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();        return; }
   if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();     return; }
   if (document.getElementById('enhance-sheet').classList.contains('active'))   { closeEnhancements();    return; }
