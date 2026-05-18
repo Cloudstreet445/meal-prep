@@ -241,8 +241,8 @@ class IngredientMatcher:
 
         # Fallback: narrow by category hint when the token query finds nothing
         # (e.g. legacy products that predate the searchTokens backfill).
+        hints = get_category_hints(search_key)
         if not candidates:
-            hints = get_category_hints(search_key)
             if hints:
                 candidates = list(self.products.find(
                     {**store_filter, "category": {"$in": hints}}, projection))
@@ -257,6 +257,10 @@ class IngredientMatcher:
             score = max(token_overlap_score(toks, ptoks) for toks in term_token_sets)
 
             store_data = (product.get("storePrice") or {}).get(store_id) or {}
+            # Boost candidates whose product category aligns with the ingredient type.
+            # Prevents e.g. "chicken breast" matching processed products over fresh cuts.
+            if hints and product.get("category") in hints:
+                score = min(score * 1.2, 1.0)
             if prefer_special and store_data.get("isSpecial"):
                 score = min(score * 1.1, 1.0)
 
