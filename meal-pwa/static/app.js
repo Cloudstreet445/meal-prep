@@ -83,8 +83,17 @@ let currentUser   = null;   // { userId, email, householdId } or null
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const _authRoot = () => document.getElementById('auth-root');
 
-function _showAuthRoot() { _authRoot().classList.add('visible'); }
-function _hideAuthRoot() { _authRoot().classList.remove('visible'); if (window._authResolve) { window._authResolve(); window._authResolve = null; } }
+function _showAuthRoot() {
+  _authRoot().classList.add('visible');
+  const app = document.getElementById('app');
+  if (app) app.style.visibility = 'hidden';
+}
+function _hideAuthRoot() {
+  _authRoot().classList.remove('visible');
+  const app = document.getElementById('app');
+  if (app) app.style.visibility = '';
+  if (window._authResolve) { window._authResolve(); window._authResolve = null; }
+}
 function _renderAuth(html) { _authRoot().innerHTML = html; _showAuthRoot(); }
 
 function _pwStrength(pw) {
@@ -460,7 +469,7 @@ async function initAuth() {
       if (inviteToken) await handleInviteToken(inviteToken);
       return;
     }
-  } catch (_) { return; }
+  } catch (_) { /* network error — fall through to login */ }
 
   // No session — redirect to login
   window.history.replaceState({}, '', '/login');
