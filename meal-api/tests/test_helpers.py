@@ -184,7 +184,7 @@ class TestDeriveShoppingList:
     def test_cost_comes_from_live_price(self, pricing_db):
         pricing_db["products"].insert_one({
             "name": "Garlic Bulb",
-            "storeId": "PAK'nSAVE Lower Hutt", "currentPrice": 1.29, "isSpecial": False,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 1.29, "isSpecial": False}},
         })
         recipes = [
             {
@@ -252,14 +252,12 @@ class TestDeriveShoppingList:
 
     def test_total_calculation(self, pricing_db):
         pricing_db["products"].insert_one({
-            "name":         "Pams Pasta 500g",
-            "storeId":      "PAK'nSAVE Lower Hutt",
-            "currentPrice": 1.00,
-            "isSpecial":    False,
+            "name": "Pams Pasta 500g",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 1.00, "isSpecial": False}},
         })
         pricing_db["products"].insert_one({
             "name": "Tomato Sauce Jar",
-            "storeId": "PAK'nSAVE Lower Hutt", "currentPrice": 2.50, "isSpecial": False,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 2.50, "isSpecial": False}},
         })
         recipes = [
             {
@@ -277,11 +275,11 @@ class TestDeriveShoppingList:
     def test_total_rounded_to_two_decimal_places(self, pricing_db):
         pricing_db["products"].insert_one({
             "name": "Pams Pasta 500g",
-            "storeId": "PAK'nSAVE Lower Hutt", "currentPrice": 1.333, "isSpecial": False,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 1.333, "isSpecial": False}},
         })
         pricing_db["products"].insert_one({
             "name": "Tomato Sauce Jar",
-            "storeId": "PAK'nSAVE Lower Hutt", "currentPrice": 2.666, "isSpecial": False,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 2.666, "isSpecial": False}},
         })
         recipes = [
             {
@@ -303,10 +301,8 @@ class TestDeriveShoppingList:
 
     def test_enriches_price_from_store_specific_data(self, pricing_db):
         pricing_db["products"].insert_one({
-            "name":         "Chicken Breast 1kg",
-            "storeId":      "PAK'nSAVE Lower Hutt",
-            "currentPrice": 7.99,
-            "isSpecial":    True,
+            "name": "Chicken Breast 1kg",
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 7.99, "isSpecial": True}},
         })
         recipes = [
             {
@@ -324,10 +320,8 @@ class TestDeriveShoppingList:
 
     def test_enriches_only_matching_store(self, pricing_db):
         pricing_db["products"].insert_one({
-            "name":         "Chicken Breast 1kg",
-            "storeId":      "PAK'nSAVE Porirua",
-            "currentPrice": 8.49,
-            "isSpecial":    False,
+            "name": "Chicken Breast 1kg",
+            "storePrice": {"paknsave-porirua": {"currentPrice": 8.49, "isSpecial": False}},
         })
         recipes = [
             {
@@ -435,7 +429,7 @@ class TestDeriveShoppingList:
     def test_isspecial_comes_from_live_enrichment(self, pricing_db):
         pricing_db["products"].insert_one({
             "name": "Garlic Bulb",
-            "storeId": "PAK'nSAVE Lower Hutt", "currentPrice": 0.99, "isSpecial": True,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 0.99, "isSpecial": True}},
         })
         recipes = [
             {

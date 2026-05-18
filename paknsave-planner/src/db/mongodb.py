@@ -9,7 +9,8 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from config import MEALS_DB
 
-load_dotenv()
+# Resolve .env relative to this file (src/.env) so the planner runs from any CWD.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
 
 MONGO_URI = os.environ["MONGO_URI"]
 

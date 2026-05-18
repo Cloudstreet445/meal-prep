@@ -3,7 +3,8 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Resolve .env relative to this file (src/.env) so the planner runs from any CWD.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # ── MongoDB ───────────────────────────────────────────────────────
 MONGO_URI    = os.environ.get("MONGO_URI")

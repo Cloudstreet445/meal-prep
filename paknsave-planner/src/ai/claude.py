@@ -283,7 +283,9 @@ Write clear step-by-step methods. Be specific with amounts and costs.
 Do NOT include a sharedWith field on any ingredient."""
 
     client = _client()
-    raw = _call(client, SYSTEM_3, prompt, max_tokens=4000)
+    # Five full recipes with step-by-step methods — needs ample headroom or
+    # the JSON response truncates mid-string.
+    raw = _call(client, SYSTEM_3, prompt, max_tokens=16000)
     result = _parse_json(raw, "call3")
 
     print(f"     ✓ {len(result)} recipes generated")

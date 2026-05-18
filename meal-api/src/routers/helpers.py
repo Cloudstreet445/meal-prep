@@ -198,46 +198,30 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     """
     Try to match an ingredient name against paknsave-pricing products.
 
-    The pricing DB uses a flat schema: currentPrice, isSpecial, avgPrice90d are
-    top-level fields. storeId is the full store name. We match by ingredient name
-    keywords and optionally filter by storeId if a name mapping is available.
+    The pricing DB uses the nested schema: each product carries a
+    storePrice.{storeSlug} map with currentPrice/isSpecial/avgPrice90d inside
+    the per-store entry. store_id is the slug used as the map key.
     """
-    _STORE_NAME_MAP = {
-        "paknsave-lower-hutt": "PAK'nSAVE Lower Hutt",
-        "paknsave-porirua":    "PAK'nSAVE Porirua",
-        "paknsave-petone":     "PAK'nSAVE Petone",
-        "paknsave-kilbirnie":  "PAK'nSAVE Kilbirnie",
-    }
-
     name = item.get("name", "") or item.get("searchKey", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
 
     if not words:
         return item
 
-    store_name = _STORE_NAME_MAP.get(store_id)
-    store_filter = {"storeId": store_name} if store_name else {}
-
+    price_prefix = f"storePrice.{store_id}"
     name_pattern = re.compile(words[0], re.IGNORECASE)
     product = pricing_db["products"].find_one(
-        {
-            "name":         name_pattern,
-            **store_filter,
-        },
-        {
-            "name":        1,
-            "currentPrice": 1,
-            "isSpecial":   1,
-            "avgPrice90d": 1,
-        }
+        {"name": name_pattern, price_prefix: {"$exists": True}},
+        {"name": 1, price_prefix: 1},
     )
 
     if product:
-        item["isSpecial"]      = product.get("isSpecial", False)
-        item["currentPrice"]   = product.get("currentPrice")
+        sp = product.get("storePrice", {}).get(store_id, {})
+        item["isSpecial"]      = sp.get("isSpecial", False)
+        item["currentPrice"]   = sp.get("currentPrice")
         item["matchedProduct"] = product.get("name")
 
-        avg     = product.get("avgPrice90d")
+        avg     = sp.get("avgPrice90d")
         current = item["currentPrice"]
         if item["isSpecial"] and avg and current and avg > 0:
             pct = round((1 - current / avg) * 100)

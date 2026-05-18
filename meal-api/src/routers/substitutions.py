@@ -79,24 +79,18 @@ def suggest_substitutes(body: SubstituteRequest):
         if not words:
             continue
         name_pattern = re.compile(words[0], re.IGNORECASE)
-        _STORE_NAME_MAP = {
-            "paknsave-lower-hutt": "PAK'nSAVE Lower Hutt",
-            "paknsave-porirua":    "PAK'nSAVE Porirua",
-            "paknsave-petone":     "PAK'nSAVE Petone",
-            "paknsave-kilbirnie":  "PAK'nSAVE Kilbirnie",
-        }
-        store_name   = _STORE_NAME_MAP.get(body.store_id)
-        store_filter = {"storeId": store_name} if store_name else {}
+        price_prefix = f"storePrice.{body.store_id}"
         product = pricing_db["products"].find_one(
-            {"name": name_pattern, **store_filter},
-            {"name": 1, "currentPrice": 1, "isSpecial": 1},
+            {"name": name_pattern, price_prefix: {"$exists": True}},
+            {"name": 1, price_prefix: 1},
         )
         if product:
+            sp = product.get("storePrice", {}).get(body.store_id, {})
             suggestions.append({
                 "name": product["name"],
                 "searchTerm": term,
-                "currentPrice": product.get("currentPrice"),
-                "isSpecial": product.get("isSpecial", False),
+                "currentPrice": sp.get("currentPrice"),
+                "isSpecial": sp.get("isSpecial", False),
             })
         else:
             # Include without price if not in DB — still useful

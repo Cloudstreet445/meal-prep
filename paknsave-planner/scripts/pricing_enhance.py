@@ -25,7 +25,7 @@ import argparse
 import sys
 
 try:
-    from pymongo import MongoClient, UpdateOne, ASCENDING, TEXT
+    from pymongo import MongoClient, UpdateOne, ASCENDING
 except ImportError:
     print("pymongo not installed. Run: pip install pymongo --break-system-packages")
     sys.exit(1)
@@ -66,11 +66,11 @@ def backfill_search_tokens(db, dry_run: bool):
     else:
         print("[searchTokens] all products already up to date")
 
-    products.create_index([("searchTokens", TEXT)], name="idx_searchTokens_text")
-    # Plain multikey index — serves the matcher's `$in` token query
-    # (MEA-115); the text index above only serves `$text` search.
+    # Plain multikey index — serves the matcher's `$in` token query (MEA-115).
+    # No text index: Mongo allows only one $text index per collection and the
+    # matcher uses `$in`, not `$text`, so a text index on searchTokens is moot.
     products.create_index([("searchTokens", ASCENDING)], name="idx_searchTokens")
-    print("[searchTokens] created indexes idx_searchTokens_text, idx_searchTokens")
+    print("[searchTokens] created index idx_searchTokens")
 
 
 # ---------------------------------------------------------------------------
