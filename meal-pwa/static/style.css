@@ -1595,25 +1595,83 @@ main {
   vertical-align: middle;
 }
 
-/* ── Header icon button ───────────────────────────────────── */
-.icon-btn {
+/* ── Hamburger menu button ────────────────────────────────── */
+.hamburger-btn {
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 15px;
   width: 40px;
   height: 40px;
   min-width: 40px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
-.icon-btn:active { border-color: var(--green-dim); color: var(--text); }
+.hamburger-btn:active { border-color: var(--green-dim); }
+
+.hamburger-bar {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+/* ── Nav menu items ───────────────────────────────────────── */
+.nav-menu-content { padding: 8px 0; }
+
+.nav-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.nav-menu-item:active { background: var(--bg3); }
+
+.nav-menu-icon {
+  font-size: 20px;
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.nav-menu-label { flex: 1; min-width: 0; }
+
+.nav-menu-name {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.nav-menu-desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.nav-menu-arrow {
+  font-size: 20px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
 
 /* ── Settings Sheet ───────────────────────────────────────── */
 .settings-group-label {

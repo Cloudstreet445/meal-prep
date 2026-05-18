@@ -20,12 +20,12 @@
   <!-- Header -->
   <header>
     <div class="header-row-1">
-      <div class="logo">Kai <span>Planner __VERSION__</span></div>
-      <div class="header-actions">
-        <button class="icon-btn" id="bundle-switcher-btn" onclick="openBundleSheet()" aria-label="Weekly plans" title="Weekly plans">↕</button>
-        <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
-        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
-      </div>
+      <div class="logo">Kai <span>Planner</span></div>
+      <button class="hamburger-btn" id="nav-menu-btn" onclick="openNavMenu()" aria-label="Open menu">
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+      </button>
     </div>
     <div class="header-row-2">
       <div class="week-badge" id="week-badge">Loading...</div>
@@ -303,6 +303,38 @@
   <div class="sheet-title">✨ Enhance this meal</div>
   <div class="sheet-content" id="enhance-content">
     <div class="sub-loading">Loading enhancements…</div>
+  </div>
+</div>
+
+<!-- Nav Menu Sheet -->
+<div class="sheet-backdrop" id="nav-menu-backdrop" onclick="closeNavMenu()"></div>
+<div class="bottom-sheet" id="nav-menu-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Menu</div>
+  <div class="sheet-content nav-menu-content">
+    <button class="nav-menu-item" onclick="closeNavMenu(); openBundleSheet()">
+      <span class="nav-menu-icon">📅</span>
+      <div class="nav-menu-label">
+        <div class="nav-menu-name">Weekly Plans</div>
+        <div class="nav-menu-desc" id="nav-plan-desc">Switch meal plan</div>
+      </div>
+      <span class="nav-menu-arrow">›</span>
+    </button>
+    <button class="nav-menu-item" onclick="toggleTheme()">
+      <span class="nav-menu-icon" id="nav-theme-icon">☀</span>
+      <div class="nav-menu-label">
+        <div class="nav-menu-name" id="nav-theme-name">Light Mode</div>
+        <div class="nav-menu-desc">Switch appearance</div>
+      </div>
+    </button>
+    <button class="nav-menu-item" onclick="closeNavMenu(); openSettings()">
+      <span class="nav-menu-icon">⚙</span>
+      <div class="nav-menu-label">
+        <div class="nav-menu-name">Settings</div>
+        <div class="nav-menu-desc">Budget, store, exclusions</div>
+      </div>
+      <span class="nav-menu-arrow">›</span>
+    </button>
   </div>
 </div>
 
