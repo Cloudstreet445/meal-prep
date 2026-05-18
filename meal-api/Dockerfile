@@ -9,5 +9,4 @@ COPY src ./src
 
 EXPOSE 8000
 
-# PORT is injected by Railway; default to 8000 for homelab/docker-compose usage
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
