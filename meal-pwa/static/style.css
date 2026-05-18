@@ -1672,6 +1672,13 @@ main {
   color: var(--text-muted);
   flex-shrink: 0;
 }
+.nav-menu-item--logout {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  color: #e05555;
+}
+.nav-menu-item--logout .nav-menu-name { color: #e05555; }
+.nav-menu-item--logout .nav-menu-desc { color: var(--text-dim); }
 
 /* ── Settings Sheet ───────────────────────────────────────── */
 .settings-group-label {

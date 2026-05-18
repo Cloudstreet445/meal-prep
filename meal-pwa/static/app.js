@@ -20,11 +20,19 @@ function toggleTheme() {
 }
 
 // ── Nav menu ─────────────────────────────────────────────────────
+function _setLogoutVisible(visible) {
+  const btn = document.getElementById('nav-logout-btn');
+  if (btn) btn.style.display = visible ? '' : 'none';
+  const emailEl = document.getElementById('nav-user-email');
+  if (emailEl && currentUser?.email) emailEl.textContent = currentUser.email;
+}
+
 function openNavMenu() {
   document.getElementById('nav-menu-backdrop').classList.add('active');
   document.getElementById('nav-menu-sheet').classList.add('active');
   updateNavThemeItem();
   updateNavPlanDesc();
+  _setLogoutVisible(!!currentUser);
 }
 
 function closeNavMenu() {
@@ -94,8 +102,7 @@ async function initAuth() {
     if (res.ok) {
       currentUser = await res.json();
       log('AUTH', 'Signed in', { email: currentUser.email });
-      const logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) logoutBtn.style.display = '';
+      _setLogoutVisible(true);
       if (inviteToken) await handleInviteToken(inviteToken);
       return;
     }
@@ -173,8 +180,7 @@ async function handleAuthCallback(token) {
     if (!res.ok) throw new Error('Invalid link');
     const data = await res.json();
     currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) logoutBtn.style.display = '';
+    _setLogoutVisible(true);
     hideLoginOverlay();
     if (data.isNewUser) {
       await showOnboarding();
@@ -188,8 +194,7 @@ async function handleAuthCallback(token) {
 async function logout() {
   await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
   currentUser = null;
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) logoutBtn.style.display = 'none';
+  _setLogoutVisible(false);
   showLoginOverlay();
   showEmailStep();
   await waitForLogin();

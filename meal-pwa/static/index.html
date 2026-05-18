@@ -25,11 +25,12 @@
         <div class="week-badge" id="week-badge">Loading...</div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" id="bundle-switcher-btn" onclick="openBundleSheet()" aria-label="Weekly plans" title="Weekly plans">↕</button>
-        <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀</button>
-        <button class="icon-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
-        <button class="icon-btn" id="logout-btn" onclick="logout()" aria-label="Sign out" title="Sign out" style="display:none">⏏</button>
         <div class="budget-pill" id="budget-pill">—</div>
+        <button class="hamburger-btn" id="nav-menu-btn" onclick="openNavMenu()" aria-label="Open menu">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
       </div>
     </div>
   </header>
@@ -345,6 +346,13 @@
         <div class="nav-menu-desc">Budget, store, exclusions</div>
       </div>
       <span class="nav-menu-arrow">›</span>
+    </button>
+    <button class="nav-menu-item nav-menu-item--logout" id="nav-logout-btn" onclick="closeNavMenu(); logout()" style="display:none">
+      <span class="nav-menu-icon">⏏</span>
+      <div class="nav-menu-label">
+        <div class="nav-menu-name">Sign out</div>
+        <div class="nav-menu-desc" id="nav-user-email"></div>
+      </div>
     </button>
   </div>
 </div>
