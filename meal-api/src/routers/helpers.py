@@ -338,7 +338,12 @@ def _get_bundle_with_recipes(bundle: dict, db, pricing_db) -> dict:
     recipe_ids = bundle.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
 
-    recipe_map = {r["recipeId"]: _clean(r) for r in recipes}
+    def _with_cost(r: dict) -> dict:
+        cleaned = _clean(r)
+        cleaned["estimatedCost"] = round(_recipe_cost(r), 2)
+        return cleaned
+
+    recipe_map = {r["recipeId"]: _with_cost(r) for r in recipes}
     ordered_recipes = [recipe_map[rid] for rid in recipe_ids if rid in recipe_map]
 
     bundle["recipes"] = ordered_recipes

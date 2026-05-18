@@ -635,37 +635,64 @@ function dealBadge(item) {
   return `<span class="item-deal item-deal--${tier}">–${pct}%${savings}</span>`;
 }
 
+function _shopItemHtml(item, i, storeKey) {
+  const usedIn   = (item.usedInNames || item.usedIn || []).join(', ');
+  const shared   = item.sharedWith?.length > 0 ? `<span class="item-shared">shared</span>` : '';
+  const inPantry = isPantryItem(item.name);
+  return `
+    <div class="shop-item ${checked[i] ? 'checked' : ''} ${inPantry ? 'in-pantry' : ''}" onclick="toggleItem(${i}, '${storeKey}')">
+      <div class="check-box"><span class="check-tick">✓</span></div>
+      <div class="item-info">
+        <div class="item-name">
+          ${item.name}
+          ${item.isSpecial && !(item.dealStrength >= 5) ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
+          ${dealBadge(item)}
+          ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
+          ${shared}
+        </div>
+        <div class="item-sub">${item.amount_parts?.length
+          ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
+          : (item.amount || '')}${usedIn ? ' · ' + usedIn : ''}</div>
+      </div>
+      <div class="item-price">${item.estimatedCost != null ? fmt$(item.estimatedCost) : '—'}</div>
+      ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
+    </div>`;
+}
+
+const _CATEGORY_LABELS = {
+  protein: '🥩 Meat & Seafood',
+  vegetable: '🥦 Produce',
+  dairy: '🧀 Dairy & Eggs',
+  pantry: '🫙 Pantry',
+  other: '🛒 Other',
+};
+
 function renderShoppingItems(items, storeKey) {
   const done  = items.filter((_, i) => checked[i]).length;
   const total = items.length;
   document.getElementById('progress-fill').style.width = `${total ? (done/total)*100 : 0}%`;
 
-  document.getElementById('shopping-items').innerHTML = items.map((item, i) => {
-    // sharedWith is computed by API — show recipe names it's used in
-    const usedIn    = (item.usedInNames || item.usedIn || []).join(', ');
-    const shared    = item.sharedWith?.length > 0
-      ? `<span class="item-shared">shared</span>`
-      : '';
-    const inPantry  = isPantryItem(item.name);
-    return `
-      <div class="shop-item ${checked[i] ? 'checked' : ''} ${inPantry ? 'in-pantry' : ''}" onclick="toggleItem(${i}, '${storeKey}')">
-        <div class="check-box"><span class="check-tick">✓</span></div>
-        <div class="item-info">
-          <div class="item-name">
-            ${item.name}
-            ${item.isSpecial && !(item.dealStrength >= 5) ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
-            ${dealBadge(item)}
-            ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
-            ${shared}
-          </div>
-          <div class="item-sub">${item.amount_parts?.length
-            ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
-            : (item.amount || '')}${usedIn ? ' · ' + usedIn : ''}</div>
-        </div>
-        <div class="item-price">${item.estimatedCost != null ? fmt$(item.estimatedCost) : '—'}</div>
-        ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
+  // Group by category, preserving original item index for checked state
+  const groups = {};
+  const order = ['protein', 'vegetable', 'dairy', 'pantry', 'other'];
+  items.forEach((item, i) => {
+    const cat = item.category || 'other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push({ item, i });
+  });
+
+  const html = order
+    .filter(cat => groups[cat]?.length)
+    .map(cat => {
+      const label = _CATEGORY_LABELS[cat] || cat;
+      const rows  = groups[cat].map(({ item, i }) => _shopItemHtml(item, i, storeKey)).join('');
+      return `<div class="shop-category-group">
+        <div class="shop-category-header">${label}</div>
+        ${rows}
       </div>`;
-  }).join('');
+    }).join('');
+
+  document.getElementById('shopping-items').innerHTML = html;
 }
 
 function toggleItem(index, storeKey) {
@@ -734,12 +761,17 @@ function renderWeekRecipesInTab() {
     const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
                  : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
                  : '';
+    const cost = meal.estimatedCost ?? null;
+    const costTier = cost != null ? (cost < 12 ? 'budget' : cost < 20 ? 'mid' : 'premium') : null;
+    const costBadge = cost != null
+      ? `<span class="recipe-cost-badge recipe-cost-badge--${costTier}">${fmt$(cost)}</span>`
+      : '';
     return `
     <div class="recipe-list-item week-recipe-item" onclick="openRecipe('${meal.recipeId}')">
       <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
       <div style="flex:1">
         <div class="recipe-list-name">${meal.name}${badge}</div>
-        <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
+        <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients${costBadge}</div>
       </div>
       <div style="color:var(--text-muted)">›</div>
     </div>`;

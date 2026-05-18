@@ -524,6 +524,19 @@ class TestRecipeCost:
         r = {"ingredients": [{"name": "Onion", "amount": "1"}]}
         assert _recipe_cost(r) == 0.0
 
+    def test_costTier_budget(self):
+        assert _recipe_cost({"costTier": "budget", "ingredients": []}) == pytest.approx(10.0)
+
+    def test_costTier_mid(self):
+        assert _recipe_cost({"costTier": "mid", "ingredients": []}) == pytest.approx(17.0)
+
+    def test_costTier_premium(self):
+        assert _recipe_cost({"costTier": "premium", "ingredients": []}) == pytest.approx(28.0)
+
+    def test_baselineCost_takes_precedence_over_tier(self):
+        r = {"baselineCost": 12.5, "costTier": "budget", "ingredients": []}
+        assert _recipe_cost(r) == pytest.approx(12.5)
+
 
 # ── TestSelectFromLibrary ──────────────────────────────────────────────────────
 
