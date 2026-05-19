@@ -1179,7 +1179,7 @@ async function loadWeek() {
     document.getElementById('week-content').style.display = 'block';
   } catch (e) {
     log('WEEK', 'Error', { error: e.message });
-    document.getElementById('week-loading').innerHTML =
+    document.getElementById('week-loading').style.display = 'none';
     const is404 = e.message?.includes('HTTP 404') || e.message?.includes('404');
     const el = document.getElementById('meal-cards');
     if (el) el.innerHTML = _emptyState(is404 ? {
