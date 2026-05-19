@@ -18,7 +18,9 @@ router = APIRouter()
 MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1
 SESSION_TTL_DAYS = 30
-APP_URL = os.getenv("APP_URL", "http://localhost:3000")
+APP_URL = os.getenv("APP_URL")
+if not APP_URL:
+    raise ValueError("APP_URL environment variable is required")
 def _hash_pw(password: str) -> str:
     return _bcrypt_lib.hashpw(password.encode(), _bcrypt_lib.gensalt()).decode()
 
@@ -111,7 +113,8 @@ def _set_auth_cookie(response: Response, user_id: str, email: str, session_id: s
         key="access_token",
         value=token,
         httponly=True,
-        samesite="lax",
+        secure=True,
+        samesite="strict",
         max_age=SESSION_TTL_DAYS * 86400,
         path="/",
     )

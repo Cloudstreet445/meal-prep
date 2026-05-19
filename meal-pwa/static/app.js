@@ -584,15 +584,15 @@ async function renderSessionsSection() {
     if (!sessions.length) { list.innerHTML = '<div class="settings-hint">No active sessions</div>'; return; }
     list.innerHTML = sessions.map(s => {
       const ua = s.userAgent || 'Unknown device';
-      const device = ua.length > 40 ? ua.slice(0, 40) + '…' : ua;
+      const device = _esc(ua.length > 40 ? ua.slice(0, 40) + '…' : ua);
       const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '';
       const currentBadge = s.isCurrent ? '<span class="session-badge">Current</span>' : '';
       const revokeBtn = s.isCurrent ? '' :
-        `<button class="session-revoke-btn" onclick="revokeSession('${s.sessionId}')">Revoke</button>`;
+        `<button class="session-revoke-btn" onclick="revokeSession('${_esc(s.sessionId)}')">Revoke</button>`;
       return `<div class="session-card">
         <div class="session-info">
           <div class="session-device">${device}${currentBadge}</div>
-          <div class="session-meta">${date} · ${s.ipAddress || ''}</div>
+          <div class="session-meta">${date} · ${_esc(s.ipAddress || '')}</div>
         </div>
         ${revokeBtn}
       </div>`;
@@ -632,8 +632,8 @@ async function showOnboarding() {
     const el = document.getElementById('ob-store-options');
     if (el) {
       el.innerHTML = stores.map(s => `
-        <div class="ob-store-option${s === 'paknsave-lower-hutt' ? ' selected' : ''}" data-store="${s}" onclick="obSelectStore(this, '${s}')">
-          ${s.replace('paknsave-', 'PAK\'nSave ').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+        <div class="ob-store-option${s === 'paknsave-lower-hutt' ? ' selected' : ''}" data-store="${_esc(s)}" onclick="obSelectStore(this, '${_esc(s)}')">
+          ${_esc(s.replace('paknsave-', 'PAK\'nSave ').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))}
         </div>`).join('');
       _obStore = 'paknsave-lower-hutt';
     }
@@ -671,7 +671,7 @@ function renderObExclusions() {
   const el = document.getElementById('ob-exclusion-tags');
   if (!el) return;
   el.innerHTML = _obExclusions.map(t =>
-    `<div class="exclusion-tag">${t}<button class="exclusion-remove" onclick="obRemoveExclusion('${t}')">×</button></div>`
+    `<div class="exclusion-tag">${_esc(t)}<button class="exclusion-remove" onclick="obRemoveExclusion('${_esc(t)}')">×</button></div>`
   ).join('');
 }
 
@@ -1811,7 +1811,7 @@ async function suggestSubstitute(ingredientName, e) {
     }
     document.getElementById('sub-results').innerHTML = suggestions.map(s => `
       <div class="sub-card">
-        <div class="sub-name">${s.name}</div>
+        <div class="sub-name">${_esc(s.name)}</div>
         <div class="sub-meta">
           ${s.currentPrice != null ? `<span class="sub-price">${fmt$(s.currentPrice)}</span>` : '<span class="sub-no-price">price unavailable</span>'}
           ${s.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
@@ -2063,9 +2063,9 @@ function renderStoreSelector() {
   const current = settings.storeId || DEFAULT_STORE;
   const stores = availableStores.length ? availableStores : [current];
   container.innerHTML = stores.map(id => `
-    <div class="store-option ${id === current ? 'active' : ''}" onclick="selectStore('${id}')">
+    <div class="store-option ${id === current ? 'active' : ''}" onclick="selectStore('${_esc(id)}')">
       <span class="store-option-dot"></span>
-      ${storeName(id)}
+      ${_esc(storeName(id))}
     </div>`).join('');
 }
 
@@ -2118,13 +2118,13 @@ async function renderHouseholdSection() {
     const isOwner = h.createdBy === currentUser.userId;
     el.innerHTML = `
       <div class="settings-section">
-        <div class="settings-label">${h.name}</div>
+        <div class="settings-label">${_esc(h.name)}</div>
         <div class="household-members">
           ${members.map(m => `
             <div class="household-member">
-              <span class="member-avatar">${(m.userId || '?')[0].toUpperCase()}</span>
-              <span class="member-role-badge ${m.role}">${m.role}</span>
-              ${isOwner && m.role !== 'owner' ? `<button class="member-remove-btn" onclick="removeMember('${m.userId}')">Remove</button>` : ''}
+              <span class="member-avatar">${_esc((m.userId || '?')[0].toUpperCase())}</span>
+              <span class="member-role-badge ${_esc(m.role)}">${_esc(m.role)}</span>
+              ${isOwner && m.role !== 'owner' ? `<button class="member-remove-btn" onclick="removeMember('${_esc(m.userId)}')">Remove</button>` : ''}
             </div>`).join('')}
         </div>
         <button class="settings-link-btn" onclick="copyInviteLink()" style="margin-top:8px">📋 Copy invite link</button>
@@ -2177,7 +2177,7 @@ function renderExclusionTags() {
   const tags = document.getElementById('settings-exclusion-tags');
   tags.innerHTML = (settings.exclusions || []).map((ex, i) => `
     <span class="excl-tag">
-      ${ex}
+      ${_esc(ex)}
       <span class="excl-tag-remove" onclick="removeExclusion(${i})">✕</span>
     </span>`).join('');
 }
@@ -2274,7 +2274,7 @@ function renderPantryTags() {
   const tags = document.getElementById('settings-pantry-tags');
   tags.innerHTML = pantry.map((item, i) => `
     <span class="excl-tag">
-      ${item.name}
+      ${_esc(item.name)}
       <span class="excl-tag-remove" onclick="removePantryItem(${i})">✕</span>
     </span>`).join('');
 }
@@ -2351,7 +2351,7 @@ function renderBuilderSlots() {
       return `
         <div class="builder-slot filled" onclick="openPicker(${i})">
           <div class="builder-slot-num">Meal ${i + 1}</div>
-          <div class="builder-slot-name">${r?.name || rid}</div>
+          <div class="builder-slot-name">${_esc(r?.name || rid)}</div>
           <div class="builder-slot-remove" onclick="event.stopPropagation(); removeBuilderSlot(${i})">✕</div>
         </div>`;
     }
@@ -2418,11 +2418,11 @@ function renderPickerList(search) {
     ? list.map(r => {
         const cost = (r.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
         return `
-          <div class="recipe-list-item" onclick="pickRecipe('${r.recipeId}')">
+          <div class="recipe-list-item" onclick="pickRecipe('${_esc(r.recipeId)}')">
             <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(r)] || '🍽'}</div>
             <div style="flex:1">
-              <div class="recipe-list-name">${r.name}</div>
-              <div class="recipe-list-meta">⏱ ${r.cookTime} · ${fmt$(cost)}</div>
+              <div class="recipe-list-name">${_esc(r.name)}</div>
+              <div class="recipe-list-meta">⏱ ${_esc(r.cookTime)} · ${fmt$(cost)}</div>
             </div>
             <div style="color:var(--accent);font-size:18px">+</div>
           </div>`;
@@ -2591,12 +2591,12 @@ async function openEnhancements() {
     content.innerHTML = items.map(e => `
       <div class="enhance-card">
         <div class="enhance-card-header">
-          <div class="enhance-name">${e.name}</div>
+          <div class="enhance-name">${_esc(e.name)}</div>
           <div class="enhance-cost">${fmt$(e.estimatedCost)}</div>
         </div>
-        <div class="enhance-desc">${e.description}</div>
+        <div class="enhance-desc">${_esc(e.description)}</div>
         <div class="enhance-ingredients">
-          ${(e.ingredients || []).map(i => `<span class="enhance-tag">${i.name} · ${i.amount}</span>`).join('')}
+          ${(e.ingredients || []).map(i => `<span class="enhance-tag">${_esc(i.name)} · ${_esc(i.amount)}</span>`).join('')}
         </div>
       </div>`).join('');
   } catch (err) {

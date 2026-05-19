@@ -44,8 +44,10 @@ def _ensure_indexes():
         db["password_reset_tokens"].create_index("expiresAt", expireAfterSeconds=0)
         pricing_db = _client[PRICING_DB]
         pricing_db["products"].create_index("category")
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Failed to create MongoDB indexes: %s", exc)
+        raise
 
 _ensure_indexes()
 

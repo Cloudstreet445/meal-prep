@@ -4,10 +4,16 @@ import os
 import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .limiter import limiter
 from .routers import bundles, recipes, shopping, plans, settings, substitutions, enhancements, auth, pantry, households
+
+_APP_URL = os.getenv("APP_URL")
+if not _APP_URL:
+    raise ValueError("APP_URL environment variable is required")
 
 app = FastAPI(
     title="Kai Planner API",
@@ -17,7 +23,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_APP_URL = os.getenv("APP_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[_APP_URL],
@@ -25,6 +30,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422, content={"detail": "Invalid request"})
 
 
 @app.middleware("http")

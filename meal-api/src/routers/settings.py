@@ -1,10 +1,10 @@
 """Household settings endpoints — per-user with anonymous fallback."""
 
 from typing import List, Optional
-from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
-from ..auth_utils import get_current_user
+from ..auth_utils import get_current_user, require_user
 
 router = APIRouter()
 
@@ -28,10 +28,10 @@ def _migrate_defaults(db, user: dict) -> dict:
 
 
 class SettingsIn(BaseModel):
-    budget: Optional[float] = None
-    serves: Optional[int] = None
-    exclusions: Optional[List[str]] = None
-    storeId: Optional[str] = None
+    budget: Optional[float] = Field(None, ge=1, le=10000)
+    serves: Optional[int] = Field(None, ge=1, le=20)
+    exclusions: Optional[List[str]] = Field(None, max_length=50)
+    storeId: Optional[str] = Field(None, max_length=100)
 
 
 @router.get("/")
@@ -48,13 +48,12 @@ def get_settings(request: Request):
 
 
 @router.put("/")
-def update_settings(body: SettingsIn, request: Request):
-    user = get_current_user(request)
+def update_settings(body: SettingsIn, request: Request, user: dict = Depends(require_user)):
     updates = body.model_dump(exclude_none=True)
     if updates:
         db = get_db()
         db["settings"].update_one(
-            _settings_key(user),
+            {"userId": user["sub"]},
             {"$set": updates},
             upsert=True,
         )

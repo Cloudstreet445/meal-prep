@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
 from ..auth_utils import require_user
 from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes
@@ -14,8 +14,8 @@ router = APIRouter()
 
 
 class CustomBundleIn(BaseModel):
-    recipeIds: List[str]
-    week: str  # YYYY-MM-DD
+    recipeIds: List[str] = Field(..., min_length=1, max_length=14)
+    week: str = Field(..., max_length=10)  # YYYY-MM-DD
 
 
 # ══════════════════════════════════════════════════════════════════
