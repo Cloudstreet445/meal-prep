@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 from fastapi import Request, HTTPException
 import jwt
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-prod")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET environment variable is required — set it before starting the API")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
 

@@ -9,10 +9,13 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
 from pydantic import BaseModel
 from passlib.context import CryptContext
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from ..database import get_db
 from ..auth_utils import create_jwt, decode_jwt, get_current_user, require_user
 
 router = APIRouter()
+_limiter = Limiter(key_func=get_remote_address)
 
 MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1
@@ -116,6 +119,7 @@ def _set_auth_cookie(response: Response, user_id: str, email: str, session_id: s
 # ── Register ───────────────────────────────────────────────────────
 
 @router.post("/register")
+@_limiter.limit("3/minute")
 def register(body: PasswordAuthRequest, response: Response, request: Request):
     email = body.email.lower().strip()
     if not EMAIL_RE.match(email):
@@ -139,6 +143,7 @@ def register(body: PasswordAuthRequest, response: Response, request: Request):
 # ── Login ──────────────────────────────────────────────────────────
 
 @router.post("/login")
+@_limiter.limit("5/minute")
 def login(body: PasswordAuthRequest, response: Response, request: Request):
     email = body.email.lower().strip()
     db = get_db()
@@ -157,7 +162,8 @@ def login(body: PasswordAuthRequest, response: Response, request: Request):
 # ── Forgot / Reset password ────────────────────────────────────────
 
 @router.post("/forgot-password")
-def forgot_password(body: EmailRequest):
+@_limiter.limit("3/minute")
+def forgot_password(body: EmailRequest, request: Request):
     email = body.email.lower().strip()
     db = get_db()
     user = db["users"].find_one({"email": email}, {"userId": 1})

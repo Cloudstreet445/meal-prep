@@ -49,7 +49,7 @@ function openNavMenu() {
   const emailEl = document.getElementById('nav-user-email');
   if (currentUser?.email) {
     const initial = currentUser.email[0].toUpperCase();
-    if (drawerAvatar) { drawerAvatar.innerHTML = initial; drawerAvatar.classList.add('signed-in'); }
+    if (drawerAvatar) { drawerAvatar.textContent = initial; drawerAvatar.classList.add('signed-in'); }
     if (drawerName) drawerName.textContent = initial + currentUser.email.slice(1, currentUser.email.indexOf('@')) || 'You';
     if (drawerEmail) { drawerEmail.textContent = currentUser.email; drawerEmail.style.display = ''; }
     if (emailEl) emailEl.textContent = currentUser.email;
@@ -86,6 +86,15 @@ function updateNavPlanDesc() {
   if (desc && plan?.week) desc.textContent = `Week of ${fmtWeek(plan.week)}`;
 }
 
+// ── HTML escape utility (XSS prevention) ─────────────────────────
+function _esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // ── Logging utility ──────────────────────────────────────────────
 function log(section, message, data = null) {
   const timestamp = new Date().toISOString();
@@ -95,14 +104,7 @@ function log(section, message, data = null) {
 
 // ── Config ──────────────────────────────────────────────────────
 // API calls go to /api/ — proxied internally by nginx to the API service.
-// Override via ?api=http://host:port for local dev against a different host.
-const _apiParam = new URLSearchParams(window.location.search).get('api');
-
-const API = _apiParam
-  ? _apiParam.replace(/\/$/, '') + '/api'
-  : '/api';
-
-log('CONFIG', 'API endpoint set to:', API);
+const API = '/api';
 
 // ── State ───────────────────────────────────────────────────────
 let _detailRecipeId = null;
@@ -717,10 +719,10 @@ function renderMealCards() {
         <div class="meal-card-header">
           <div>
             <div class="meal-id">Meal ${i + 1}</div>
-            <div class="meal-name">${meal.name}</div>
+            <div class="meal-name">${_esc(meal.name)}</div>
             <div class="meal-meta">
-              <div class="pill">⏱ ${meal.cookTime}</div>
-              <div class="pill">👥 Serves ${meal.serves}</div>
+              <div class="pill">⏱ ${_esc(meal.cookTime)}</div>
+              <div class="pill">👥 Serves ${_esc(meal.serves)}</div>
               ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
             </div>
           </div>
@@ -942,14 +944,32 @@ async function loadWeek() {
     document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
     updateNavPlanDesc();
 
+    const _total = plan.estimatedTotal || 0;
+    const _budget = settings.budget || 60;
+    const _over = _total > _budget;
+    const _diff = Math.abs(_total - _budget);
+    const _pct = Math.min((_total / _budget) * 100, 110);
+    const _barColor = _pct >= 100 ? 'var(--danger)' : _pct >= 80 ? 'var(--warning)' : 'var(--success)';
+
     document.getElementById('week-summary').innerHTML = `
       <div class="week-stat-bar">
-        <span>${plan.recipes?.length || 0} dinners</span>
-        <span class="stat-sep">·</span>
-        <span>${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}</span>
-        <span class="stat-sep">·</span>
-        <span class="week-summary-text">${plan.weekSummary}</span>
-      </div>`;
+        <div class="stat-card">
+          <div class="stat-value">${plan.recipes?.length || 0}</div>
+          <div class="stat-label">MEALS</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${fmt$(_total)}</div>
+          <div class="stat-label">ESTIMATED</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:${_over ? 'var(--danger)' : 'var(--success)'}">${fmt$(_diff)}</div>
+          <div class="stat-label" style="color:${_over ? 'var(--danger)' : 'inherit'}">${_over ? 'OVER BUDGET' : 'REMAINING'}</div>
+        </div>
+      </div>
+      <div class="budget-progress-bar">
+        <div class="budget-progress-fill" style="width:${_pct}%;background:${_barColor}"></div>
+      </div>
+      <div class="week-summary-text">${_esc(plan.weekSummary)}</div>`;
 
     renderMealCards();
     renderWeekRecipesInTab();
@@ -1143,8 +1163,8 @@ function renderWeekRecipesInTab() {
     <div class="recipe-list-item week-recipe-item" onclick="openRecipe('${meal.recipeId}')">
       <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
       <div style="flex:1">
-        <div class="recipe-list-name">${meal.name}${badge}</div>
-        <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients${costBadge}</div>
+        <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
+        <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients${costBadge}</div>
       </div>
       <div style="color:var(--text-muted)">›</div>
     </div>`;
@@ -1255,14 +1275,14 @@ function openRecipe(id) {
   document.getElementById('detail-ingredients').innerHTML =
     (meal.ingredients || []).map(ing => `
       <div class="ingr-item">
-        <span class="ingr-name">${ing.name}${ing.fromSpecial ? ' 🔥' : ''}</span>
-        <span class="ingr-amount">${ing.amount}</span>
+        <span class="ingr-name">${_esc(ing.name)}${ing.fromSpecial ? ' 🔥' : ''}</span>
+        <span class="ingr-amount">${_esc(ing.amount)}</span>
       </div>`).join('');
 
   const steps = meal.method || [];
   document.getElementById('method-label').style.display = steps.length ? '' : 'none';
   document.getElementById('detail-method').innerHTML =
-    steps.map(s => `<li class="method-step">${highlightCookingTerms(s)}</li>`).join('');
+    steps.map(s => `<li class="method-step">${highlightCookingTerms(_esc(s))}</li>`).join('');
 
   const rating = lastRating(meal);
   const ratingEl = document.getElementById('detail-rating');

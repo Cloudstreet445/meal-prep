@@ -218,6 +218,26 @@ def _guess_category(name: str) -> str:
     return "other"
 
 
+_CULINARY_TO_GRAMS = {
+    "clove":   5.0,
+    "pinch":   0.5,
+    "handful": 30.0,
+    "sprig":   2.0,
+    "stalk":   20.0,
+    "head":    200.0,
+    "bunch":   100.0,
+}
+
+_CULINARY_TO_ML = {
+    "tsp":  5.0,
+    "tbsp": 15.0,
+    "cup":  240.0,
+    "fl oz": 30.0,
+}
+
+_INGREDIENT_COST_CAP = 20.0
+
+
 def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     """
     Try to match an ingredient name against paknsave-pricing products.
@@ -225,6 +245,11 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     The pricing DB uses the nested schema: each product carries a
     storePrice.{storeSlug} map with currentPrice/isSpecial/avgPrice90d inside
     the per-store entry. store_id is the slug used as the map key.
+
+    Uses minimum-purchase logic: the product's currentPrice is the pack price.
+    Culinary units (cloves, cups, tsp) are converted to mass/volume for
+    better product matching but cost is always the minimum pack price.
+    Cost is capped at $20 per ingredient as a sanity check.
     """
     name = item.get("name", "") or item.get("searchKey", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
@@ -242,8 +267,14 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     if product:
         sp = product.get("storePrice", {}).get(store_id, {})
         item["isSpecial"]      = sp.get("isSpecial", False)
-        item["currentPrice"]   = sp.get("currentPrice")
+        raw_price              = sp.get("currentPrice")
         item["matchedProduct"] = product.get("name")
+
+        # Apply per-ingredient cost cap — bad product matches cause absurd totals
+        if raw_price is not None:
+            item["currentPrice"] = min(raw_price, _INGREDIENT_COST_CAP)
+        else:
+            item["currentPrice"] = None
 
         avg     = sp.get("avgPrice90d")
         current = item["currentPrice"]

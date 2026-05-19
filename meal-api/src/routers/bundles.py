@@ -4,9 +4,10 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from ..database import get_db, get_pricing_db
+from ..auth_utils import require_user
 from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes
 
 router = APIRouter()
@@ -82,7 +83,7 @@ def get_bundle_history():
 
 
 @router.post("/custom")
-def create_custom_bundle(body: CustomBundleIn):
+def create_custom_bundle(body: CustomBundleIn, user: dict = Depends(require_user)):
     """Create a user-defined bundle from a chosen list of recipe IDs."""
     if not body.recipeIds:
         raise HTTPException(status_code=422, detail="recipeIds cannot be empty")
@@ -191,7 +192,7 @@ def get_bundle_shopping(bundle_id: str, store_id: str = Query(default="paknsave-
 
 
 @router.post("/{bundle_id}/activate")
-def activate_bundle(bundle_id: str):
+def activate_bundle(bundle_id: str, user: dict = Depends(require_user)):
     """
     Set a bundle as active for its week.
     Only deactivates other bundles for the SAME WEEK.
@@ -221,7 +222,7 @@ def activate_bundle(bundle_id: str):
 
 
 @router.post("/{bundle_id}/refresh-prices")
-def refresh_bundle_prices(bundle_id: str, store_id: str = Query(default="paknsave-lower-hutt")):
+def refresh_bundle_prices(bundle_id: str, store_id: str = Query(default="paknsave-lower-hutt"), user: dict = Depends(require_user)):
     """
     Recalculate estimatedTotal from current live prices.
     Updates the bundle's estimatedTotal and priceSnapshotDate.

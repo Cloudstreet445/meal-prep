@@ -5,9 +5,10 @@ import uuid
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db, get_pricing_db
+from ..auth_utils import require_user
 from .helpers import _select_from_library, _recipe_cost
 from .bundles import get_latest_bundle
 
@@ -23,7 +24,7 @@ def get_latest_plan():
 
 
 @router.post("/generate")
-def generate_plan():
+def generate_plan(user: dict = Depends(require_user)):
     """
     Generate a new meal plan.
 
