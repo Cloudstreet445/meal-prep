@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
 from pydantic import BaseModel
-from passlib.context import CryptContext
+import bcrypt as _bcrypt_lib
 from ..database import get_db
 from ..auth_utils import create_jwt, decode_jwt, get_current_user, require_user
 from ..limiter import limiter as _limiter
@@ -19,7 +19,11 @@ MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1
 SESSION_TTL_DAYS = 30
 APP_URL = os.getenv("APP_URL", "http://localhost:3000")
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def _hash_pw(password: str) -> str:
+    return _bcrypt_lib.hashpw(password.encode(), _bcrypt_lib.gensalt()).decode()
+
+def _verify_pw(password: str, hashed: str) -> bool:
+    return _bcrypt_lib.checkpw(password.encode(), hashed.encode())
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -130,7 +134,7 @@ def register(body: PasswordAuthRequest, response: Response, request: Request):
         raise HTTPException(409, "An account with that email already exists")
 
     user_id, household_id = _create_user_and_household(db, email)
-    db["users"].update_one({"userId": user_id}, {"$set": {"passwordHash": _pwd.hash(body.password)}})
+    db["users"].update_one({"userId": user_id}, {"$set": {"passwordHash": _hash_pw(body.password)}})
 
     session_id = _create_session(db, user_id, request)
     _set_auth_cookie(response, user_id, email, session_id)
@@ -147,7 +151,7 @@ def login(body: PasswordAuthRequest, response: Response, request: Request):
     db = get_db()
     user = db["users"].find_one({"email": email})
 
-    if not user or not user.get("passwordHash") or not _pwd.verify(body.password, user["passwordHash"]):
+    if not user or not user.get("passwordHash") or not _verify_pw(body.password, user["passwordHash"]):
         raise HTTPException(401, "Invalid email or password")
 
     db["users"].update_one({"email": email}, {"$set": {"lastLoginAt": datetime.utcnow()}})
@@ -199,7 +203,7 @@ def reset_password(body: ResetPasswordRequest, response: Response, request: Requ
         raise HTTPException(400, "Invalid or expired reset link")
 
     db["password_reset_tokens"].update_one({"token": body.token}, {"$set": {"used": True}})
-    db["users"].update_one({"userId": doc["userId"]}, {"$set": {"passwordHash": _pwd.hash(body.password)}})
+    db["users"].update_one({"userId": doc["userId"]}, {"$set": {"passwordHash": _hash_pw(body.password)}})
     db["sessions"].delete_many({"userId": doc["userId"]})
 
     session_id = _create_session(db, doc["userId"], request)
