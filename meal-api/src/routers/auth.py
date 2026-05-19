@@ -9,13 +9,11 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
 from pydantic import BaseModel
 from passlib.context import CryptContext
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from ..database import get_db
 from ..auth_utils import create_jwt, decode_jwt, get_current_user, require_user
+from ..limiter import limiter as _limiter
 
 router = APIRouter()
-_limiter = Limiter(key_func=get_remote_address)
 
 MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1

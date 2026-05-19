@@ -212,6 +212,10 @@ function _routeAuth(path) {
 }
 
 // ── Login page ────────────────────────────────────────────────────
+async function _safeJson(res) {
+  try { return await res.json(); } catch (_) { return {}; }
+}
+
 const _AUTH_LOGO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4"/><path d="M12 12v4"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>`;
 const _ICON_EMAIL    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>`;
 const _ICON_LOCK     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
@@ -274,7 +278,7 @@ async function _doLogin() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       credentials: 'include', body: JSON.stringify({ email, password: pw }),
     });
-    const data = await res.json();
+    const data = await _safeJson(res);
     if (!res.ok) throw new Error(data.detail || 'Invalid email or password');
     currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
     _setLogoutVisible(true);
@@ -356,7 +360,7 @@ async function _doRegister() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       credentials: 'include', body: JSON.stringify({ email, password: pw }),
     });
-    const data = await res.json();
+    const data = await _safeJson(res);
     if (!res.ok) throw new Error(data.detail || 'Registration failed');
     currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
     _setLogoutVisible(true);
@@ -475,7 +479,7 @@ async function _doReset(token) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       credentials: 'include', body: JSON.stringify({ token, password: pw }),
     });
-    const data = await res.json();
+    const data = await _safeJson(res);
     if (!res.ok) throw new Error(data.detail || 'Reset failed');
     document.getElementById('reset-form-wrap').style.display = 'none';
     document.getElementById('reset-success').style.display = '';
@@ -492,7 +496,7 @@ async function handleAuthCallback(token) {
   try {
     const res = await fetch(`${API}/auth/verify?token=${encodeURIComponent(token)}`, { credentials: 'include' });
     if (!res.ok) throw new Error('Invalid link');
-    const data = await res.json();
+    const data = await _safeJson(res);
     currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
     _setLogoutVisible(true);
     _hideAuthRoot();
