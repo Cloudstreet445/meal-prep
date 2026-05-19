@@ -143,7 +143,7 @@ function _pwStrength(pw) {
 function _strengthLabel(s) {
   if (s <= 1) return ['Weak', 'var(--red)', `${s * 20 + 10}%`];
   if (s <= 3) return ['Fair', '#f59e0b', `${s * 20}%`];
-  return ['Strong', 'var(--green)', `${Math.min(s * 20, 100)}%`];
+  return ['Strong', 'var(--accent)', `${Math.min(s * 20, 100)}%`];
 }
 
 function _bindStrengthBar(inputId, wrapId, fillId, labelId) {
@@ -211,22 +211,38 @@ function _routeAuth(path) {
 }
 
 // ── Login page ────────────────────────────────────────────────────
+const _AUTH_LOGO_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4"/><path d="M12 12v4"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>`;
+const _ICON_EMAIL    = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>`;
+const _ICON_LOCK     = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+function _authLogoHtml() {
+  return `
+    <div class="auth-logo-mark">${_AUTH_LOGO_SVG}</div>
+    <div class="auth-page-logo">Kai <span>Planner</span></div>
+    <div class="auth-page-tagline">Plan 5 dinners a week from PAK'nSave prices</div>`;
+}
+
 function _renderLoginPage() {
   _renderAuth(`
     <div class="auth-page">
-      <div class="auth-page-logo">Kai <span>Planner</span></div>
-      <div class="auth-page-tagline">Plan 5 dinners a week from PAK'nSave prices</div>
+      ${_authLogoHtml()}
       <div class="auth-form">
         <div class="auth-card-title">Sign in</div>
         <div class="auth-form-error" id="login-form-err"></div>
         <div class="auth-field">
-          <input class="auth-input" id="login-email" type="email" placeholder="Email address"
-            autocomplete="email" inputmode="email">
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">${_ICON_EMAIL}</span>
+            <input class="auth-input" id="login-email" type="email" placeholder="Email address"
+              autocomplete="email" inputmode="email">
+          </div>
           <div class="auth-field-error" id="login-email-err"></div>
         </div>
         <div class="auth-field">
-          <input class="auth-input" id="login-pw" type="password" placeholder="Password"
-            autocomplete="current-password">
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">${_ICON_LOCK}</span>
+            <input class="auth-input" id="login-pw" type="password" placeholder="Password"
+              autocomplete="current-password">
+          </div>
           <div class="auth-field-error" id="login-pw-err"></div>
         </div>
         <button class="auth-submit-btn" id="login-btn" onclick="_doLogin()">Sign in →</button>
@@ -273,19 +289,24 @@ async function _doLogin() {
 function _renderRegisterPage() {
   _renderAuth(`
     <div class="auth-page">
-      <div class="auth-page-logo">Kai <span>Planner</span></div>
-      <div class="auth-page-tagline">Plan 5 dinners a week from PAK'nSave prices</div>
+      ${_authLogoHtml()}
       <div class="auth-form">
         <div class="auth-card-title">Create account</div>
         <div class="auth-form-error" id="reg-form-err"></div>
         <div class="auth-field">
-          <input class="auth-input" id="reg-email" type="email" placeholder="Email address"
-            autocomplete="email" inputmode="email">
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">${_ICON_EMAIL}</span>
+            <input class="auth-input" id="reg-email" type="email" placeholder="Email address"
+              autocomplete="email" inputmode="email">
+          </div>
           <div class="auth-field-error" id="reg-email-err"></div>
         </div>
         <div class="auth-field">
-          <input class="auth-input" id="reg-pw" type="password" placeholder="Password (8+ characters)"
-            autocomplete="new-password">
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">${_ICON_LOCK}</span>
+            <input class="auth-input" id="reg-pw" type="password" placeholder="Password (8+ characters)"
+              autocomplete="new-password">
+          </div>
           <div class="auth-field-error" id="reg-pw-err"></div>
           <div class="pw-strength-wrap" id="reg-pw-wrap">
             <div class="pw-strength-bar"><div class="pw-strength-fill" id="reg-pw-fill"></div></div>
@@ -293,8 +314,11 @@ function _renderRegisterPage() {
           </div>
         </div>
         <div class="auth-field">
-          <input class="auth-input" id="reg-confirm" type="password" placeholder="Confirm password"
-            autocomplete="new-password">
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">${_ICON_LOCK}</span>
+            <input class="auth-input" id="reg-confirm" type="password" placeholder="Confirm password"
+              autocomplete="new-password">
+          </div>
           <div class="auth-field-error" id="reg-confirm-err"></div>
         </div>
         <button class="auth-submit-btn" id="reg-btn" onclick="_doRegister()">Create account →</button>
@@ -348,7 +372,7 @@ async function _doRegister() {
 function _renderForgotPage() {
   _renderAuth(`
     <div class="auth-page">
-      <div class="auth-page-logo">Kai <span>Planner</span></div>
+      ${_authLogoHtml()}
       <div class="auth-form">
         <div class="auth-card-title">Reset password</div>
         <div id="forgot-confirm" style="display:none">
@@ -360,8 +384,11 @@ function _renderForgotPage() {
         <div id="forgot-form-wrap">
           <div class="auth-form-error" id="forgot-form-err"></div>
           <div class="auth-field">
-            <input class="auth-input" id="forgot-email" type="email" placeholder="Email address"
-              autocomplete="email" inputmode="email">
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">${_ICON_EMAIL}</span>
+              <input class="auth-input" id="forgot-email" type="email" placeholder="Email address"
+                autocomplete="email" inputmode="email">
+            </div>
             <div class="auth-field-error" id="forgot-email-err"></div>
           </div>
           <button class="auth-submit-btn" id="forgot-btn" onclick="_doForgot()">Send reset link →</button>
@@ -396,7 +423,7 @@ function _renderResetPage() {
   if (!token) { _authNav('/forgot-password'); return; }
   _renderAuth(`
     <div class="auth-page">
-      <div class="auth-page-logo">Kai <span>Planner</span></div>
+      ${_authLogoHtml()}
       <div class="auth-form">
         <div class="auth-card-title">Set new password</div>
         <div id="reset-success" style="display:none">
@@ -405,8 +432,11 @@ function _renderResetPage() {
         <div id="reset-form-wrap">
           <div class="auth-form-error" id="reset-form-err"></div>
           <div class="auth-field">
-            <input class="auth-input" id="reset-pw" type="password" placeholder="New password (8+ characters)"
-              autocomplete="new-password">
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">${_ICON_LOCK}</span>
+              <input class="auth-input" id="reset-pw" type="password" placeholder="New password (8+ characters)"
+                autocomplete="new-password">
+            </div>
             <div class="auth-field-error" id="reset-pw-err"></div>
             <div class="pw-strength-wrap" id="reset-pw-wrap">
               <div class="pw-strength-bar"><div class="pw-strength-fill" id="reset-pw-fill"></div></div>
@@ -414,8 +444,11 @@ function _renderResetPage() {
             </div>
           </div>
           <div class="auth-field">
-            <input class="auth-input" id="reset-confirm" type="password" placeholder="Confirm new password"
-              autocomplete="new-password">
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">${_ICON_LOCK}</span>
+              <input class="auth-input" id="reset-confirm" type="password" placeholder="Confirm new password"
+                autocomplete="new-password">
+            </div>
             <div class="auth-field-error" id="reset-confirm-err"></div>
           </div>
           <button class="auth-submit-btn" id="reset-btn" onclick="_doReset('${token}')">Set new password →</button>
@@ -894,6 +927,14 @@ async function apiFetch(path, opts = {}) {
     fetchOpts.body = typeof body === 'string' ? body : JSON.stringify(body);
   }
   const res = await fetch(url, fetchOpts);
+  if (res.status === 401) {
+    // Session expired or revoked — redirect to login
+    currentUser = null;
+    _setLogoutVisible(false);
+    window.history.pushState({}, '', '/login');
+    _routeAuth('/login');
+    throw new Error('Not authenticated');
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (${url})`);
   return res.json();
 }
@@ -958,6 +999,20 @@ function showToast(msg, durationMs = 2800) {
   el.classList.add('toast-visible');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('toast-visible'), durationMs);
+}
+
+// ── Empty & error states ─────────────────────────────────────────
+const _SVG_CALENDAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="7" y="14" width="3" height="3" rx="0.5"/><rect x="14" y="14" width="3" height="3" rx="0.5"/></svg>`;
+const _SVG_BAG      = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>`;
+const _SVG_SEARCH   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
+function _emptyState({ icon, title, subtitle, ctaLabel, ctaFn }) {
+  return `<div class="empty-state">
+    <div class="empty-state__icon">${icon}</div>
+    <div class="empty-state__title">${_esc(title)}</div>
+    ${subtitle ? `<div class="empty-state__subtitle">${_esc(subtitle)}</div>` : ''}
+    ${ctaLabel ? `<button class="empty-state__cta" onclick="${ctaFn}">${_esc(ctaLabel)}</button>` : ''}
+  </div>`;
 }
 
 // ── Skeleton screens ─────────────────────────────────────────────
@@ -1095,7 +1150,23 @@ async function loadWeek() {
   } catch (e) {
     log('WEEK', 'Error', { error: e.message });
     document.getElementById('week-loading').innerHTML =
-      '<span class="icon">⚠️</span>Could not load meal plan.<br>Is the API running?<br><small>Check console for details.</small>';
+    const is404 = e.message?.includes('HTTP 404') || e.message?.includes('404');
+    const el = document.getElementById('meal-cards');
+    if (el) el.innerHTML = _emptyState(is404 ? {
+      icon: _SVG_CALENDAR,
+      title: 'No plan yet',
+      subtitle: "You haven't generated a plan this week.",
+      ctaLabel: 'Generate Plan →',
+      ctaFn: 'generatePlan()',
+    } : {
+      icon: _SVG_CALENDAR,
+      title: 'Could not load plan',
+      subtitle: 'Check your connection and try again.',
+      ctaLabel: 'Retry',
+      ctaFn: 'loadWeek()',
+    });
+    document.getElementById('week-summary').innerHTML = '';
+    log('WEEK', 'Error', { error: e.message });
   }
 }
 
@@ -1141,8 +1212,19 @@ async function loadShopping() {
     document.getElementById('shopping-content').style.display = 'block';
   } catch (e) {
     log('SHOPPING', 'Error', { error: e.message });
-    document.getElementById('shopping-loading').innerHTML =
-      '<span class="icon">⚠️</span>Could not load shopping list.<br><small>Check console for details.</small>';
+    const is404 = e.message?.includes('404');
+    const el = document.getElementById('shopping-items');
+    if (el) el.innerHTML = _emptyState(is404 ? {
+      icon: _SVG_BAG,
+      title: 'Your shopping list will appear here',
+      subtitle: 'Generate a plan first to see your shopping list.',
+    } : {
+      icon: _SVG_BAG,
+      title: 'Could not load shopping list',
+      subtitle: 'Check your connection and try again.',
+      ctaLabel: 'Retry',
+      ctaFn: 'loadShopping()',
+    });
   }
 }
 
@@ -1421,6 +1503,10 @@ function renderRecipeList() {
   const countEl = document.getElementById('library-count');
   if (countEl) countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''}`;
 
+  const noResultsHtml = recipeSearch
+    ? _emptyState({ icon: _SVG_SEARCH, title: `No recipes match "${recipeSearch}"`, subtitle: null, ctaLabel: 'Clear search', ctaFn: 'clearSearch()' })
+    : _emptyState({ icon: _SVG_SEARCH, title: 'No recipes yet', subtitle: 'Recipes will appear here once added.' });
+
   document.getElementById('recipe-list-items').innerHTML = filtered.length
     ? filtered.map(meal => {
         const rating = lastRating(meal);
@@ -1431,13 +1517,20 @@ function renderRecipeList() {
           <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
             <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
             <div style="flex:1">
-              <div class="recipe-list-name">${meal.name}${badge}</div>
-              <div class="recipe-list-meta">⏱ ${meal.cookTime} · ${meal.ingredients?.length || 0} ingredients</div>
+              <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
+              <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients</div>
             </div>
             <div style="color:var(--text-muted)">›</div>
           </div>`;
       }).join('')
-    : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
+    : noResultsHtml;
+}
+
+function clearSearch() {
+  recipeSearch = '';
+  const el = document.getElementById('recipe-search');
+  if (el) el.value = '';
+  renderRecipeList();
 }
 
 // ── Search + filter chip wiring ──────────────────────────────
@@ -1482,11 +1575,17 @@ function openRecipe(id) {
   document.getElementById('recipe-list').style.display = 'none';
   document.getElementById('recipe-detail').classList.add('active');
 
+  // Compact header row: protein chip + cook time + serves + leftovers
+  const proteinInfo = _PROTEIN_CHIP[inferProtein(meal)] || { label: 'Other', color: '#6b7280', bg: '#f3f4f6' };
   document.getElementById('detail-title').textContent = meal.name;
   document.getElementById('detail-pills').innerHTML = `
-    <div class="pill">⏱ ${meal.cookTime}</div>
-    <div class="pill">👥 Serves ${meal.serves}</div>
-    ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}`;
+    <div class="pill detail-protein-chip" style="background:${proteinInfo.bg};color:${proteinInfo.color}">
+      ${proteinInfo.emoji} ${proteinInfo.label}
+    </div>
+    <div class="pill">⏱ ${_esc(meal.cookTime)}</div>
+    <div class="pill">👥 ${_esc(String(meal.serves || '–'))}</div>
+    ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
+    ${meal.estimatedCost ? `<div class="pill">${fmt$(meal.estimatedCost)}</div>` : ''}`;
 
   const link = document.getElementById('detail-link');
   link.href = meal.recipeUrl || '#';
@@ -1498,17 +1597,32 @@ function openRecipe(id) {
   descEl.textContent = meal.description || '';
   descEl.style.display = meal.description ? '' : 'none';
 
+  // Ingredients: name left, amount center, cost right
   document.getElementById('detail-ingredients').innerHTML =
-    (meal.ingredients || []).map(ing => `
-      <div class="ingr-item">
-        <span class="ingr-name">${_esc(ing.name)}${ing.fromSpecial ? ' 🔥' : ''}</span>
-        <span class="ingr-amount">${_esc(ing.amount)}</span>
-      </div>`).join('');
+    (meal.ingredients || []).map(ing => {
+      const amtDisplay = typeof ing.amount === 'object'
+        ? (ing.amount?.display || '')
+        : (ing.amount || '');
+      const costStr = ing.estimatedCost ? `<span class="ingr-cost">${fmt$(ing.estimatedCost)}</span>` : '';
+      const shared  = ing.sharedWith?.length ? '<span class="ingr-shared-tag">shared</span>' : '';
+      const special = ing.fromSpecial ? ' 🔥' : '';
+      return `
+        <div class="ingr-item${ing.inPantry ? ' ingr-pantry' : ''}">
+          <span class="ingr-name">${_esc(ing.name)}${special}${shared}</span>
+          <span class="ingr-amount">${_esc(amtDisplay)}</span>
+          ${costStr}
+        </div>`;
+    }).join('');
 
+  // Method: step cards with large step number
   const steps = meal.method || [];
   document.getElementById('method-label').style.display = steps.length ? '' : 'none';
   document.getElementById('detail-method').innerHTML =
-    steps.map(s => `<li class="method-step">${highlightCookingTerms(_esc(s))}</li>`).join('');
+    steps.map((s, i) => `
+      <li class="method-step method-step--card">
+        <span class="method-step__num">${i + 1}</span>
+        <span class="method-step__text">${highlightCookingTerms(_esc(s))}</span>
+      </li>`).join('');
 
   const rating = lastRating(meal);
   const ratingEl = document.getElementById('detail-rating');
@@ -2090,6 +2204,24 @@ document.getElementById('settings-exclusion-input').addEventListener('keydown', 
   if (e.key === 'Enter') addExclusion();
 });
 
+// Auto-save budget and serves on blur
+async function _autoSaveField(field) {
+  const budget = parseFloat(document.getElementById('settings-budget').value);
+  const serves = parseInt(document.getElementById('settings-serves').value, 10);
+  if (!budget || budget < 20 || !serves || serves < 1) return;
+  try {
+    settings = await apiPost('/settings/', {
+      budget, serves,
+      exclusions: settings.exclusions || [],
+      storeId: settings.storeId || DEFAULT_STORE,
+    }, 'PUT');
+    const indicator = document.getElementById(`${field}-saved`);
+    if (indicator) { indicator.style.opacity = '1'; setTimeout(() => { indicator.style.opacity = '0'; }, 1500); }
+  } catch (_) {}
+}
+document.getElementById('settings-budget').addEventListener('blur', () => _autoSaveField('settings-budget'));
+document.getElementById('settings-serves').addEventListener('blur', () => _autoSaveField('settings-serves'));
+
 // ══════════════════════════════════════════════════════════════
 // PANTRY
 // ══════════════════════════════════════════════════════════════
@@ -2263,7 +2395,7 @@ function renderPickerList(search) {
               <div class="recipe-list-name">${r.name}</div>
               <div class="recipe-list-meta">⏱ ${r.cookTime} · ${fmt$(cost)}</div>
             </div>
-            <div style="color:var(--green);font-size:18px">+</div>
+            <div style="color:var(--accent);font-size:18px">+</div>
           </div>`;
       }).join('')
     : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
