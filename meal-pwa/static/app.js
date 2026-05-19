@@ -694,11 +694,11 @@ async function finishOnboarding() {
   const storeId = _obStore || 'paknsave-lower-hutt';
 
   try {
-    await apiFetch('/settings', {
+    await apiFetch('/settings/', {
       method: 'PUT',
       body: JSON.stringify({ budget, serves, storeId, exclusions: _obExclusions }),
     });
-  } catch (_) {}
+  } catch (e) { console.error('[ONBOARDING] Settings save failed:', e); }
 
   document.getElementById('onboarding-overlay').style.display = 'none';
   if (window._obResolve) { window._obResolve(); window._obResolve = null; }
