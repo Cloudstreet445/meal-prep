@@ -707,26 +707,55 @@ function toggleCookedMeal(recipeId) {
   saveCookedSet(plan.bundleId, s);
   renderMealCards();
 }
+const _PROTEIN_CHIP = {
+  chicken:    { label: 'Chicken', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
+  beef:       { label: 'Beef',    color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
+  pork:       { label: 'Pork',    color: '#f97316', bg: 'rgba(249,115,22,0.15)' },
+  lamb:       { label: 'Lamb',    color: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
+  vegetarian: { label: 'Vege',    color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+  other:      { label: 'Other',   color: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
+};
+const _DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
 function renderMealCards() {
   const cooked = plan?.bundleId ? getCookedSet(plan.bundleId) : new Set();
   const recipes = plan?.recipes || [];
 
   document.getElementById('meal-cards').innerHTML = recipes.map((meal, i) => {
-    const isCooked = cooked.has(meal.recipeId);
+    const isCooked   = cooked.has(meal.recipeId);
+    const protein    = inferProtein(meal);
+    const chip       = _PROTEIN_CHIP[protein] || _PROTEIN_CHIP.other;
+    const day        = _DAY_LABELS[i] || `Day ${i + 1}`;
+    const rating     = lastRating(meal);
+    const cost       = meal.estimatedCost != null ? fmt$(meal.estimatedCost) : null;
+
+    const ratingBadge = rating === 1
+      ? `<span class="meal-card__rating-badge meal-card__rating-badge--up" title="You liked this">👍</span>`
+      : rating === -1
+      ? `<span class="meal-card__rating-badge meal-card__rating-badge--down" title="You disliked this">👎</span>`
+      : '';
+
+    const cookedBadge = isCooked
+      ? `<span class="meal-card__cooked-badge" title="Cooked">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 6L9 17l-5-5"/></svg>
+         </span>`
+      : `<button class="meal-card__swap-btn" onclick="event.stopPropagation();openSwapPicker('${_esc(meal.recipeId)}','${protein}')" title="Swap this meal">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+         </button>`;
+
     return `
-      <div class="meal-card${isCooked ? ' cooked' : ''}" data-recipe-id="${meal.recipeId}" onclick="openRecipe('${meal.recipeId}')">
+      <div class="meal-card${isCooked ? ' meal-card--cooked' : ''}" data-recipe-id="${_esc(meal.recipeId)}" onclick="openRecipe('${_esc(meal.recipeId)}')">
         <div class="meal-card-swipe-hint">✓ Cooked</div>
-        <div class="meal-card-header">
-          <div>
-            <div class="meal-id">Meal ${i + 1}</div>
-            <div class="meal-name">${_esc(meal.name)}</div>
-            <div class="meal-meta">
-              <div class="pill">⏱ ${_esc(meal.cookTime)}</div>
-              <div class="pill">👥 Serves ${_esc(meal.serves)}</div>
-              ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
-            </div>
-          </div>
-          <div class="meal-arrow">${isCooked ? '✓' : '›'}</div>
+        <div class="meal-card__top-row">
+          <span class="meal-card__day-pill">${day}</span>
+          ${cookedBadge}
+        </div>
+        <div class="meal-card__name">${_esc(meal.name)}</div>
+        <div class="meal-card__protein-chip" style="color:${chip.color};background:${chip.bg}">${chip.label}</div>
+        <div class="meal-card__footer">
+          <span class="meal-card__meta">⏱ ${_esc(meal.cookTime)}</span>
+          ${cost ? `<span class="meal-card__cost">${cost}</span>` : ''}
+          ${ratingBadge}
         </div>
       </div>`;
   }).join('');
@@ -874,13 +903,44 @@ async function apiPost(path, body = null, method = 'POST') {
 }
 
 // ── Tab switching ───────────────────────────────────────────────
+let _currentTab = 'week';
+
+function _updateFab(view) {
+  const fab = document.getElementById('tab-fab');
+  if (!fab) return;
+  const icon = document.getElementById('fab-icon');
+  if (view === 'week') {
+    fab.style.display = '';
+    fab.setAttribute('aria-label', 'Generate plan');
+    if (icon) icon.innerHTML = `<path d="M12 5v14M5 12h14"/>`;
+  } else if (view === 'shopping') {
+    fab.style.display = '';
+    fab.setAttribute('aria-label', 'Add item');
+    if (icon) icon.innerHTML = `<path d="M12 5v14M5 12h14"/>`;
+  } else {
+    fab.style.display = 'none';
+  }
+}
+
+function fabAction() {
+  if (_currentTab === 'week') generatePlan();
+  else if (_currentTab === 'shopping') focusAdHocInput();
+}
+
+function focusAdHocInput() {
+  const input = document.getElementById('shop-adhoc-input');
+  if (input) input.focus();
+}
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
+    _currentTab = tab.dataset.view;
     document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
     if (tab.dataset.view === 'recipes') renderWeekRecipesInTab();
+    _updateFab(tab.dataset.view);
   });
 });
 
@@ -898,6 +958,61 @@ function showToast(msg, durationMs = 2800) {
   el.classList.add('toast-visible');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('toast-visible'), durationMs);
+}
+
+// ── Skeleton screens ─────────────────────────────────────────────
+function renderWeekSkeletons() {
+  const skels = Array.from({ length: 5 }, () => `
+    <div class="skeleton-card">
+      <div class="skeleton-row">
+        <div class="skeleton skeleton-pill"></div>
+        <div class="skeleton" style="width:28px;height:28px;border-radius:6px"></div>
+      </div>
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-pill" style="width:60px;margin-bottom:10px"></div>
+      <div class="skeleton skeleton-row">
+        <div class="skeleton skeleton-line" style="width:30%"></div>
+        <div class="skeleton skeleton-line" style="width:20%"></div>
+      </div>
+    </div>`).join('');
+
+  const statSkel = `
+    <div class="week-stat-bar" style="margin-bottom:10px">
+      ${Array.from({ length: 3 }, () => `
+        <div class="stat-card">
+          <div class="skeleton" style="width:50px;height:22px;margin-bottom:6px;border-radius:6px"></div>
+          <div class="skeleton" style="width:60px;height:9px;border-radius:4px"></div>
+        </div>`).join('')}
+    </div>`;
+
+  const summaryEl = document.getElementById('week-summary');
+  if (summaryEl) summaryEl.innerHTML = statSkel;
+  const cardsEl = document.getElementById('meal-cards');
+  if (cardsEl) cardsEl.innerHTML = skels;
+
+  document.getElementById('week-loading').style.display = 'none';
+  document.getElementById('week-content').style.display = 'block';
+}
+
+function renderShoppingSkeletons() {
+  const catSkel = Array.from({ length: 3 }, (_, ci) => `
+    <div class="shop-category-group">
+      <div class="skeleton" style="width:80px;height:11px;border-radius:4px;margin:10px 16px 4px"></div>
+      ${Array.from({ length: 4 }, () => `
+        <div class="skeleton-row" style="padding:10px 16px">
+          <div class="skeleton skeleton-check"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+            <div class="skeleton skeleton-line" style="width:60%"></div>
+            <div class="skeleton skeleton-line" style="width:35%"></div>
+          </div>
+          <div class="skeleton skeleton-line" style="width:36px"></div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  document.getElementById('shopping-loading').style.display = 'none';
+  document.getElementById('shopping-content').style.display = 'block';
+  const itemsEl = document.getElementById('shopping-items');
+  if (itemsEl) itemsEl.innerHTML = catSkel;
 }
 
 // ── Format helpers ───────────────────────────────────────────────
@@ -932,6 +1047,7 @@ function resetViews() {
 // VIEW: THIS WEEK
 // ══════════════════════════════════════════════════════════════
 async function loadWeek() {
+  renderWeekSkeletons();
   try {
     log('WEEK', 'Loading bundle...');
     plan = await apiFetch('/bundle/latest');
@@ -987,6 +1103,7 @@ async function loadWeek() {
 // VIEW: SHOPPING
 // ══════════════════════════════════════════════════════════════
 async function loadShopping() {
+  renderShoppingSkeletons();
   try {
     log('SHOPPING', 'Loading...');
     const storeParam = settings.storeId || DEFAULT_STORE;
@@ -999,12 +1116,21 @@ async function loadShopping() {
     log('SHOPPING', 'Loaded', { items: items.length });
 
     document.getElementById('shop-total').textContent = fmt$(data.estimatedTotal);
-    renderShoppingItems(items, storeKey);
+    window._shopData = items;
+    // Load ad-hoc items from localStorage
+    const adhocKey = `adhoc_${storeKey}`;
+    const adhocItems = JSON.parse(localStorage.getItem(adhocKey) || '[]');
+    adhocItems.forEach(i => { if (!window._shopData.find(x => x.name === i.name)) window._shopData.push(i); });
+    renderShoppingItems(window._shopData, storeKey);
 
     document.getElementById('clear-btn').onclick = () => {
+      const checkedCount = Object.values(checked).filter(Boolean).length;
+      if (!confirm(`Clear all ${checkedCount} checked item${checkedCount !== 1 ? 's' : ''}?`)) return;
       checked = {};
       localStorage.setItem(storeKey, JSON.stringify(checked));
-      renderShoppingItems(items, storeKey);
+      localStorage.removeItem(`adhoc_${storeKey}`);
+      window._shopData = items;
+      renderShoppingItems(window._shopData, storeKey);
       document.getElementById('clear-btn').style.display = 'none';
     };
 
@@ -1060,10 +1186,21 @@ const _CATEGORY_LABELS = {
   other: '🛒 Other',
 };
 
+function _shopRunningTotal(items) {
+  const unchecked = items.filter((_, i) => !checked[i]);
+  const cost = unchecked.reduce((s, item) => s + (item.estimatedCost || 0), 0);
+  return { count: unchecked.length, cost };
+}
+
 function renderShoppingItems(items, storeKey) {
   const done  = items.filter((_, i) => checked[i]).length;
   const total = items.length;
   document.getElementById('progress-fill').style.width = `${total ? (done/total)*100 : 0}%`;
+
+  // Live running total
+  const rt = _shopRunningTotal(items);
+  const rtEl = document.getElementById('shop-running-total');
+  if (rtEl) rtEl.textContent = `${rt.count} item${rt.count !== 1 ? 's' : ''} remaining · ${fmt$(rt.cost)}`;
 
   // Group by category, preserving original item index for checked state
   const groups = {};
@@ -1083,7 +1220,11 @@ function renderShoppingItems(items, storeKey) {
         <div class="shop-category-header">${label}</div>
         ${rows}
       </div>`;
-    }).join('');
+    }).join('') + `
+    <div class="shop-adhoc-row" id="shop-adhoc-row">
+      <button class="shop-adhoc-trigger" onclick="showAdHocInput()">＋ Add item</button>
+      <input type="text" id="shop-adhoc-input" class="shop-adhoc-input" placeholder="Item name…" style="display:none" onkeydown="handleAdHocKey(event,'${storeKey}')" onblur="commitAdHocItem('${storeKey}')">
+    </div>`;
 
   document.getElementById('shopping-items').innerHTML = html;
 }
@@ -1091,16 +1232,57 @@ function renderShoppingItems(items, storeKey) {
 function toggleItem(index, storeKey) {
   checked[index] = !checked[index];
   localStorage.setItem(storeKey, JSON.stringify(checked));
-  const items = document.querySelectorAll('.shop-item');
+
+  const shopItems = document.querySelectorAll('.shop-item');
   let done = 0;
-  items.forEach((el, i) => {
+  shopItems.forEach((el, i) => {
     el.classList.toggle('checked', !!checked[i]);
     if (checked[i]) done++;
   });
   document.getElementById('progress-fill').style.width =
-    `${items.length ? (done/items.length)*100 : 0}%`;
+    `${shopItems.length ? (done/shopItems.length)*100 : 0}%`;
+
+  // Update running total — recount from current _shopData
+  if (window._shopData) {
+    const rt = _shopRunningTotal(window._shopData);
+    const rtEl = document.getElementById('shop-running-total');
+    if (rtEl) rtEl.textContent = `${rt.count} item${rt.count !== 1 ? 's' : ''} remaining · ${fmt$(rt.cost)}`;
+  }
+
   const anyChecked = Object.values(checked).some(Boolean);
   document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
+}
+
+function showAdHocInput() {
+  const btn   = document.querySelector('.shop-adhoc-trigger');
+  const input = document.getElementById('shop-adhoc-input');
+  if (btn)   btn.style.display = 'none';
+  if (input) { input.style.display = ''; input.focus(); }
+}
+
+function handleAdHocKey(e, storeKey) {
+  if (e.key === 'Enter') { e.target.blur(); }
+  if (e.key === 'Escape') {
+    e.target.value = '';
+    e.target.blur();
+  }
+}
+
+function commitAdHocItem(storeKey) {
+  const input = document.getElementById('shop-adhoc-input');
+  const btn   = document.querySelector('.shop-adhoc-trigger');
+  const name  = input?.value?.trim();
+  if (name && window._shopData) {
+    const adhocKey = `adhoc_${storeKey}`;
+    const adhocList = JSON.parse(localStorage.getItem(adhocKey) || '[]');
+    adhocList.push({ name, category: 'other', estimatedCost: 0, amount: '' });
+    localStorage.setItem(adhocKey, JSON.stringify(adhocList));
+    // Append to data and re-render
+    window._shopData.push(...adhocList.slice(-1));
+    renderShoppingItems(window._shopData, storeKey);
+  }
+  if (input) { input.value = ''; input.style.display = 'none'; }
+  if (btn)   btn.style.display = '';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1627,6 +1809,12 @@ function lastRating(recipe) {
   return mine.length ? mine[mine.length - 1].score : null;
 }
 
+function openSwapPicker(recipeId, protein) {
+  // Stub — full implementation in MEA-158 (single meal swap)
+  // For now open the recipe picker filtered to same protein
+  openRecipePicker && openRecipePicker({ swapRecipeId: recipeId, filterProtein: protein });
+}
+
 function showRatingOverlay(recipeId, recipeName) {
   document.getElementById('rating-recipe-name').textContent = recipeName;
   document.getElementById('rating-overlay').dataset.recipeId = recipeId;
@@ -2061,29 +2249,50 @@ document.addEventListener('keydown', e => {
 
 // ── Plan generation ──────────────────────────────────────────────
 
-async function generatePlan() {
-  const btn    = document.getElementById('generate-btn');
-  const status = document.getElementById('generate-status');
+let _generating = false;
 
-  btn.disabled    = true;
-  btn.textContent = 'Generating...';
-  status.style.display = 'block';
-  status.textContent   = 'Finding meals from your library...';
+async function generatePlan() {
+  if (_generating) return;
+  _generating = true;
+
+  const fab = document.getElementById('tab-fab');
+  if (fab) { fab.classList.add('fab--spinning'); fab.disabled = true; }
+
+  const _steps = ['Checking prices', 'Selecting meals', 'Building plan'];
+  const statusEl = document.getElementById('generate-status');
+  let _stepIdx = 0;
+
+  function _showStep(i) {
+    if (!statusEl) return;
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = _steps.map((s, j) =>
+      `<span class="gen-step ${j < i ? 'gen-step--done' : j === i ? 'gen-step--active' : ''}">${s}</span>`
+    ).join('<span class="gen-sep">›</span>');
+  }
+
+  _showStep(0);
+  const t1 = setTimeout(() => _showStep(1), 1500);
+  const t2 = setTimeout(() => _showStep(2), 3200);
 
   try {
     const result = await apiPost('/plan/generate');
-    status.textContent = `Plan ready — ${result.recipeCount} meals, est. $${result.estimatedTotal?.toFixed(2)}`;
+    clearTimeout(t1); clearTimeout(t2);
+    if (statusEl) statusEl.style.display = 'none';
     await notifyNewPlan({ week: result.week });
     await loadWeek();
     loadRecipes();
     await loadShopping();
+    showToast(`Plan ready · ${result.recipeCount || plan?.recipes?.length || 5} meals · ${fmt$(result.estimatedTotal || plan?.estimatedTotal || 0)} est.`, 3000);
   } catch (e) {
-    status.textContent = 'Generation failed — tap "Generate" to retry.';
+    clearTimeout(t1); clearTimeout(t2);
+    if (statusEl) {
+      statusEl.style.display = 'block';
+      statusEl.innerHTML = `<span class="gen-error">Generation failed — <button class="gen-retry-btn" onclick="generatePlan()">Try again</button></span>`;
+    }
     log('GENERATE', 'Error', { error: e.message });
   } finally {
-    btn.disabled    = false;
-    btn.textContent = 'Generate new plan';
-    setTimeout(() => { status.style.display = 'none'; }, 6000);
+    _generating = false;
+    if (fab) { fab.classList.remove('fab--spinning'); fab.disabled = false; }
   }
 }
 
@@ -2225,6 +2434,7 @@ window.addEventListener('popstate', () => {
   loadRecipes();
   loadShopping();
   registerServiceWorker();
+  _updateFab('week');
 
   const urlTab = new URLSearchParams(window.location.search).get('tab');
   if (urlTab) switchTab(urlTab);

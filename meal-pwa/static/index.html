@@ -25,7 +25,7 @@
         <div class="week-badge" id="week-badge">Loading...</div>
       </div>
       <div class="header-actions">
-        <div class="budget-pill" id="budget-pill">—</div>
+        <div class="budget-pill" id="budget-pill" style="display:none">—</div>
         <button class="avatar-btn" id="nav-menu-btn" onclick="openNavMenu()" aria-label="Open menu">
           <svg id="header-avatar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
@@ -78,6 +78,7 @@
           </div>
           <button class="clear-btn" id="clear-btn" style="display:none">Reset ↺</button>
         </div>
+        <div class="shop-running-total" id="shop-running-total"></div>
         <div class="progress-bar">
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
@@ -184,6 +185,16 @@
       <span class="tab-label">Recipes</span>
     </div>
   </nav>
+
+  <!-- Floating Action Button -->
+  <button class="fab" id="tab-fab" aria-label="Generate plan" onclick="fabAction()" style="display:none">
+    <svg id="fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+      <path d="M12 5v14M5 12h14"/>
+    </svg>
+    <svg id="fab-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="display:none">
+      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+    </svg>
+  </button>
 
 </div>
 
