@@ -279,6 +279,7 @@ async function _doLogin() {
       credentials: 'include', body: JSON.stringify({ email, password: pw }),
     });
     const data = await _safeJson(res);
+    if (res.status === 429) throw new Error('Too many attempts — please wait a minute and try again');
     if (!res.ok) throw new Error(data.detail || 'Invalid email or password');
     currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
     _setLogoutVisible(true);
@@ -361,6 +362,7 @@ async function _doRegister() {
       credentials: 'include', body: JSON.stringify({ email, password: pw }),
     });
     const data = await _safeJson(res);
+    if (res.status === 429) throw new Error('Too many attempts — please wait a minute and try again');
     if (!res.ok) throw new Error(data.detail || 'Registration failed');
     currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
     _setLogoutVisible(true);
@@ -413,10 +415,14 @@ async function _doForgot() {
   const btn = document.getElementById('forgot-btn');
   btn.disabled = true; btn.textContent = 'Sending…';
   try {
-    await fetch(`${API}/auth/forgot-password`, {
+    const res = await fetch(`${API}/auth/forgot-password`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       credentials: 'include', body: JSON.stringify({ email }),
     });
+    if (res.status === 429) {
+      btn.disabled = false; btn.textContent = 'Send reset link';
+      return _showFormError('forgot-form-err', 'Too many attempts — please wait a minute and try again');
+    }
   } catch (_) {}
   document.getElementById('forgot-form-wrap').style.display = 'none';
   document.getElementById('forgot-confirm').style.display = '';

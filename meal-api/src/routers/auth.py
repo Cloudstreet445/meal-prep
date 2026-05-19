@@ -121,7 +121,7 @@ def _set_auth_cookie(response: Response, user_id: str, email: str, session_id: s
 # ── Register ───────────────────────────────────────────────────────
 
 @router.post("/register")
-@_limiter.limit("3/minute")
+@_limiter.limit("5/minute")
 def register(body: PasswordAuthRequest, response: Response, request: Request):
     email = body.email.lower().strip()
     if not EMAIL_RE.match(email):
@@ -164,7 +164,7 @@ def login(body: PasswordAuthRequest, response: Response, request: Request):
 # ── Forgot / Reset password ────────────────────────────────────────
 
 @router.post("/forgot-password")
-@_limiter.limit("3/minute")
+@_limiter.limit("5/minute")
 def forgot_password(body: EmailRequest, request: Request):
     email = body.email.lower().strip()
     db = get_db()
