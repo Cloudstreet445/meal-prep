@@ -112,6 +112,7 @@ let plan          = null;
 let checked       = {};
 let currentWeek   = null;
 let currentUser   = null;   // { userId, email, householdId } or null
+let _viewingBundleId = localStorage.getItem('viewingBundleId') || null;
 
 // ── Auth Router ───────────────────────────────────────────────────
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -608,7 +609,7 @@ async function revokeAllSessions() {
 
 // ── Onboarding ──────────────────────────────────────────────────
 let _obStep = 0;
-const _obStepCount = 5;
+const _obStepCount = 3;
 let _obExclusions = [];
 let _obStore = null;
 
@@ -1101,11 +1102,26 @@ function resetViews() {
 // ══════════════════════════════════════════════════════════════
 // VIEW: THIS WEEK
 // ══════════════════════════════════════════════════════════════
+function _clearViewingBundle() {
+  _viewingBundleId = null;
+  localStorage.removeItem('viewingBundleId');
+  document.getElementById('viewing-banner')?.remove();
+}
+
+async function _viewBundle(bundleId, weekLabel) {
+  _viewingBundleId = bundleId;
+  localStorage.setItem('viewingBundleId', bundleId);
+  closeBundleSheet();
+  await loadWeek();
+}
+
 async function loadWeek() {
   renderWeekSkeletons();
   try {
     log('WEEK', 'Loading bundle...');
-    plan = await apiFetch('/bundle/latest');
+    plan = _viewingBundleId
+      ? await apiFetch(`/bundle/${_viewingBundleId}`)
+      : await apiFetch('/bundle/latest');
     currentWeek = plan.week;
     log('WEEK', 'Bundle loaded', { week: currentWeek, recipes: plan.recipes?.length });
 
@@ -1144,6 +1160,20 @@ async function loadWeek() {
 
     renderMealCards();
     renderWeekRecipesInTab();
+
+    // Viewing banner (shown when browsing a non-active historical bundle)
+    document.getElementById('viewing-banner')?.remove();
+    if (_viewingBundleId && _viewingBundleId !== plan.bundleId) {
+      _clearViewingBundle(); // bundleId not found/stale — fall back to active
+    } else if (_viewingBundleId) {
+      const banner = document.createElement('div');
+      banner.id = 'viewing-banner';
+      banner.className = 'viewing-banner';
+      banner.innerHTML = `<span>Viewing plan from ${_esc(fmtWeek(plan.week))}</span>
+        <button class="viewing-banner__set" onclick="setViewedBundleAsActive('${_esc(plan.bundleId)}','${_esc(plan.week)}')">Set as current</button>
+        <button class="viewing-banner__close" onclick="_clearViewingBundle();loadWeek()">✕ Return to current</button>`;
+      document.getElementById('view-week').prepend(banner);
+    }
 
     document.getElementById('week-loading').style.display = 'none';
     document.getElementById('week-content').style.display = 'block';
@@ -1872,23 +1902,44 @@ async function renderBundleSheet() {
 
 function renderBundleCard(bundle, activeBundleId) {
   const isWeekActive = bundle.bundleId === activeBundleId;
-  const isLoaded     = bundle.bundleId === plan?.bundleId;
+  const isViewing    = bundle.bundleId === _viewingBundleId || bundle.bundleId === plan?.bundleId;
   const time         = fmtTime(bundle.createdAt);
+  const bid          = _esc(bundle.bundleId);
+  const wk           = _esc(bundle.week);
 
   return `
-    <div class="bundle-item ${isWeekActive ? 'is-active' : ''} ${isLoaded ? 'is-loaded' : ''}"
-         onclick="selectBundle('${bundle.bundleId}', '${bundle.week}')">
+    <div class="bundle-item ${isWeekActive ? 'is-active' : ''} ${isViewing ? 'is-loaded' : ''}">
       <div class="bundle-tags">
-        ${isLoaded     ? '<div class="bundle-tag tag-viewing">Viewing</div>' : ''}
+        ${isViewing    ? '<div class="bundle-tag tag-viewing">Viewing</div>' : ''}
         ${isWeekActive ? '<div class="bundle-tag tag-active">Active</div>'   : ''}
       </div>
       <div class="bundle-dot"></div>
       <div class="bundle-info">
-        <div class="bundle-summary">${bundle.weekSummary || 'Meal plan'}</div>
+        <div class="bundle-summary">${_esc(bundle.weekSummary || 'Meal plan')}</div>
         <div class="bundle-meta">Generated ${time}</div>
       </div>
       <div class="bundle-price">${fmt$(bundle.estimatedTotal)}</div>
+      <div class="bundle-actions">
+        ${!isViewing ? `<button class="bundle-view-btn" onclick="_viewBundle('${bid}')">View</button>` : ''}
+        ${!isWeekActive ? `<button class="bundle-set-btn" onclick="setViewedBundleAsActive('${bid}','${wk}')">Set current</button>` : ''}
+      </div>
     </div>`;
+}
+
+async function setViewedBundleAsActive(bundleId, week) {
+  try {
+    await apiPost(`/bundle/${bundleId}/activate`);
+    historyData = historyData.map(w =>
+      w.week === week ? { ...w, activeBundleId: bundleId } : w
+    );
+    _clearViewingBundle();
+    closeBundleSheet();
+    await loadWeek();
+    loadShopping();
+    showToast('Plan set as current');
+  } catch (_) {
+    showToast('Could not set plan as current');
+  }
 }
 
 async function toggleWeek(weekId) {
@@ -1922,40 +1973,8 @@ async function toggleWeek(weekId) {
 }
 
 async function selectBundle(bundleId, week) {
-  if (bundleId === plan?.bundleId) {
-    closeBundleSheet();
-    return;
-  }
-
-  // Show loading state on the tapped card
-  const card = document.querySelector(`[onclick="selectBundle('${bundleId}', '${week}')"]`);
-  if (card) card.classList.add('is-switching');
-
-  try {
-    log('BUNDLES', 'Activating bundle', { bundleId, week });
-    await apiPost(`/bundle/${bundleId}/activate`);
-
-    historyData = historyData.map(w =>
-      w.week === week ? { ...w, activeBundleId: bundleId } : w
-    );
-
-    closeBundleSheet();
-    resetViews();
-    await loadWeek();
-    loadRecipes();
-    loadShopping();
-    showToast('Plan switched');
-    log('BUNDLES', 'Bundle switched successfully');
-  } catch (e) {
-    log('BUNDLES', 'Error activating bundle', { error: e.message });
-    if (card) card.classList.remove('is-switching');
-    const content = document.getElementById('bundle-sheet-content');
-    const err = document.createElement('div');
-    err.className = 'sheet-error';
-    err.textContent = 'Could not switch plan — please try again.';
-    content.prepend(err);
-    setTimeout(() => err.remove(), 4000);
-  }
+  // View the bundle read-only — DB active flag is unchanged
+  await _viewBundle(bundleId, week);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2604,6 +2623,59 @@ if (window.Capacitor?.isNativePlatform?.()) {
     });
   });
 }
+
+// ── Pull-to-refresh ──────────────────────────────────────────────
+(function _initPullToRefresh() {
+  const THRESHOLD = 64;
+  let startY = 0, pulling = false, indicator = null;
+
+  function _getIndicator() {
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'ptr-indicator';
+      indicator.innerHTML = '<div class="ptr-spinner"></div>';
+      document.querySelector('main').prepend(indicator);
+    }
+    return indicator;
+  }
+
+  document.querySelector('main').addEventListener('touchstart', e => {
+    const main = document.querySelector('main');
+    if (main.scrollTop === 0) {
+      startY = e.touches[0].clientY;
+      pulling = true;
+    }
+  }, { passive: true });
+
+  document.querySelector('main').addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 0) {
+      const el = _getIndicator();
+      const progress = Math.min(dy / THRESHOLD, 1);
+      el.style.transform = `translateY(${Math.min(dy * 0.4, 48)}px)`;
+      el.style.opacity   = String(progress);
+    }
+  }, { passive: true });
+
+  document.querySelector('main').addEventListener('touchend', async e => {
+    if (!pulling) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    const el = _getIndicator();
+    el.style.transform = '';
+    el.style.opacity   = '0';
+    if (dy > THRESHOLD) {
+      el.classList.add('ptr-indicator--loading');
+      el.style.opacity = '1';
+      if (_currentTab === 'week')     await loadWeek();
+      else if (_currentTab === 'shopping') await loadShopping();
+      else if (_currentTab === 'recipes')  await loadRecipes();
+      el.classList.remove('ptr-indicator--loading');
+      el.style.opacity = '0';
+    }
+  }, { passive: true });
+})();
 
 // ── Init ────────────────────────────────────────────────────────
 window.addEventListener('popstate', () => {

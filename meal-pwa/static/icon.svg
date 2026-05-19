@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#22c55e"/>
+  <!-- Plate -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="#fff" stroke-width="16"/>
+  <!-- Fork -->
+  <line x1="196" y1="160" x2="196" y2="340" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <line x1="196" y1="160" x2="196" y2="220" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <line x1="176" y1="160" x2="176" y2="220" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <line x1="216" y1="160" x2="216" y2="220" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <path d="M176 220 Q196 240 216 220" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <!-- Knife -->
+  <line x1="316" y1="160" x2="316" y2="340" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+  <path d="M316 160 Q340 190 316 220" fill="#fff" stroke="#fff" stroke-width="4"/>
+  <!-- Leaf accent -->
+  <circle cx="256" cy="256" r="32" fill="#fff" opacity="0.2"/>
+  <path d="M256 230 Q272 244 256 258 Q240 244 256 230Z" fill="#fff"/>
+</svg>

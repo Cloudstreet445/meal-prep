@@ -8,6 +8,8 @@
   <meta name="theme-color" content="#0d1117" id="theme-color-meta" />
   <title>Kai Planner - Your Personal Meal Planner</title>
   <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -465,58 +467,48 @@
   <div class="onboarding-card">
     <div class="onboarding-dots" id="onboarding-dots"></div>
 
+    <!-- Step 0: Your store -->
     <div class="onboarding-step" id="ob-step-0">
-      <div class="ob-emoji">👋</div>
-      <div class="ob-title">Welcome to Kai Planner</div>
-      <div class="ob-desc">Plan 5 dinners a week using PAK'nSave prices. Let's get your household set up.</div>
-      <button class="ob-next-btn" onclick="obNext()">Get started →</button>
-      <button class="ob-skip-btn" onclick="finishOnboarding()">Skip setup</button>
-    </div>
-
-    <div class="onboarding-step" id="ob-step-1" style="display:none">
       <div class="ob-emoji">🏪</div>
       <div class="ob-title">Your PAK'nSave store</div>
-      <div class="ob-desc">We'll use prices from your nearest store for your shopping list.</div>
+      <div class="ob-desc">We'll use live prices from your nearest store to build your shopping list.</div>
       <div class="ob-store-options" id="ob-store-options">
         <div class="ob-loading">Loading stores…</div>
       </div>
       <button class="ob-next-btn" onclick="obNext()">Continue →</button>
+      <button class="ob-skip-btn" onclick="finishOnboarding()">Skip for now</button>
     </div>
 
-    <div class="onboarding-step" id="ob-step-2" style="display:none">
+    <!-- Step 1: Budget + household combined -->
+    <div class="onboarding-step" id="ob-step-1" style="display:none">
       <div class="ob-emoji">💰</div>
-      <div class="ob-title">Weekly budget</div>
-      <div class="ob-desc">How much do you want to spend on dinners each week?</div>
-      <div class="ob-input-row">
-        <span class="ob-affix">$</span>
-        <input type="number" id="ob-budget" class="ob-num-input" value="60" min="20" max="500" step="5">
-        <span class="ob-affix">NZD</span>
+      <div class="ob-title">Budget &amp; household</div>
+      <div class="ob-desc">Set your weekly dinner budget and how many people you're cooking for.</div>
+      <div class="ob-two-col">
+        <div class="ob-field">
+          <label class="ob-field-label">Weekly budget</label>
+          <div class="ob-input-row">
+            <span class="ob-affix">$</span>
+            <input type="number" id="ob-budget" class="ob-num-input" value="60" min="20" max="500" step="5">
+          </div>
+        </div>
+        <div class="ob-field">
+          <label class="ob-field-label">People</label>
+          <div class="ob-input-row">
+            <input type="number" id="ob-serves" class="ob-num-input" value="2" min="1" max="10" step="1">
+          </div>
+        </div>
       </div>
       <button class="ob-next-btn" onclick="obNext()">Continue →</button>
+      <button class="ob-skip-btn" onclick="finishOnboarding()">Skip for now</button>
     </div>
 
-    <div class="onboarding-step" id="ob-step-3" style="display:none">
-      <div class="ob-emoji">👥</div>
-      <div class="ob-title">Household size</div>
-      <div class="ob-desc">How many people are you cooking for?</div>
-      <div class="ob-input-row">
-        <input type="number" id="ob-serves" class="ob-num-input" value="2" min="1" max="10" step="1">
-        <span class="ob-affix">people</span>
-      </div>
-      <button class="ob-next-btn" onclick="obNext()">Continue →</button>
-    </div>
-
-    <div class="onboarding-step" id="ob-step-4" style="display:none">
-      <div class="ob-emoji">🚫</div>
-      <div class="ob-title">Any dietary restrictions?</div>
-      <div class="ob-desc">Add ingredients to avoid (you can always change this later).</div>
-      <div class="settings-exclusion-tags" id="ob-exclusion-tags"></div>
-      <div class="settings-exclusion-add" style="margin-top:12px">
-        <input type="text" id="ob-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom"
-          onkeydown="if(event.key==='Enter')obAddExclusion()">
-        <button class="settings-add-btn" onclick="obAddExclusion()">+</button>
-      </div>
-      <button class="ob-next-btn" onclick="finishOnboarding()" style="margin-top:20px">Finish setup →</button>
+    <!-- Step 2: Ready -->
+    <div class="onboarding-step" id="ob-step-2" style="display:none">
+      <div class="ob-emoji">✅</div>
+      <div class="ob-title">You're all set!</div>
+      <div class="ob-desc">Kai Planner will now build your first weekly plan. Tap Generate to get started.</div>
+      <button class="ob-next-btn" onclick="finishOnboarding()">Start planning →</button>
     </div>
   </div>
 </div>
