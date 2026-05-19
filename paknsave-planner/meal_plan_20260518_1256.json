@@ -1,0 +1,505 @@
+{
+  "weekSummary": "A hearty NZ winter week of oven bakes, slow-simmered soups, and comforting classics built around chicken, pork, and beef.",
+  "estimatedTotal": 58.3,
+  "meals": [
+    {
+      "id": "M1",
+      "name": "Baked Chicken Drumsticks with Roast Pumpkin and Potatoes",
+      "serves": 4,
+      "leftovers": true,
+      "cookTime": "60 min",
+      "description": "Oven-roasted drumsticks with chunky pumpkin, potatoes and onions finished with brown gravy \u2014 classic hearty winter tray bake with enough for lunch the next day.",
+      "recipeUrl": "https://www.recipetineats.com/oven-baked-chicken-drumsticks/",
+      "ingredients": [
+        {
+          "name": "NZ Chicken Drumsticks Value Pack",
+          "amount": "1kg",
+          "estimatedCost": 4.89,
+          "fromSpecial": true
+        },
+        {
+          "name": "Buttercup Pumpkin",
+          "amount": "1/2 pumpkin (approx 600g, cut into chunks)",
+          "estimatedCost": 1.0,
+          "fromSpecial": false
+        },
+        {
+          "name": "Brushed Potatoes",
+          "amount": "600g, cut into chunks",
+          "estimatedCost": 1.49,
+          "fromSpecial": false
+        },
+        {
+          "name": "Brown Onions",
+          "amount": "2 medium (approx 200g), cut into wedges",
+          "estimatedCost": 0.5,
+          "fromSpecial": false
+        },
+        {
+          "name": "Continental Rich Brown Gravy Mix",
+          "amount": "1 sachet (29g)",
+          "estimatedCost": 1.09,
+          "fromSpecial": false
+        },
+        {
+          "name": "Pams Value Table Spread",
+          "amount": "1 tbsp",
+          "estimatedCost": 0.1,
+          "fromSpecial": false
+        }
+      ],
+      "method": [
+        "Step 1: Preheat oven to 200\u00b0C fan-bake. Line a large roasting tray with baking paper.",
+        "Step 2: Cut pumpkin into large chunks (leave skin on), cut potatoes into quarters, and slice onions into thick wedges. Spread evenly across the roasting tray.",
+        "Step 3: Drizzle vegetables with a little oil (or dot with table spread), season with salt and pepper, and toss to coat.",
+        "Step 4: Pat chicken drumsticks dry with paper towels. Season well with salt and pepper. Nestle the drumsticks on top of the vegetables.",
+        "Step 5: Roast in preheated oven for 50\u201355 minutes, turning drumsticks halfway through, until chicken skin is golden and crispy and the vegetables are tender and caramelised at the edges.",
+        "Step 6: About 5 minutes before serving, make the gravy according to packet instructions using 1 cup boiling water. Stir continuously over medium heat until thickened.",
+        "Step 7: Remove tray from oven and rest for 5 minutes. Serve drumsticks and roasted vegetables on plates with brown gravy poured over."
+      ]
+    },
+    {
+      "id": "M2",
+      "name": "Chicken Thigh and Vegetable Soup with Crusty Bread",
+      "serves": 4,
+      "leftovers": true,
+      "cookTime": "75 min",
+      "description": "A thick, warming chicken and vegetable soup slow-simmered with leeks, carrots and celery in a tomato puree broth \u2014 perfect batch cook that tastes even better the next day.",
+      "recipeUrl": "https://www.recipetineats.com/chicken-vegetable-soup/",
+      "ingredients": [
+        {
+          "name": "NZ Chicken Thighs Bone In",
+          "amount": "1kg",
+          "estimatedCost": 7.99,
+          "fromSpecial": false
+        },
+        {
+          "name": "Carrots",
+          "amount": "300g (approx 3 medium), peeled and sliced",
+          "estimatedCost": 0.6,
+          "fromSpecial": true
+        },
+        {
+          "name": "Celery Half",
+          "amount": "1 half bunch, sliced",
+          "estimatedCost": 1.4,
+          "fromSpecial": true
+        },
+        {
+          "name": "Brown Onions",
+          "amount": "1 large (approx 150g), diced",
+          "estimatedCost": 0.3,
+          "fromSpecial": false
+        },
+        {
+          "name": "Leeks",
+          "amount": "1 leek, white and light green parts sliced",
+          "estimatedCost": 2.99,
+          "fromSpecial": false
+        },
+        {
+          "name": "Pams Tomato Puree",
+          "amount": "1 can (400g)",
+          "estimatedCost": 1.49,
+          "fromSpecial": false
+        },
+        {
+          "name": "Pams Tomato Paste",
+          "amount": "2 tbsp",
+          "estimatedCost": 0.2,
+          "fromSpecial": false
+        }
+      ],
+      "method": [
+        "Step 1: Place chicken thighs in a large pot and cover with 1.5 litres of cold water. Bring to the boil over high heat, skimming off any foam that rises to the surface.",
+        "Step 2: Reduce heat to medium-low. Add the diced onion, sliced leek, carrots and celery to the pot. Season with salt and pepper.",
+        "Step 3: Stir in the tomato puree and tomato paste. Mix well to combine.",
+        "Step 4: Cover the pot and simmer gently for 55\u201360 minutes until the chicken is completely tender and falling off the bone.",
+        "Step 5: Remove chicken thighs from the pot and place on a chopping board. Allow to cool for 5 minutes, then remove and discard bones and skin. Shred the chicken meat into pieces using two forks.",
+        "Step 6: Return shredded chicken to the pot. Taste and adjust seasoning with salt and pepper as needed.",
+        "Step 7: Simmer uncovered for a further 5\u201310 minutes to thicken slightly. Ladle into bowls and serve with crusty bread."
+      ]
+    },
+    {
+      "id": "M3",
+      "name": "Pork Sausage and Cabbage Pasta Bake",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "40 min",
+      "description": "Sliced pork sausages pan-fried with cabbage and onion, tossed through penne pasta with tomato paste and fresh tomatoes for a quick, satisfying winter dinner.",
+      "recipeUrl": "https://www.taste.com.au/recipes/sausage-pasta-bake/",
+      "ingredients": [
+        {
+          "name": "Hellers New Yorker Porker Sausages",
+          "amount": "450g pack",
+          "estimatedCost": 7.99,
+          "fromSpecial": true
+        },
+        {
+          "name": "Pasta Maria Penne Pasta",
+          "amount": "250g",
+          "estimatedCost": 0.5,
+          "fromSpecial": false
+        },
+        {
+          "name": "Green Cabbage Half",
+          "amount": "1/4 cabbage (approx 250g), shredded",
+          "estimatedCost": 0.5,
+          "fromSpecial": false
+        },
+        {
+          "name": "Brown Onions",
+          "amount": "1 medium (approx 120g), sliced",
+          "estimatedCost": 0.25,
+          "fromSpecial": false
+        },
+        {
+          "name": "Sunburst Classic Tomatoes",
+          "amount": "200g punnet, halved",
+          "estimatedCost": 1.49,
+          "fromSpecial": true
+        },
+        {
+          "name": "Pams Tomato Paste",
+          "amount": "3 tbsp",
+          "estimatedCost": 0.3,
+          "fromSpecial": false
+        }
+      ],
+      "method": [
+        "Step 1: Preheat oven to 180\u00b0C. Bring a large pot of salted water to the boil. Cook penne pasta for 2 minutes less than packet instructions (it will finish in the oven). Drain and set aside, reserving 1/2 cup of pasta water.",
+        "Step 2: While pasta cooks, heat a large oven-safe frying pan or casserole dish over medium-high heat with a drizzle of oil. Slice sausages on an angle into 2cm pieces.",
+        "Step 3: Cook sausage pieces for 4\u20135 minutes, turning occasionally, until browned. Remove from pan and set aside.",
+        "Step 4: In the same pan, cook sliced onion over medium heat for 3 minutes until softened. Add shredded cabbage and cook for a further 4 minutes, stirring, until wilted and lightly golden.",
+        "Step 5: Stir in tomato paste and reserved pasta water. Cook for 1 minute. Add halved tomatoes and return sausages to the pan.",
+        "Step 6: Add drained penne and toss everything together well. Season generously with salt and pepper.",
+        "Step 7: Transfer to the oven (or leave in oven-safe pan) and bake for 15 minutes until bubbling and lightly golden on top. Serve immediately."
+      ]
+    },
+    {
+      "id": "M4",
+      "name": "Crumbed Chicken Sausages with Mashed Potato and Steamed Broccoli",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "30 min",
+      "description": "Pan-fried crumbed chicken sausages served alongside creamy butter and milk mashed potatoes and steamed broccoli \u2014 a quick, fuss-free weeknight winter plate.",
+      "recipeUrl": "https://www.recipetineats.com/creamy-mashed-potato/",
+      "ingredients": [
+        {
+          "name": "Turk's Crumbed Chicken Sausages",
+          "amount": "450g pack",
+          "estimatedCost": 5.99,
+          "fromSpecial": true
+        },
+        {
+          "name": "Brushed Potatoes",
+          "amount": "500g, peeled and chopped",
+          "estimatedCost": 1.25,
+          "fromSpecial": false
+        },
+        {
+          "name": "Broccoli",
+          "amount": "1 head, cut into florets",
+          "estimatedCost": 2.49,
+          "fromSpecial": false
+        },
+        {
+          "name": "Pams Value Table Spread",
+          "amount": "2 tbsp",
+          "estimatedCost": 0.2,
+          "fromSpecial": false
+        },
+        {
+          "name": "Meadow Fresh Original Milk",
+          "amount": "1/4 cup",
+          "estimatedCost": 0.15,
+          "fromSpecial": false
+        }
+      ],
+      "method": [
+        "Step 1: Peel and chop potatoes into even chunks. Place in a pot of cold salted water, bring to the boil, then cook for 15\u201318 minutes until completely tender when pierced with a fork.",
+        "Step 2: While potatoes cook, heat a frying pan over medium heat with a drizzle of oil. Cook crumbed chicken sausages for 12\u201315 minutes, turning regularly, until golden and cooked through. Reduce heat if browning too quickly.",
+        "Step 3: Cut broccoli into florets. Place in a heatproof bowl or pot with 2 tbsp of water, cover with a lid or plate, and microwave on high for 3\u20134 minutes until bright green and just tender. Alternatively, steam over a pot of boiling water for 5 minutes. Season with salt.",
+        "Step 4: Drain potatoes well and return to the hot pot. Add table spread and milk. Mash until smooth and creamy. Season well with salt and pepper.",
+        "Step 5: Divide mashed potato between two plates. Slice sausages and arrange alongside the mash. Add steamed broccoli and serve immediately."
+      ]
+    },
+    {
+      "id": "M5",
+      "name": "Corned Silverside with Carrots, Cabbage and Potatoes",
+      "serves": 2,
+      "leftovers": false,
+      "cookTime": "90 min",
+      "description": "A traditional NZ winter favourite \u2014 corned silverside slow-boiled with carrots, potatoes and cabbage, served sliced with a dollop of sour cream.",
+      "recipeUrl": "https://www.allrecipes.com/recipe/14745/corned-beef/",
+      "ingredients": [
+        {
+          "name": "Beef Corned Silverside",
+          "amount": "600g",
+          "estimatedCost": 8.87,
+          "fromSpecial": true
+        },
+        {
+          "name": "Carrots",
+          "amount": "250g (approx 2\u20133 medium), peeled and cut into chunks",
+          "estimatedCost": 0.5,
+          "fromSpecial": true
+        },
+        {
+          "name": "Green Cabbage Half",
+          "amount": "1/4 cabbage (approx 250g), cut into wedges",
+          "estimatedCost": 0.5,
+          "fromSpecial": false
+        },
+        {
+          "name": "Brushed Potatoes",
+          "amount": "400g, halved or quartered",
+          "estimatedCost": 1.0,
+          "fromSpecial": false
+        },
+        {
+          "name": "Brown Onions",
+          "amount": "1 medium, peeled and quartered",
+          "estimatedCost": 0.25,
+          "fromSpecial": false
+        },
+        {
+          "name": "Meadow Fresh Traditional Sour Cream",
+          "amount": "1 pottle (200g)",
+          "estimatedCost": 1.99,
+          "fromSpecial": false
+        }
+      ],
+      "method": [
+        "Step 1: Remove the corned silverside from its packaging and rinse under cold water. Place in a large pot and cover completely with cold water.",
+        "Step 2: Add the quartered onion to the pot. Bring to the boil over high heat, skimming off any foam. Once boiling, reduce heat to low, cover, and simmer gently for 60 minutes.",
+        "Step 3: After 60 minutes, add the potato chunks and carrot pieces to the pot. Ensure everything is submerged \u2014 top up with boiling water if needed. Cover and simmer for a further 15 minutes.",
+        "Step 4: Add the cabbage wedges to the pot. Cover and cook for a further 10\u201312 minutes until cabbage is just tender but not mushy, and the silverside is very tender when tested with a skewer.",
+        "Step 5: Remove the silverside from the pot and rest on a chopping board for 5 minutes. Use a slotted spoon to remove vegetables and arrange on plates.",
+        "Step 6: Slice the silverside against the grain into 1cm thick slices. Arrange alongside the vegetables.",
+        "Step 7: Serve immediately with a generous dollop of sour cream on the side."
+      ]
+    }
+  ],
+  "shoppingList": [
+    {
+      "name": "NZ Chicken Drumsticks Value Pack",
+      "amount": "1kg",
+      "estimatedCost": 4.89,
+      "isSpecial": true,
+      "category": "protein",
+      "usedIn": [
+        "M1"
+      ]
+    },
+    {
+      "name": "NZ Chicken Thighs Bone In",
+      "amount": "1kg",
+      "estimatedCost": 7.99,
+      "isSpecial": false,
+      "category": "protein",
+      "usedIn": [
+        "M2"
+      ]
+    },
+    {
+      "name": "Hellers New Yorker Porker Sausages",
+      "amount": "450g pack",
+      "estimatedCost": 7.99,
+      "isSpecial": true,
+      "category": "protein",
+      "usedIn": [
+        "M3"
+      ]
+    },
+    {
+      "name": "Turk's Crumbed Chicken Sausages",
+      "amount": "450g pack",
+      "estimatedCost": 5.99,
+      "isSpecial": true,
+      "category": "protein",
+      "usedIn": [
+        "M4"
+      ]
+    },
+    {
+      "name": "Beef Corned Silverside",
+      "amount": "600g",
+      "estimatedCost": 8.87,
+      "isSpecial": true,
+      "category": "protein",
+      "usedIn": [
+        "M5"
+      ]
+    },
+    {
+      "name": "Brushed Potatoes",
+      "amount": "1.5kg (600g + 500g + 400g)",
+      "estimatedCost": 3.74,
+      "isSpecial": false,
+      "category": "vegetables",
+      "usedIn": [
+        "M1",
+        "M4",
+        "M5"
+      ]
+    },
+    {
+      "name": "Buttercup Pumpkin",
+      "amount": "1/2 pumpkin (approx 600g)",
+      "estimatedCost": 1.0,
+      "isSpecial": false,
+      "category": "vegetables",
+      "usedIn": [
+        "M1"
+      ]
+    },
+    {
+      "name": "Brown Onions",
+      "amount": "approx 5 medium (200g + 150g + 120g + 1 medium)",
+      "estimatedCost": 1.3,
+      "isSpecial": false,
+      "category": "vegetables",
+      "usedIn": [
+        "M1",
+        "M2",
+        "M3",
+        "M5"
+      ]
+    },
+    {
+      "name": "Carrots",
+      "amount": "550g (approx 5 medium)",
+      "estimatedCost": 1.1,
+      "isSpecial": true,
+      "category": "vegetables",
+      "usedIn": [
+        "M2",
+        "M5"
+      ]
+    },
+    {
+      "name": "Celery Half",
+      "amount": "1 half bunch",
+      "estimatedCost": 1.4,
+      "isSpecial": true,
+      "category": "vegetables",
+      "usedIn": [
+        "M2"
+      ]
+    },
+    {
+      "name": "Leeks",
+      "amount": "1 leek",
+      "estimatedCost": 2.99,
+      "isSpecial": false,
+      "category": "vegetables",
+      "usedIn": [
+        "M2"
+      ]
+    },
+    {
+      "name": "Green Cabbage Half",
+      "amount": "1/2 cabbage (approx 500g)",
+      "estimatedCost": 1.0,
+      "isSpecial": false,
+      "category": "vegetables",
+      "usedIn": [
+        "M3",
+        "M5"
+      ]
+    },
+    {
+      "name": "Sunburst Classic Tomatoes",
+      "amount": "200g punnet",
+      "estimatedCost": 1.49,
+      "isSpecial": true,
+      "category": "vegetables",
+      "usedIn": [
+        "M3"
+      ]
+    },
+    {
+      "name": "Broccoli",
+      "amount": "1 head",
+      "estimatedCost": 2.49,
+      "isSpecial": false,
+      "category": "vegetables",
+      "usedIn": [
+        "M4"
+      ]
+    },
+    {
+      "name": "Continental Rich Brown Gravy Mix",
+      "amount": "1 sachet (29g)",
+      "estimatedCost": 1.09,
+      "isSpecial": false,
+      "category": "pantry",
+      "usedIn": [
+        "M1"
+      ]
+    },
+    {
+      "name": "Pams Tomato Paste",
+      "amount": "5 tbsp",
+      "estimatedCost": 0.5,
+      "isSpecial": false,
+      "category": "pantry",
+      "usedIn": [
+        "M2",
+        "M3"
+      ]
+    },
+    {
+      "name": "Pams Tomato Puree",
+      "amount": "1 can (400g)",
+      "estimatedCost": 1.49,
+      "isSpecial": false,
+      "category": "pantry",
+      "usedIn": [
+        "M2"
+      ]
+    },
+    {
+      "name": "Pasta Maria Penne Pasta",
+      "amount": "250g",
+      "estimatedCost": 0.5,
+      "isSpecial": false,
+      "category": "pantry",
+      "usedIn": [
+        "M3"
+      ]
+    },
+    {
+      "name": "Pams Value Table Spread",
+      "amount": "3 tbsp",
+      "estimatedCost": 0.3,
+      "isSpecial": false,
+      "category": "dairy",
+      "usedIn": [
+        "M1",
+        "M4"
+      ]
+    },
+    {
+      "name": "Meadow Fresh Original Milk",
+      "amount": "1/4 cup",
+      "estimatedCost": 0.15,
+      "isSpecial": false,
+      "category": "dairy",
+      "usedIn": [
+        "M4"
+      ]
+    },
+    {
+      "name": "Meadow Fresh Traditional Sour Cream",
+      "amount": "1 pottle (200g)",
+      "estimatedCost": 1.99,
+      "isSpecial": false,
+      "category": "dairy",
+      "usedIn": [
+        "M5"
+      ]
+    }
+  ]
+}

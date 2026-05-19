@@ -1,0 +1,22 @@
+# Copy this to terraform.tfvars and fill in your values
+# Never commit terraform.tfvars — it contains secrets
+
+user=ocid1.user.oc1..aaaaaaaauaf3sf3ia6k2yuyvbjwytqlq3vbv4v6tfl7kef6eirc3tbefejza
+fingerprint=7d:03:78:b2:ef:cc:c5:a2:cf:e1:9e:96:58:4a:81:af
+tenancy=ocid1.tenancy.oc1..aaaaaaaacbgkuk3khii3dqrmtkyax2mubw2vfdkxvqvmhl77udg7azf2fbha
+region=ap-melbourne-1
+key_file=terraform/hackenbergblake@gmail.com-2026-05-18T12_14_42.804Z.pem
+
+# App config — defaults are set in variables.tf, override here if needed
+domain      = "kai-planner.cc"
+admin_email = "hackenbergblake@gmail.com"
+
+# Defaults below match OCI Always Free A1 limits — adjust if you have paid capacity
+# Path to the public half of your SSH key pair.
+# The private key (same name, no .pub) is used with -i when connecting.
+ssh_public_key_path = "/Users/blake/code/meal-prep/161.33.89.90.key.pub"
+ssh_port            = 2222
+instance_shape      = "VM.Standard.A1.Flex"
+instance_ocpus      = 2
+instance_memory_gb  = 12
+boot_volume_size_gb = 50

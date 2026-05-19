@@ -244,6 +244,10 @@
         <input type="text" id="settings-pantry-input" class="settings-text-input" placeholder="e.g. olive oil">
         <button class="settings-add-btn" id="settings-pantry-btn">+</button>
       </div>
+      <label class="settings-toggle-row" style="margin-top:12px">
+        <span class="settings-toggle-label">Hide pantry items from shopping list</span>
+        <input type="checkbox" id="setting-hide-pantry" onchange="saveHidePantrySetting(this.checked)">
+      </label>
     </div>
     <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
     <div class="settings-group-divider"></div>

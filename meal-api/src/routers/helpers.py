@@ -135,21 +135,12 @@ def _select_from_library(
     exclusions: list[str],
     exclude_ids: set[str],
     n: int = 5,
+    user_id: str | None = None,
 ) -> list[dict] | None:
     """
     Pick n recipes from the library that fit within budget with protein variety.
-
-    Selection strategy:
-      1. Filter out recipes that contain any excluded ingredient.
-      2. Filter out recipes in exclude_ids (current active bundle — avoid repeats).
-      3. Sort candidates by lastUsedWeek ascending (prefer least-recently-used),
-         then by cost ascending as a tiebreaker.
-      4. Pass 1 — pick one recipe per protein group (chicken → pork → beef → lamb → other),
-         taking the top candidate from each group that fits in the remaining budget.
-      5. Pass 2 — fill remaining slots with the cheapest remaining candidates that fit.
-
-    Returns the selected recipe docs, or None if fewer than n candidates exist
-    or the budget cannot accommodate n meals.
+    Respects per-user ratings: disliked recipes are excluded, liked recipes are
+    sorted ahead of unrated ones. Falls back if filtering leaves too few candidates.
     """
     excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
 
@@ -165,6 +156,28 @@ def _select_from_library(
 
     candidates = [r for r in raw if not _has_excluded(r)]
 
+    # Build per-user rating sets
+    disliked_ids: set[str] = set()
+    liked_ids: set[str] = set()
+    if user_id:
+        for r in candidates:
+            for rating in r.get("ratings", []):
+                if rating.get("userId") == user_id:
+                    if rating.get("score") == -1:
+                        disliked_ids.add(r["recipeId"])
+                    elif rating.get("score") == 1:
+                        liked_ids.add(r["recipeId"])
+
+    filtered = [r for r in candidates if r["recipeId"] not in disliked_ids]
+    if len(filtered) < n:
+        import logging
+        logging.warning(
+            f"Only {len(filtered)} candidates after dislike filter for user {user_id} — including disliked"
+        )
+        filtered = candidates  # fallback: ignore dislikes
+
+    candidates = filtered
+
     if len(candidates) < n:
         return None
 
@@ -172,13 +185,14 @@ def _select_from_library(
         r["_protein"]   = _infer_protein(r)
         r["_cost"]      = _recipe_cost(r)
         r["_last_used"] = r.get("lastUsedWeek") or "2000-01-01"
+        r["_liked"]     = 0 if r["recipeId"] in liked_ids else 1  # liked sorts first
 
-    candidates.sort(key=lambda r: (r["_last_used"], r["_cost"]))
+    candidates.sort(key=lambda r: (r["_liked"], r["_last_used"], r["_cost"]))
 
     selected: list[dict] = []
     total = 0.0
 
-    # Pass 1: one per protein type, least-recently-used first
+    # Pass 1: one per protein type, least-recently-used first (liked recipes preferred)
     for protein in ("chicken", "pork", "beef", "lamb", "other"):
         if len(selected) >= n:
             break

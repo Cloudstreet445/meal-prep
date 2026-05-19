@@ -44,7 +44,7 @@ def generate_plan(user: dict = Depends(require_user)):
     active      = db["bundles"].find_one({"active": True}, sort=[("week", -1), ("createdAt", -1)])
     exclude_ids = set(active.get("recipeIds", [])) if active else set()
 
-    selected = _select_from_library(db, budget, exclusions, exclude_ids)
+    selected = _select_from_library(db, budget, exclusions, exclude_ids, user_id=user.get("sub"))
 
     if selected is None:
         # Library too small — fall back to the AI planner

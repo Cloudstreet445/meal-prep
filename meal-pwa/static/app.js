@@ -1211,16 +1211,47 @@ function renderShoppingItems(items, storeKey) {
     groups[cat].push({ item, i });
   });
 
-  const html = order
-    .filter(cat => groups[cat]?.length)
+  const hidePantry = settings.hidePantryFromShopping || false;
+
+  // Separate pantry items from main list
+  const mainGroups = {};
+  const pantryItems = [];
+
+  order.forEach(cat => {
+    (groups[cat] || []).forEach(({ item, i }) => {
+      const inPantry = isPantryItem(item.name);
+      if (inPantry && !hidePantry) {
+        pantryItems.push({ item, i });
+      } else if (!inPantry || hidePantry === false) {
+        if (!mainGroups[cat]) mainGroups[cat] = [];
+        if (!inPantry) mainGroups[cat].push({ item, i });
+      }
+    });
+  });
+
+  const mainHtml = order
+    .filter(cat => mainGroups[cat]?.length)
     .map(cat => {
       const label = _CATEGORY_LABELS[cat] || cat;
-      const rows  = groups[cat].map(({ item, i }) => _shopItemHtml(item, i, storeKey)).join('');
+      const rows  = mainGroups[cat].map(({ item, i }) => _shopItemHtml(item, i, storeKey)).join('');
       return `<div class="shop-category-group">
         <div class="shop-category-header">${label}</div>
         ${rows}
       </div>`;
-    }).join('') + `
+    }).join('');
+
+  const pantrySection = !hidePantry && pantryItems.length ? `
+    <div class="pantry-section" id="pantry-section">
+      <button class="pantry-section__header" onclick="togglePantrySection()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" id="pantry-chevron"><path d="M9 18l6-6-6-6"/></svg>
+        Already in pantry (${pantryItems.length} item${pantryItems.length !== 1 ? 's' : ''})
+      </button>
+      <div class="pantry-section__body" id="pantry-section-body" style="max-height:0;overflow:hidden">
+        ${pantryItems.map(({ item, i }) => _shopItemHtml(item, i, storeKey)).join('')}
+      </div>
+    </div>` : '';
+
+  const html = mainHtml + pantrySection + `
     <div class="shop-adhoc-row" id="shop-adhoc-row">
       <button class="shop-adhoc-trigger" onclick="showAdHocInput()">＋ Add item</button>
       <input type="text" id="shop-adhoc-input" class="shop-adhoc-input" placeholder="Item name…" style="display:none" onkeydown="handleAdHocKey(event,'${storeKey}')" onblur="commitAdHocItem('${storeKey}')">
@@ -1251,6 +1282,19 @@ function toggleItem(index, storeKey) {
 
   const anyChecked = Object.values(checked).some(Boolean);
   document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
+}
+
+function togglePantrySection() {
+  const body    = document.getElementById('pantry-section-body');
+  const chevron = document.getElementById('pantry-chevron');
+  const isOpen  = body.style.maxHeight !== '0px' && body.style.maxHeight !== '';
+  if (isOpen) {
+    body.style.maxHeight = '0';
+    if (chevron) chevron.style.transform = '';
+  } else {
+    body.style.maxHeight = body.scrollHeight + 'px';
+    if (chevron) chevron.style.transform = 'rotate(90deg)';
+  }
 }
 
 function showAdHocInput() {
@@ -1890,6 +1934,8 @@ function selectStore(id) {
 function openSettings() {
   document.getElementById('settings-budget').value  = settings.budget;
   document.getElementById('settings-serves').value  = settings.serves;
+  const hidePantryEl = document.getElementById('setting-hide-pantry');
+  if (hidePantryEl) hidePantryEl.checked = !!settings.hidePantryFromShopping;
   renderExclusionTags();
   renderPantryTags();
   renderStoreSelector();
@@ -1897,6 +1943,15 @@ function openSettings() {
   renderSessionsSection();
   document.getElementById('settings-backdrop').classList.add('active');
   document.getElementById('settings-sheet').classList.add('active');
+}
+
+function saveHidePantrySetting(value) {
+  settings.hidePantryFromShopping = value;
+  apiPost('/settings', { hidePantryFromShopping: value }).catch(() => {});
+  if (window._shopData && plan?.bundleId) {
+    const storeKey = `checked_${plan.bundleId}`;
+    renderShoppingItems(window._shopData, storeKey);
+  }
 }
 
 async function renderHouseholdSection() {

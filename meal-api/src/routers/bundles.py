@@ -254,3 +254,49 @@ def refresh_bundle_prices(bundle_id: str, store_id: str = Query(default="paknsav
         "priceSnapshotDate": datetime.now().strftime("%Y-%m-%d"),
         "message": "Prices refreshed from live data"
     }
+
+
+class SwapRecipeIn(BaseModel):
+    oldRecipeId: str
+    newRecipeId: str
+
+
+@router.post("/{bundle_id}/swap")
+def swap_recipe(bundle_id: str, body: SwapRecipeIn, user: dict = Depends(require_user)):
+    """Replace one recipe in a bundle without regenerating the whole plan."""
+    db = get_db()
+    pricing_db = get_pricing_db()
+
+    bundle = db["bundles"].find_one({"bundleId": bundle_id})
+    if not bundle:
+        raise HTTPException(status_code=404, detail="Bundle not found")
+
+    recipe_ids = list(bundle.get("recipeIds", []))
+    if body.oldRecipeId not in recipe_ids:
+        raise HTTPException(status_code=400, detail="oldRecipeId not in this bundle")
+
+    new_recipe = db["recipes"].find_one({"recipeId": body.newRecipeId})
+    if not new_recipe:
+        raise HTTPException(status_code=400, detail="newRecipeId not found")
+
+    idx = recipe_ids.index(body.oldRecipeId)
+    recipe_ids[idx] = body.newRecipeId
+
+    recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
+    _, new_total = _derive_shopping_list(recipes, pricing_db)
+
+    names = [r["name"] for r in recipes if r["recipeId"] in recipe_ids]
+    week_summary = ", ".join(names[:3]) + (f" + {len(names) - 3} more" if len(names) > 3 else "")
+
+    now = datetime.utcnow()
+    db["bundles"].update_one(
+        {"bundleId": bundle_id},
+        {"$set": {
+            "recipeIds":      recipe_ids,
+            "estimatedTotal": new_total,
+            "weekSummary":    week_summary,
+            "updatedAt":      now,
+        }}
+    )
+
+    return {"bundleId": bundle_id, "recipeIds": recipe_ids, "estimatedTotal": new_total}
