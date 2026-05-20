@@ -1,5 +1,6 @@
 """Shared helper functions for bundle and shopping routes."""
 
+import math
 import re
 
 
@@ -251,19 +252,56 @@ _CULINARY_TO_ML = {
 
 _INGREDIENT_COST_CAP = 20.0
 
+_PACK_SIZE_RE = re.compile(r'(\d+(?:\.\d+)?)\s*(kg|g|ml|l)\b', re.IGNORECASE)
+
+
+def _parse_pack_size_g(product_name: str) -> float | None:
+    """Parse pack size from a product name string, returning grams (or ml as grams)."""
+    m = _PACK_SIZE_RE.search(product_name)
+    if not m:
+        return None
+    val = float(m.group(1))
+    unit = m.group(2).lower()
+    if unit == "kg":
+        return val * 1000
+    if unit == "g":
+        return val
+    if unit == "l":
+        return val * 1000
+    if unit == "ml":
+        return val
+    return None
+
+
+def _ingredient_to_g(amount) -> float | None:
+    """Convert an ingredient amount to grams or ml for proportional cost calculation."""
+    parsed = _parse_amount(amount)
+    if not parsed:
+        return None
+    value, unit = parsed["value"], parsed["unit"]
+    if unit == "g":
+        return value
+    if unit == "kg":
+        return value * 1000
+    if unit == "ml":
+        return value
+    if unit == "l":
+        return value * 1000
+    if unit in _CULINARY_TO_GRAMS:
+        return value * _CULINARY_TO_GRAMS[unit]
+    if unit in _CULINARY_TO_ML:
+        return value * _CULINARY_TO_ML[unit]
+    return None
+
 
 def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     """
-    Try to match an ingredient name against paknsave-pricing products.
+    Match an ingredient against paknsave-pricing products and calculate cost.
 
-    The pricing DB uses the nested schema: each product carries a
-    storePrice.{storeSlug} map with currentPrice/isSpecial/avgPrice90d inside
-    the per-store entry. store_id is the slug used as the map key.
-
-    Uses minimum-purchase logic: the product's currentPrice is the pack price.
-    Culinary units (cloves, cups, tsp) are converted to mass/volume for
-    better product matching but cost is always the minimum pack price.
-    Cost is capped at $20 per ingredient as a sanity check.
+    Cost is proportional to the fraction of the pack needed (e.g. 3 cloves of
+    garlic from a 1kg bag = 1.5% of the pack price), capped at one full pack.
+    This prevents absurd totals from culinary units being treated as pack prices.
+    Hard cap of $20 per ingredient as a final sanity check.
     """
     name = item.get("name", "") or item.get("searchKey", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
@@ -284,9 +322,24 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
         raw_price              = sp.get("currentPrice")
         item["matchedProduct"] = product.get("name")
 
-        # Apply per-ingredient cost cap — bad product matches cause absurd totals
         if raw_price is not None:
-            item["currentPrice"] = min(raw_price, _INGREDIENT_COST_CAP)
+            pack_g   = _parse_pack_size_g(product.get("name", ""))
+            needed_g = _ingredient_to_g(item.get("amount"))
+
+            if pack_g and needed_g and pack_g > 0:
+                # Proportional cost: fraction of pack needed, minimum 1 pack
+                fraction = needed_g / pack_g
+                if fraction >= 1.0:
+                    # Need more than one pack — round up to whole packs
+                    calculated = math.ceil(fraction) * raw_price
+                else:
+                    # Partial pack — charge proportionally (you're not buying
+                    # a full 1kg of garlic for 3 cloves)
+                    calculated = fraction * raw_price
+            else:
+                calculated = raw_price
+
+            item["currentPrice"] = min(round(calculated, 2), _INGREDIENT_COST_CAP)
         else:
             item["currentPrice"] = None
 
