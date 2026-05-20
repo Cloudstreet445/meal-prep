@@ -1,5 +1,6 @@
 """MongoDB connections for meal-api."""
 
+import logging
 import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -11,43 +12,45 @@ MEALS_DB    = "paknsave-meals"
 PRICING_DB  = "paknsave-pricing"
 
 _client = MongoClient(MONGO_URI)
+_log = logging.getLogger(__name__)
+
+
+def _idx(collection, keys, **kwargs):
+    """Create a single index, logging a warning on failure instead of crashing."""
+    try:
+        collection.create_index(keys, **kwargs)
+    except Exception as exc:
+        _log.warning("Could not create index %r on %s: %s", keys, collection.name, exc)
 
 
 def _ensure_indexes():
-    try:
-        db = _client[MEALS_DB]
-        db["recipes"].create_index("recipeId", unique=True)
-        db["recipes"].create_index("usageHistory")
-        db["recipes"].create_index("bundleHistory")
-        db["bundles"].create_index("bundleId", unique=True)
-        db["bundles"].create_index([("week", 1), ("active", 1)])
-        # ESR index for find_one({"active": True}, sort=[("week", -1), ("createdAt", -1)])
-        db["bundles"].create_index([("active", 1), ("week", -1), ("createdAt", -1)])
-        # Index to support aggregation pipeline initial sort
-        db["bundles"].create_index([("week", -1), ("createdAt", -1)])
-        db["settings"].create_index("key", sparse=True)
-        db["settings"].create_index("userId", sparse=True, unique=True)
-        db["users"].create_index("userId", unique=True)
-        db["users"].create_index("email", unique=True)
-        db["magic_tokens"].create_index("token", unique=True)
-        db["magic_tokens"].create_index("expiresAt", expireAfterSeconds=0)
-        db["household_invites"].create_index("token", unique=True)
-        db["household_invites"].create_index("expiresAt", expireAfterSeconds=0)
-        db["households"].create_index("householdId", unique=True)
-        db["user_pantry"].create_index([("userId", 1), ("canonical", 1)], unique=True)
-        db["enhancements"].create_index("enhancementId", unique=True)
-        db["enhancements"].create_index("tags")
-        db["sessions"].create_index("sessionId", unique=True)
-        db["sessions"].create_index("userId")
-        db["sessions"].create_index("expiresAt", expireAfterSeconds=0)
-        db["password_reset_tokens"].create_index("token", unique=True)
-        db["password_reset_tokens"].create_index("expiresAt", expireAfterSeconds=0)
-        pricing_db = _client[PRICING_DB]
-        pricing_db["products"].create_index("category")
-    except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error("Failed to create MongoDB indexes: %s", exc)
-        raise
+    db = _client[MEALS_DB]
+    _idx(db["recipes"], "recipeId", unique=True)
+    _idx(db["recipes"], "usageHistory")
+    _idx(db["recipes"], "bundleHistory")
+    _idx(db["bundles"], "bundleId", unique=True)
+    _idx(db["bundles"], [("week", 1), ("active", 1)])
+    _idx(db["bundles"], [("active", 1), ("week", -1), ("createdAt", -1)])
+    _idx(db["bundles"], [("week", -1), ("createdAt", -1)])
+    _idx(db["settings"], "key", sparse=True)
+    _idx(db["settings"], "userId", sparse=True, unique=True)
+    _idx(db["users"], "userId", unique=True)
+    _idx(db["users"], "email", unique=True)
+    _idx(db["magic_tokens"], "token", unique=True)
+    _idx(db["magic_tokens"], "expiresAt", expireAfterSeconds=0)
+    _idx(db["household_invites"], "token", unique=True)
+    _idx(db["household_invites"], "expiresAt", expireAfterSeconds=0)
+    _idx(db["households"], "householdId", unique=True)
+    _idx(db["user_pantry"], [("userId", 1), ("canonical", 1)], unique=True)
+    _idx(db["enhancements"], "enhancementId", unique=True)
+    _idx(db["enhancements"], "tags")
+    _idx(db["sessions"], "sessionId", unique=True)
+    _idx(db["sessions"], "userId")
+    _idx(db["sessions"], "expiresAt", expireAfterSeconds=0)
+    _idx(db["password_reset_tokens"], "token", unique=True)
+    _idx(db["password_reset_tokens"], "expiresAt", expireAfterSeconds=0)
+    pricing_db = _client[PRICING_DB]
+    _idx(pricing_db["products"], "category")
 
 _ensure_indexes()
 
