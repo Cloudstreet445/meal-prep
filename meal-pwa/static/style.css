@@ -202,6 +202,11 @@ header {
   font-size: var(--text-sm);
   color: var(--green);
   font-weight: 500;
+  transition: color var(--dur-normal) var(--ease), border-color var(--dur-normal) var(--ease);
+}
+.budget-pill--over {
+  color: #e05555;
+  border-color: #e0555540;
 }
 
 /* ── Nav Tabs ─────────────────────────────────────────────── */
@@ -214,12 +219,16 @@ nav {
 
 .tab {
   flex: 1;
-  padding: 14px 8px;
+  padding: 8px 8px 6px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   border-bottom: 2px solid transparent;
   transition: all var(--dur-normal) var(--ease);
@@ -234,7 +243,9 @@ nav {
 }
 
 .tab-icon {
-  display: none;
+  display: block;
+  font-size: 18px;
+  line-height: 1;
 }
 
 /* ── Content Area ─────────────────────────────────────────── */
@@ -385,12 +396,15 @@ main {
 .meal-card:active { background: var(--bg3); }
 
 .meal-card.cooked {
-  opacity: 0.5;
+  opacity: 0.45;
+  background: var(--bg);
 }
 .meal-card.cooked .meal-name {
   text-decoration: line-through;
   color: var(--text-muted);
 }
+.meal-card.cooked .meal-day-pill { color: var(--text-muted); }
+.meal-card.cooked .meal-protein-chip { opacity: 0.5; }
 .meal-card.cooked::before {
   background: var(--text-muted);
 }
@@ -432,6 +446,44 @@ main {
   text-transform: uppercase;
   margin-bottom: 4px;
 }
+
+.meal-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.meal-day-pill {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--green-dim);
+}
+
+.meal-protein-chip {
+  font-size: 11px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 9px;
+  color: var(--text-dim);
+}
+
+.swap-meal-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 3px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.swap-meal-btn:active { border-color: var(--green-dim); color: var(--green); }
 
 .meal-name {
   font-family: 'Fraunces', serif;
@@ -2372,4 +2424,51 @@ button:focus-visible,
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--text-dim);
   padding: 10px 16px 4px;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+
+/* ── Ad-hoc item input ────────────────────────────────────── */
+.adhoc-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.adhoc-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: var(--text-sm);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  outline: none;
+}
+.adhoc-input:focus { border-color: var(--green-dim); }
+.adhoc-input::placeholder { color: var(--text-muted); }
+.adhoc-add-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: 'DM Mono', monospace;
+  -webkit-tap-highlight-color: transparent;
+}
+.adhoc-add-btn:active { background: var(--bg2); }
+.adhoc-remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
 }

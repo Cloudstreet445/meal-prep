@@ -79,6 +79,11 @@ let checked       = {};
 let currentWeek   = null;
 let currentUser   = null;   // { userId, email, householdId } or null
 let _pendingInviteToken = null; // preserved across the login wait
+let _shoppingItems    = [];   // current loaded shopping list
+let _storeKey         = '';   // localStorage key for checked state
+let _adHocItems       = [];   // [{name, key}]
+let _adHocChecked     = {};   // {key: bool}
+let swapMealIdx       = null; // index of meal slot being swapped, or null
 
 // ── Auth ─────────────────────────────────────────────────────────
 async function initAuth() {
@@ -348,18 +353,27 @@ function toggleCookedMeal(recipeId) {
   saveCookedSet(plan.bundleId, s);
   renderMealCards();
 }
+const _DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const _PROTEIN_CHIP = { chicken: '🍗 Chicken', beef: '🥩 Beef', pork: '🐷 Pork', lamb: '🐑 Lamb', vegetarian: '🥦 Vege' };
+
 function renderMealCards() {
   const cooked = plan?.bundleId ? getCookedSet(plan.bundleId) : new Set();
   const recipes = plan?.recipes || [];
 
   document.getElementById('meal-cards').innerHTML = recipes.map((meal, i) => {
     const isCooked = cooked.has(meal.recipeId);
+    const protein  = inferProtein(meal);
+    const chip     = _PROTEIN_CHIP[protein] || '🍽 Other';
+    const day      = _DAY_NAMES[i] || `Meal ${i + 1}`;
     return `
       <div class="meal-card${isCooked ? ' cooked' : ''}" data-recipe-id="${meal.recipeId}" onclick="openRecipe('${meal.recipeId}')">
         <div class="meal-card-swipe-hint">✓ Cooked</div>
+        <div class="meal-card-top">
+          <span class="meal-day-pill">${day}</span>
+          <span class="meal-protein-chip">${chip}</span>
+        </div>
         <div class="meal-card-header">
           <div>
-            <div class="meal-id">Meal ${i + 1}</div>
             <div class="meal-name">${meal.name}</div>
             <div class="meal-meta">
               <div class="pill">⏱ ${meal.cookTime}</div>
@@ -367,7 +381,10 @@ function renderMealCards() {
               ${meal.leftovers ? '<div class="pill green">♻️ Leftovers</div>' : ''}
             </div>
           </div>
-          <div class="meal-arrow">${isCooked ? '✓' : '›'}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <button class="swap-meal-btn" onclick="swapMeal(${i}, event)" title="Swap this meal">⇄</button>
+            <div class="meal-arrow">${isCooked ? '✓' : '›'}</div>
+          </div>
         </div>
       </div>`;
   }).join('');
@@ -404,6 +421,32 @@ function attachMealCardSwipe() {
     });
   });
 }
+function swapMeal(slotIndex, event) {
+  event.stopPropagation();
+  swapMealIdx = slotIndex;
+  pickerSearchText = '';
+  document.getElementById('picker-search-input').value = '';
+  renderPickerList('');
+  document.getElementById('picker-overlay').classList.add('active');
+}
+
+async function _executeSwap(slotIndex, newRecipeId) {
+  if (!plan) return;
+  const ids = (plan.recipes || []).map(r => r.recipeId);
+  ids[slotIndex] = newRecipeId;
+  try {
+    await apiPost('/bundle/custom', { recipeIds: ids, week: plan.week });
+    resetViews();
+    await loadWeek();
+    loadRecipes();
+    loadShopping();
+    showToast('Meal swapped');
+  } catch (e) {
+    showToast('Could not swap — please try again');
+    log('SWAP', 'Error', { error: e.message });
+  }
+}
+
 let cookSteps     = [];
 let cookIndex     = 0;
 let historyData   = [];     // [{week, activeBundleId, weekSummary, bundleCount, ...}]
@@ -558,6 +601,19 @@ function fmtTime(str) {
   });
 }
 
+// ── Budget pill ──────────────────────────────────────────────────
+function updateBudgetPill() {
+  const pill   = document.getElementById('budget-pill');
+  if (!pill) return;
+  const total  = plan?.estimatedTotal ?? 0;
+  const budget = settings?.budget ?? 60;
+  const isOver = total > budget;
+  pill.textContent = isOver
+    ? `${fmt$(total)} / ${fmt$(budget)} OVER`
+    : `${fmt$(total)} / ${fmt$(budget)}`;
+  pill.classList.toggle('budget-pill--over', isOver);
+}
+
 // ── Reset views to loading state ────────────────────────────────
 function resetViews() {
   plan = null;
@@ -582,7 +638,7 @@ async function loadWeek() {
     if (plan.bundleId) localStorage.setItem('lastSeenBundleId', plan.bundleId);
 
     document.getElementById('week-badge').textContent = `Week of ${fmtWeek(plan.week)}`;
-    document.getElementById('budget-pill').textContent = `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
+    updateBudgetPill();
     updateNavPlanDesc();
 
     document.getElementById('week-summary').innerHTML = `
@@ -614,25 +670,25 @@ async function loadShopping() {
     log('SHOPPING', 'Loading...');
     const storeParam = settings.storeId || DEFAULT_STORE;
     const data  = await apiFetch(`/shopping/latest?store_id=${storeParam}`);
-    const items = data.shoppingList || [];
 
     // Key checked state to bundleId so switching bundles resets ticks
-    const storeKey = `checked_${data.bundleId || data.week}`;
-    checked = JSON.parse(localStorage.getItem(storeKey) || '{}');
-    log('SHOPPING', 'Loaded', { items: items.length });
+    _storeKey = `checked_${data.bundleId || data.week}`;
+    _shoppingItems = data.shoppingList || [];
+    checked = JSON.parse(localStorage.getItem(_storeKey) || '{}');
+    _adHocItems   = JSON.parse(localStorage.getItem(`adhoc_${_storeKey}`) || '[]');
+    _adHocChecked = JSON.parse(localStorage.getItem(`adhoc_checked_${_storeKey}`) || '{}');
+    log('SHOPPING', 'Loaded', { items: _shoppingItems.length });
 
-    document.getElementById('shop-total').textContent = fmt$(data.estimatedTotal);
-    renderShoppingItems(items, storeKey);
+    renderShoppingItems(_shoppingItems, _storeKey);
 
     document.getElementById('clear-btn').onclick = () => {
       checked = {};
-      localStorage.setItem(storeKey, JSON.stringify(checked));
-      renderShoppingItems(items, storeKey);
+      _adHocChecked = {};
+      localStorage.setItem(_storeKey, JSON.stringify(checked));
+      localStorage.setItem(`adhoc_checked_${_storeKey}`, JSON.stringify(_adHocChecked));
+      renderShoppingItems(_shoppingItems, _storeKey);
       document.getElementById('clear-btn').style.display = 'none';
     };
-
-    const anyChecked = Object.values(checked).some(Boolean);
-    document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
 
     document.getElementById('shopping-loading').style.display = 'none';
     document.getElementById('shopping-content').style.display = 'block';
@@ -684,11 +740,21 @@ const _CATEGORY_LABELS = {
 };
 
 function renderShoppingItems(items, storeKey) {
-  const done  = items.filter((_, i) => checked[i]).length;
-  const total = items.length;
-  document.getElementById('progress-fill').style.width = `${total ? (done/total)*100 : 0}%`;
+  const allItems  = items.length + _adHocItems.length;
+  const doneItems = items.filter((_, i) => checked[i]).length
+                  + _adHocItems.filter(a => _adHocChecked[a.key]).length;
+  document.getElementById('progress-fill').style.width =
+    `${allItems ? (doneItems / allItems) * 100 : 0}%`;
 
-  // Group by category, preserving original item index for checked state
+  // Live total — unchecked items only
+  const liveCost = items.reduce((s, item, i) => checked[i] ? s : s + (item.estimatedCost || 0), 0);
+  document.getElementById('shop-total').textContent = fmt$(liveCost);
+
+  const anyChecked = Object.values(checked).some(Boolean)
+                  || Object.values(_adHocChecked).some(Boolean);
+  document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
+
+  // Group by category; sink checked items to bottom within each group
   const groups = {};
   const order = ['protein', 'vegetable', 'dairy', 'pantry', 'other'];
   items.forEach((item, i) => {
@@ -696,6 +762,25 @@ function renderShoppingItems(items, storeKey) {
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push({ item, i });
   });
+  order.forEach(cat => {
+    if (!groups[cat]) return;
+    groups[cat].sort((a, b) => (checked[a.i] ? 1 : 0) - (checked[b.i] ? 1 : 0));
+  });
+
+  // Ad-hoc items go in "other" (sorted: unchecked first)
+  const adHocHtml = _adHocItems.length ? (() => {
+    const sorted = [..._adHocItems].sort((a, b) =>
+      (_adHocChecked[a.key] ? 1 : 0) - (_adHocChecked[b.key] ? 1 : 0));
+    return `<div class="shop-category-group">
+      <div class="shop-category-header">🗒 My Items</div>
+      ${sorted.map(a => `
+        <div class="shop-item ${_adHocChecked[a.key] ? 'checked' : ''}" onclick="toggleAdHocItem('${a.key}')">
+          <div class="check-box"><span class="check-tick">✓</span></div>
+          <div class="item-info"><div class="item-name">${_escapeHtml(a.name)}</div></div>
+          <button class="adhoc-remove-btn" onclick="removeAdHocItem('${a.key}', event)" title="Remove">✕</button>
+        </div>`).join('')}
+    </div>`;
+  })() : '';
 
   const html = order
     .filter(cat => groups[cat]?.length)
@@ -706,7 +791,7 @@ function renderShoppingItems(items, storeKey) {
         <div class="shop-category-header">${label}</div>
         ${rows}
       </div>`;
-    }).join('');
+    }).join('') + adHocHtml;
 
   document.getElementById('shopping-items').innerHTML = html;
 }
@@ -714,16 +799,33 @@ function renderShoppingItems(items, storeKey) {
 function toggleItem(index, storeKey) {
   checked[index] = !checked[index];
   localStorage.setItem(storeKey, JSON.stringify(checked));
-  const items = document.querySelectorAll('.shop-item');
-  let done = 0;
-  items.forEach((el, i) => {
-    el.classList.toggle('checked', !!checked[i]);
-    if (checked[i]) done++;
-  });
-  document.getElementById('progress-fill').style.width =
-    `${items.length ? (done/items.length)*100 : 0}%`;
-  const anyChecked = Object.values(checked).some(Boolean);
-  document.getElementById('clear-btn').style.display = anyChecked ? '' : 'none';
+  renderShoppingItems(_shoppingItems, storeKey);
+}
+
+function toggleAdHocItem(key) {
+  _adHocChecked[key] = !_adHocChecked[key];
+  localStorage.setItem(`adhoc_checked_${_storeKey}`, JSON.stringify(_adHocChecked));
+  renderShoppingItems(_shoppingItems, _storeKey);
+}
+
+function removeAdHocItem(key, event) {
+  event.stopPropagation();
+  _adHocItems = _adHocItems.filter(i => i.key !== key);
+  delete _adHocChecked[key];
+  localStorage.setItem(`adhoc_${_storeKey}`, JSON.stringify(_adHocItems));
+  localStorage.setItem(`adhoc_checked_${_storeKey}`, JSON.stringify(_adHocChecked));
+  renderShoppingItems(_shoppingItems, _storeKey);
+}
+
+function addAdHocItem() {
+  const input = document.getElementById('adhoc-input');
+  const name  = input?.value?.trim();
+  if (!name) return;
+  const key = `adhoc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  _adHocItems.push({ name, key });
+  localStorage.setItem(`adhoc_${_storeKey}`, JSON.stringify(_adHocItems));
+  input.value = '';
+  renderShoppingItems(_shoppingItems, _storeKey);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1452,11 +1554,7 @@ async function saveSettings() {
   try {
     settings = await apiPost('/settings/', { budget, serves, exclusions: settings.exclusions || [], storeId: settings.storeId || DEFAULT_STORE }, 'PUT');
     closeSettings();
-    // Refresh budget pill if a plan is loaded
-    if (plan) {
-      document.getElementById('budget-pill').textContent =
-        `${fmt$(plan.estimatedTotal)} / ${fmt$(settings.budget)}`;
-    }
+    updateBudgetPill();
     log('SETTINGS', 'Saved', settings);
   } catch (e) {
     log('SETTINGS', 'Error saving', { error: e.message });
@@ -1655,6 +1753,13 @@ function renderPickerList(search) {
 }
 
 function pickRecipe(recipeId) {
+  if (swapMealIdx !== null) {
+    const idx = swapMealIdx;
+    swapMealIdx = null;
+    closePicker();
+    _executeSwap(idx, recipeId);
+    return;
+  }
   if (pickerSlotIndex >= 0) {
     builderSlots[pickerSlotIndex] = recipeId;
     pickerSlotIndex = -1;

@@ -94,6 +94,11 @@
           <div class="progress-fill" id="progress-fill" style="width:0%"></div>
         </div>
         <div id="shopping-items"></div>
+        <div class="adhoc-input-row">
+          <input type="text" id="adhoc-input" class="adhoc-input" placeholder="Add an item…"
+            onkeydown="if(event.key==='Enter')addAdHocItem()">
+          <button class="adhoc-add-btn" onclick="addAdHocItem()">+ Add</button>
+        </div>
       </div>
     </div>
 
