@@ -40,9 +40,23 @@ def get_latest_bundle():
 
     bundle = _clean(doc)
     bundle = _get_bundle_with_recipes(bundle, db, pricing_db)
-    # Recompute total from live recipe data so it matches the shopping list
-    _, fresh_total = _derive_shopping_list(bundle["recipes"], pricing_db)
+    shopping_items, fresh_total = _derive_shopping_list(bundle["recipes"], pricing_db)
     bundle["estimatedTotal"] = fresh_total
+
+    # Compute real per-recipe costs from enriched shopping items instead of tier proxies
+    recipe_costs: dict[str, float] = {r["recipeId"]: 0.0 for r in bundle["recipes"]}
+    for item in shopping_items:
+        used_in = item.get("usedIn", [])
+        if not used_in:
+            continue
+        item_cost = item.get("packPrice") or item.get("estimatedCost") or 0
+        share = item_cost / len(used_in)
+        for rid in used_in:
+            if rid in recipe_costs:
+                recipe_costs[rid] += share
+    for r in bundle["recipes"]:
+        r["estimatedCost"] = round(recipe_costs.get(r["recipeId"], r.get("estimatedCost", 0)), 2)
+
     return bundle
 
 

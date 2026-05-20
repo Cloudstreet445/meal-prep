@@ -670,18 +670,29 @@ main {
   padding: 2px 7px;
 }
 
-.meal-card__swap-btn {
-  width: 28px; height: 28px;
-  border-radius: 6px;
+.meal-card__footer-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.meal-card__swap-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
+  font-size: 12px;
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: border-color var(--dur-fast), color var(--dur-fast);
-  flex-shrink: 0;
+  transition: border-color var(--dur-fast), color var(--dur-fast), background var(--dur-fast);
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
-.meal-card__swap-btn:hover { border-color: var(--accent); color: var(--accent); }
+.meal-card__swap-pill:hover,
+.meal-card__swap-pill:active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
 
 .meal-card__cooked-badge {
   width: 28px; height: 28px;
