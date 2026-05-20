@@ -112,7 +112,7 @@ let plan          = null;
 let checked       = {};
 let currentWeek   = null;
 let currentUser   = null;   // { userId, email, householdId } or null
-let _viewingBundleId = localStorage.getItem('viewingBundleId') || null;
+let _viewingBundleId = null; // session-only — never persisted across page loads
 
 // ── Auth Router ───────────────────────────────────────────────────
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -1114,13 +1114,11 @@ function resetViews() {
 // ══════════════════════════════════════════════════════════════
 function _clearViewingBundle() {
   _viewingBundleId = null;
-  localStorage.removeItem('viewingBundleId');
   document.getElementById('viewing-banner')?.remove();
 }
 
 async function _viewBundle(bundleId, weekLabel) {
   _viewingBundleId = bundleId;
-  localStorage.setItem('viewingBundleId', bundleId);
   closeBundleSheet();
   await loadWeek();
 }
@@ -2740,6 +2738,7 @@ window.addEventListener('popstate', () => {
 });
 
 (async () => {
+  localStorage.removeItem('viewingBundleId'); // clear any stale viewing state from old builds
   await initAuth();
   loadPantry();
   await loadSettings();
