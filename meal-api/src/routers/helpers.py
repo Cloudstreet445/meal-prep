@@ -1,5 +1,6 @@
 """Shared helper functions for bundle and shopping routes."""
 
+import math
 import re
 
 
@@ -17,6 +18,20 @@ _UNIT_NORMALIZE = {
     "heads": "head",
     "bunches": "bunch",
     "items": "item",
+    # count plurals → singular (matched against _CULINARY_TO_GRAMS)
+    "onions": "onion",
+    "eggs": "egg",
+    "lemons": "lemon",
+    "limes": "lime",
+    "carrots": "carrot",
+    "potatoes": "potato",
+    "tomatoes": "tomato",
+    "zucchinis": "zucchini",
+    "courgettes": "courgette",
+    "capsicums": "capsicum",
+    "avocados": "avocado",
+    "stalks": "stalk",
+    "sprigs": "sprig",
 }
 
 
@@ -233,6 +248,7 @@ def _guess_category(name: str) -> str:
 
 
 _CULINARY_TO_GRAMS = {
+    # culinary measures
     "clove":   5.0,
     "pinch":   0.5,
     "handful": 30.0,
@@ -240,6 +256,18 @@ _CULINARY_TO_GRAMS = {
     "stalk":   20.0,
     "head":    200.0,
     "bunch":   100.0,
+    # common produce sold by count
+    "onion":   150.0,
+    "egg":     60.0,
+    "lemon":   100.0,
+    "lime":    70.0,
+    "carrot":  80.0,
+    "potato":  150.0,
+    "tomato":  100.0,
+    "zucchini": 200.0,
+    "courgette": 200.0,
+    "capsicum": 150.0,
+    "avocado": 200.0,
 }
 
 _CULINARY_TO_ML = {
@@ -249,21 +277,92 @@ _CULINARY_TO_ML = {
     "fl oz": 30.0,
 }
 
-_INGREDIENT_COST_CAP = 20.0
+_INGREDIENT_COST_CAP = 20.0   # cap on proportional budget estimate per ingredient
+_PACK_COST_CAP       = 60.0   # cap on pack price (legitimate packs rarely exceed this)
+
+_PACK_SIZE_RE = re.compile(r'(\d+(?:\.\d+)?)\s*(kg|g|ml|l)\b', re.IGNORECASE)
+
+
+def _parse_pack_size_g(product_name: str) -> float | None:
+    """Parse pack size from a product name string, returning grams (or ml as grams)."""
+    m = _PACK_SIZE_RE.search(product_name)
+    if not m:
+        return None
+    val = float(m.group(1))
+    unit = m.group(2).lower()
+    if unit == "kg":
+        return val * 1000
+    if unit == "g":
+        return val
+    if unit == "l":
+        return val * 1000
+    if unit == "ml":
+        return val
+    return None
+
+
+def _ingredient_to_g(amount) -> float | None:
+    """Convert an ingredient amount to grams or ml for proportional cost calculation."""
+    parsed = _parse_amount(amount)
+    if not parsed:
+        return None
+    value, unit = parsed["value"], parsed["unit"]
+    if unit == "g":
+        return value
+    if unit == "kg":
+        return value * 1000
+    if unit == "ml":
+        return value
+    if unit == "l":
+        return value * 1000
+    if unit in _CULINARY_TO_GRAMS:
+        return value * _CULINARY_TO_GRAMS[unit]
+    if unit in _CULINARY_TO_ML:
+        return value * _CULINARY_TO_ML[unit]
+    return None
+
+
+# Processed/derivative product words — penalised when the ingredient
+# name itself doesn't contain them (e.g. "garlic" → penalise "Garlic Paste")
+_PROCESSED_WORDS = frozenset({
+    "paste", "powder", "sauce", "seasoning", "aioli", "marinade",
+    "extract", "flavour", "flavor", "spread", "dip", "mix", "blend",
+    "salt", "flakes", "granules", "crushed", "minced", "roasted",
+    "dried", "smoked", "pickled", "fermented",
+})
+
+
+def _word_score(product_name: str, words: list[str]) -> int:
+    """
+    Score a product name against ingredient words.
+    Positive score for each ingredient word found in the product name.
+    Heavy penalty for processed/derivative words not present in the ingredient.
+    """
+    prod_lower  = product_name.lower()
+    prod_tokens = set(re.split(r'\W+', prod_lower))
+    ing_tokens  = set(words)
+
+    score = sum(1 for w in words if w in prod_lower)
+
+    # Each unexpected processed-food word subtracts 2 points
+    unexpected = (prod_tokens & _PROCESSED_WORDS) - ing_tokens
+    score -= len(unexpected) * 2
+
+    return score
 
 
 def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     """
-    Try to match an ingredient name against paknsave-pricing products.
+    Match an ingredient against paknsave-pricing products and calculate cost.
 
-    The pricing DB uses the nested schema: each product carries a
-    storePrice.{storeSlug} map with currentPrice/isSpecial/avgPrice90d inside
-    the per-store entry. store_id is the slug used as the map key.
+    Fetches up to 30 candidates matching the primary ingredient word, scores
+    each by how many ingredient words appear in the product name, then picks
+    the option with the lowest total purchase cost for the quantity needed
+    (e.g. 1×1kg pack beats 2×500g packs when the 1kg is cheaper overall).
 
-    Uses minimum-purchase logic: the product's currentPrice is the pack price.
-    Culinary units (cloves, cups, tsp) are converted to mass/volume for
-    better product matching but cost is always the minimum pack price.
-    Cost is capped at $20 per ingredient as a sanity check.
+    Two prices are stored on the item:
+      packPrice    – what the shopper actually pays at checkout (whole packs)
+      currentPrice – proportional budget impact (fed to estimatedCost)
     """
     name = item.get("name", "") or item.get("searchKey", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
@@ -272,31 +371,82 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
         return item
 
     price_prefix = f"storePrice.{store_id}"
-    name_pattern = re.compile(words[0], re.IGNORECASE)
-    product = pricing_db["products"].find_one(
-        {"name": name_pattern, price_prefix: {"$exists": True}},
+    candidates = list(pricing_db["products"].find(
+        {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
         {"name": 1, price_prefix: 1},
-    )
+        limit=30,
+    ))
 
-    if product:
+    if not candidates:
+        return item
+
+    needed_g = _ingredient_to_g(item.get("amount"))
+
+    # Evaluate every candidate: score by name relevance, cost by quantity needed
+    best: dict | None = None
+
+    for product in candidates:
         sp = product.get("storePrice", {}).get(store_id, {})
-        item["isSpecial"]      = sp.get("isSpecial", False)
-        raw_price              = sp.get("currentPrice")
-        item["matchedProduct"] = product.get("name")
+        raw_price = sp.get("currentPrice")
+        if raw_price is None:
+            continue
 
-        # Apply per-ingredient cost cap — bad product matches cause absurd totals
-        if raw_price is not None:
-            item["currentPrice"] = min(raw_price, _INGREDIENT_COST_CAP)
+        score  = _word_score(product["name"], words)
+        pack_g = _parse_pack_size_g(product["name"])
+
+        if pack_g and needed_g and pack_g > 0:
+            packs      = max(1, math.ceil(needed_g / pack_g))
+            total_cost = packs * raw_price
         else:
-            item["currentPrice"] = None
+            packs      = 1
+            total_cost = raw_price
 
-        avg     = sp.get("avgPrice90d")
-        current = item["currentPrice"]
-        if item["isSpecial"] and avg and current and avg > 0:
-            pct = round((1 - current / avg) * 100)
-            if pct > 0:
-                item["dealStrength"] = pct
-                item["priceSavings"] = round(avg - current, 2)
+        candidate = {
+            "product":    product,
+            "sp":         sp,
+            "raw_price":  raw_price,
+            "pack_g":     pack_g,
+            "packs":      packs,
+            "total_cost": total_cost,
+            "score":      score,
+        }
+
+        if best is None:
+            best = candidate
+            continue
+
+        # Higher word-match score wins outright; ties go to lowest total cost
+        if score > best["score"] or (
+            score == best["score"] and total_cost < best["total_cost"]
+        ):
+            best = candidate
+
+    if best is None:
+        return item
+
+    raw_price = best["raw_price"]
+    pack_g    = best["pack_g"]
+
+    item["isSpecial"]      = best["sp"].get("isSpecial", False)
+    item["matchedProduct"] = best["product"]["name"]
+
+    # packPrice: whole-pack checkout cost — what the shopper actually spends
+    item["packPrice"] = min(round(best["total_cost"], 2), _PACK_COST_CAP)
+
+    # currentPrice: proportional budget share (cheap staples stay cheap in estimates)
+    if pack_g and needed_g and pack_g > 0:
+        calculated = (needed_g / pack_g) * raw_price
+    else:
+        calculated = raw_price
+    item["currentPrice"] = min(round(calculated, 2), _INGREDIENT_COST_CAP)
+
+    avg     = best["sp"].get("avgPrice90d")
+    current = item["currentPrice"]
+    if item["isSpecial"] and avg and current and avg > 0:
+        pct = round((1 - current / avg) * 100)
+        if pct > 0:
+            item["dealStrength"] = pct
+            item["priceSavings"] = round(avg - current, 2)
 
     return item
 
@@ -374,7 +524,7 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
     category_order = {"protein": 0, "vegetable": 1, "pantry": 2, "dairy": 3, "other": 4}
     items.sort(key=lambda x: category_order.get(x.get("category", "other"), 4))
 
-    total = round(sum(i["estimatedCost"] for i in items), 2)
+    total = round(sum(i.get("packPrice") or i["estimatedCost"] for i in items), 2)
     return items, total
 
 
