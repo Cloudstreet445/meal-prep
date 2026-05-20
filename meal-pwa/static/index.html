@@ -146,6 +146,32 @@
       </div>
     </div>
 
+    <!-- VIEW: Pantry -->
+    <div class="view" id="view-pantry">
+      <div class="pantry-view-header">
+        <div class="pantry-view-title">Pantry</div>
+        <div class="pantry-view-sub">Items you always have at home — dimmed or hidden on your shopping list</div>
+      </div>
+      <div class="pantry-view-body">
+        <div class="pantry-add-row">
+          <input type="text" id="pantry-input" class="pantry-text-input" placeholder="e.g. olive oil, garlic, soy sauce" autocomplete="off">
+          <button class="pantry-add-btn" id="pantry-add-btn">Add</button>
+        </div>
+        <div class="pantry-items-wrap" id="pantry-tags-wrap">
+          <div class="pantry-tags" id="pantry-tags"></div>
+          <div id="pantry-empty" style="display:none" class="pantry-empty">
+            <div class="pantry-empty-icon">🫙</div>
+            <div class="pantry-empty-text">No pantry items yet</div>
+            <div class="pantry-empty-sub">Add ingredients you always have at home</div>
+          </div>
+        </div>
+        <label class="settings-toggle-row pantry-toggle">
+          <span class="settings-toggle-label">Hide pantry items from shopping list</span>
+          <input type="checkbox" id="pantry-hide-toggle" onchange="saveHidePantrySetting(this.checked)">
+        </label>
+      </div>
+    </div>
+
   </main>
 
   <!-- Bottom Nav -->
@@ -185,6 +211,18 @@
         </svg>
       </span>
       <span class="tab-label">Recipes</span>
+    </div>
+    <div class="tab" data-view="pantry">
+      <span class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19H2v-2h20v2Z"/>
+          <rect x="4" y="9" width="4" height="8" rx="1"/>
+          <rect x="10" y="7" width="4" height="10" rx="1"/>
+          <rect x="16" y="11" width="4" height="6" rx="1"/>
+          <line x1="4" y1="5" x2="20" y2="5"/>
+        </svg>
+      </span>
+      <span class="tab-label">Pantry</span>
     </div>
   </nav>
 
@@ -240,16 +278,8 @@
     </div>
     <div class="settings-section">
       <div class="settings-label">Pantry Staples</div>
-      <div class="settings-hint">Items you always have at home — dimmed on your shopping list</div>
-      <div class="settings-exclusion-tags" id="settings-pantry-tags"></div>
-      <div class="settings-exclusion-add">
-        <input type="text" id="settings-pantry-input" class="settings-text-input" placeholder="e.g. olive oil">
-        <button class="settings-add-btn" id="settings-pantry-btn">+</button>
-      </div>
-      <label class="settings-toggle-row" style="margin-top:12px">
-        <span class="settings-toggle-label">Hide pantry items from shopping list</span>
-        <input type="checkbox" id="setting-hide-pantry" onchange="saveHidePantrySetting(this.checked)">
-      </label>
+      <div class="settings-hint">Items you always have at home — dimmed or hidden on your shopping list</div>
+      <button class="settings-link-btn" onclick="closeSettings(); switchTab('pantry')">Manage pantry →</button>
     </div>
     <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
     <div class="settings-group-divider"></div>
@@ -403,6 +433,23 @@
       <span class="drawer-item-label">
         <span class="drawer-item-name">Weekly Plans</span>
         <span class="drawer-item-sub" id="nav-plan-desc">Switch meal plan</span>
+      </span>
+      <svg class="drawer-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+
+    <button class="drawer-item" onclick="closeNavMenu(); switchTab('pantry')">
+      <span class="drawer-item-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19H2v-2h20v2Z"/>
+          <rect x="4" y="9" width="4" height="8" rx="1"/>
+          <rect x="10" y="7" width="4" height="10" rx="1"/>
+          <rect x="16" y="11" width="4" height="6" rx="1"/>
+          <line x1="4" y1="5" x2="20" y2="5"/>
+        </svg>
+      </span>
+      <span class="drawer-item-label">
+        <span class="drawer-item-name">Pantry</span>
+        <span class="drawer-item-sub" id="nav-pantry-desc">Items you always have at home</span>
       </span>
       <svg class="drawer-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
     </button>

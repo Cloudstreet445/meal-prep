@@ -970,7 +970,7 @@ function _updateFab(view) {
     fab.setAttribute('aria-label', 'Add item');
     if (icon) icon.innerHTML = `<path d="M12 5v14M5 12h14"/>`;
   } else {
-    fab.style.display = 'none';
+    fab.style.display = 'none'; // recipes, pantry, others
   }
 }
 
@@ -992,6 +992,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     _currentTab = tab.dataset.view;
     document.getElementById(`view-${tab.dataset.view}`).classList.add('active');
     if (tab.dataset.view === 'recipes') renderWeekRecipesInTab();
+    if (tab.dataset.view === 'pantry') renderPantryView();
     _updateFab(tab.dataset.view);
   });
 });
@@ -1293,7 +1294,7 @@ function _shopItemHtml(item, i, storeKey) {
           ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
           : (item.amount || '')}${usedIn ? ' · ' + usedIn : ''}</div>
       </div>
-      <div class="item-price">${item.estimatedCost != null ? fmt$(item.estimatedCost) : '—'}</div>
+      <div class="item-price">${item.packPrice != null ? fmt$(item.packPrice) : (item.estimatedCost != null ? fmt$(item.estimatedCost) : '—')}</div>
       ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
     </div>`;
 }
@@ -1308,7 +1309,7 @@ const _CATEGORY_LABELS = {
 
 function _shopRunningTotal(items) {
   const unchecked = items.filter((_, i) => !checked[i]);
-  const cost = unchecked.reduce((s, item) => s + (item.estimatedCost || 0), 0);
+  const cost = unchecked.reduce((s, item) => s + (item.packPrice ?? item.estimatedCost ?? 0), 0);
   return { count: unchecked.length, cost };
 }
 
@@ -2075,10 +2076,7 @@ function selectStore(id) {
 function openSettings() {
   document.getElementById('settings-budget').value  = settings.budget;
   document.getElementById('settings-serves').value  = settings.serves;
-  const hidePantryEl = document.getElementById('setting-hide-pantry');
-  if (hidePantryEl) hidePantryEl.checked = !!settings.hidePantryFromShopping;
   renderExclusionTags();
-  renderPantryTags();
   renderStoreSelector();
   renderHouseholdSection();
   renderSessionsSection();
@@ -2274,12 +2272,23 @@ function isPantryItem(itemName) {
 }
 
 function renderPantryTags() {
-  const tags = document.getElementById('settings-pantry-tags');
+  const tags = document.getElementById('pantry-tags');
+  const empty = document.getElementById('pantry-empty');
+  if (!tags) return;
   tags.innerHTML = pantry.map((item, i) => `
     <span class="excl-tag">
       ${_esc(item.name)}
       <span class="excl-tag-remove" onclick="removePantryItem(${i})">✕</span>
     </span>`).join('');
+  if (empty) empty.style.display = pantry.length ? 'none' : '';
+}
+
+function renderPantryView() {
+  renderPantryTags();
+  const toggle = document.getElementById('pantry-hide-toggle');
+  if (toggle) toggle.checked = !!settings.hidePantryFromShopping;
+  const desc = document.getElementById('nav-pantry-desc');
+  if (desc && pantry.length) desc.textContent = `${pantry.length} item${pantry.length !== 1 ? 's' : ''} stocked`;
 }
 
 function removePantryItem(i) {
@@ -2289,8 +2298,8 @@ function removePantryItem(i) {
 }
 
 function addPantryItem() {
-  const input    = document.getElementById('settings-pantry-input');
-  const val      = input.value.trim();
+  const input     = document.getElementById('pantry-input');
+  const val       = input.value.trim();
   const canonical = val.toLowerCase();
   if (!val || pantry.some(p => p.canonical === canonical)) { input.value = ''; return; }
   pantry = [...pantry, { name: val, canonical }];
@@ -2299,8 +2308,8 @@ function addPantryItem() {
   renderPantryTags();
 }
 
-document.getElementById('settings-pantry-btn').onclick = addPantryItem;
-document.getElementById('settings-pantry-input').addEventListener('keydown', e => {
+document.getElementById('pantry-add-btn').onclick = addPantryItem;
+document.getElementById('pantry-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') addPantryItem();
 });
 

@@ -327,16 +327,18 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
             needed_g = _ingredient_to_g(item.get("amount"))
 
             if pack_g and needed_g and pack_g > 0:
-                # Proportional cost: fraction of pack needed, minimum 1 pack
                 fraction = needed_g / pack_g
                 if fraction >= 1.0:
-                    # Need more than one pack — round up to whole packs
-                    calculated = math.ceil(fraction) * raw_price
+                    packs = math.ceil(fraction)
+                    item["packPrice"] = round(packs * raw_price, 2)
+                    calculated = packs * raw_price
                 else:
-                    # Partial pack — charge proportionally (you're not buying
-                    # a full 1kg of garlic for 3 cloves)
+                    # Partial pack: budget impact is proportional, but you
+                    # still buy the whole pack at the store
+                    item["packPrice"] = round(raw_price, 2)
                     calculated = fraction * raw_price
             else:
+                item["packPrice"] = round(raw_price, 2)
                 calculated = raw_price
 
             item["currentPrice"] = min(round(calculated, 2), _INGREDIENT_COST_CAP)
@@ -427,7 +429,7 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
     category_order = {"protein": 0, "vegetable": 1, "pantry": 2, "dairy": 3, "other": 4}
     items.sort(key=lambda x: category_order.get(x.get("category", "other"), 4))
 
-    total = round(sum(i["estimatedCost"] for i in items), 2)
+    total = round(sum(i.get("packPrice") or i["estimatedCost"] for i in items), 2)
     return items, total
 
 
