@@ -11,9 +11,12 @@ from slowapi.errors import RateLimitExceeded
 from .limiter import limiter
 from .routers import bundles, recipes, shopping, plans, settings, substitutions, enhancements, auth, pantry, households
 
-_APP_URL = os.getenv("APP_URL")
-if not _APP_URL:
-    raise ValueError("APP_URL environment variable is required")
+import logging as _logging
+_APP_URL = os.getenv("APP_URL", "http://localhost")
+if _APP_URL == "http://localhost":
+    _logging.getLogger(__name__).warning(
+        "APP_URL not set — CORS will only allow http://localhost; set APP_URL=https://your-domain in .env"
+    )
 
 app = FastAPI(
     title="Kai Planner API",

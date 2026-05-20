@@ -18,9 +18,7 @@ router = APIRouter()
 MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1
 SESSION_TTL_DAYS = 30
-APP_URL = os.getenv("APP_URL")
-if not APP_URL:
-    raise ValueError("APP_URL environment variable is required")
+APP_URL = os.getenv("APP_URL", "")
 def _hash_pw(password: str) -> str:
     return _bcrypt_lib.hashpw(password.encode(), _bcrypt_lib.gensalt()).decode()
 
