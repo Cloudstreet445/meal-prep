@@ -78,6 +78,7 @@ let plan          = null;
 let checked       = {};
 let currentWeek   = null;
 let currentUser   = null;   // { userId, email, householdId } or null
+let _pendingInviteToken = null; // preserved across the login wait
 
 // ── Auth ─────────────────────────────────────────────────────────
 async function initAuth() {
@@ -90,10 +91,12 @@ async function initAuth() {
     return;
   }
 
-  // Handle invite token (from household invite link)
+  // Handle invite token (from household invite link) — stash it so it
+  // survives the login wait if the user isn't authenticated yet.
   const inviteToken = params.get('invite_token');
   if (inviteToken) {
     window.history.replaceState({}, '', window.location.pathname);
+    _pendingInviteToken = inviteToken;
   }
 
   // Check existing session
@@ -103,7 +106,10 @@ async function initAuth() {
       currentUser = await res.json();
       log('AUTH', 'Signed in', { email: currentUser.email });
       _setLogoutVisible(true);
-      if (inviteToken) await handleInviteToken(inviteToken);
+      if (_pendingInviteToken) {
+        await handleInviteToken(_pendingInviteToken);
+        _pendingInviteToken = null;
+      }
       return;
     }
   } catch (_) { /* network error — allow app to load without auth */ return; }
@@ -111,6 +117,11 @@ async function initAuth() {
   // No session — show login screen
   showLoginOverlay();
   await waitForLogin();
+  // Process any pending invite now that the user is logged in
+  if (_pendingInviteToken) {
+    await handleInviteToken(_pendingInviteToken);
+    _pendingInviteToken = null;
+  }
 }
 
 function waitForLogin() {
@@ -1235,7 +1246,8 @@ async function selectBundle(bundleId, week) {
 // ══════════════════════════════════════════════════════════════
 
 function lastRating(recipe) {
-  const mine = (recipe.ratings || []).filter(r => r.userId === 'default');
+  const uid = currentUser?.userId || 'default';
+  const mine = (recipe.ratings || []).filter(r => r.userId === uid);
   return mine.length ? mine[mine.length - 1].score : null;
 }
 
@@ -1257,7 +1269,7 @@ async function submitRating(score) {
     const recipe = allRecipes.find(r => r.recipeId === recipeId);
     if (recipe) {
       recipe.ratings = recipe.ratings || [];
-      recipe.ratings.push({ userId: 'default', score, date: new Date().toISOString().slice(0, 10) });
+      recipe.ratings.push({ userId: currentUser?.userId || 'default', score, date: new Date().toISOString().slice(0, 10) });
       renderRecipeList();
     }
     log('RATING', 'Rated recipe', { recipeId, score });
@@ -1345,12 +1357,17 @@ async function renderHouseholdSection() {
       <div class="settings-section">
         <div class="settings-label">${h.name}</div>
         <div class="household-members">
-          ${members.map(m => `
+          ${members.map(m => {
+            const display = m.email || m.userId;
+            const initial = (m.email || m.userId || '?')[0].toUpperCase();
+            return `
             <div class="household-member">
-              <span class="member-avatar">${(m.userId || '?')[0].toUpperCase()}</span>
+              <span class="member-avatar">${initial}</span>
+              <span class="member-email">${display}</span>
               <span class="member-role-badge ${m.role}">${m.role}</span>
               ${isOwner && m.role !== 'owner' ? `<button class="member-remove-btn" onclick="removeMember('${m.userId}')">Remove</button>` : ''}
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
         <button class="settings-link-btn" onclick="copyInviteLink()" style="margin-top:8px">📋 Copy invite link</button>
       </div>`;

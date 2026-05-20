@@ -25,6 +25,20 @@ def get_household(user: dict = Depends(require_user)):
     )
     if not household:
         raise HTTPException(404, "Household not found")
+
+    # Enrich members with email addresses
+    member_ids = [m["userId"] for m in household.get("members", [])]
+    email_map = {
+        u["userId"]: u["email"]
+        for u in db["users"].find(
+            {"userId": {"$in": member_ids}},
+            {"userId": 1, "email": 1, "_id": 0},
+        )
+    }
+    household["members"] = [
+        {**m, "email": email_map.get(m["userId"], "")}
+        for m in household.get("members", [])
+    ]
     return household
 
 

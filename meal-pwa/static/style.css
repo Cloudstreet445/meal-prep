@@ -2336,6 +2336,10 @@ button:focus-visible,
   justify-content: center; font-size: 14px; font-weight: 600;
   color: var(--text); flex-shrink: 0;
 }
+.member-email {
+  font-size: 13px; color: var(--text); flex: 1; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 .member-role-badge {
   font-size: 11px; padding: 2px 8px; border-radius: 10px;
   background: var(--bg3); color: var(--text-dim);
