@@ -2120,12 +2120,17 @@ async function renderHouseholdSection() {
       <div class="settings-section">
         <div class="settings-label">${_esc(h.name)}</div>
         <div class="household-members">
-          ${members.map(m => `
+          ${members.map(m => {
+            const display = m.email || m.userId || '?';
+            const initial = (m.email || m.userId || '?')[0].toUpperCase();
+            return `
             <div class="household-member">
-              <span class="member-avatar">${_esc((m.userId || '?')[0].toUpperCase())}</span>
+              <span class="member-avatar">${_esc(initial)}</span>
+              <span class="member-email">${_esc(display)}</span>
               <span class="member-role-badge ${_esc(m.role)}">${_esc(m.role)}</span>
               ${isOwner && m.role !== 'owner' ? `<button class="member-remove-btn" onclick="removeMember('${_esc(m.userId)}')">Remove</button>` : ''}
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
         <button class="settings-link-btn" onclick="copyInviteLink()" style="margin-top:8px">📋 Copy invite link</button>
       </div>`;
@@ -2462,6 +2467,45 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();     return; }
   if (document.getElementById('enhance-sheet').classList.contains('active'))   { closeEnhancements();    return; }
 });
+
+// ── Swipe-to-dismiss for bottom sheets ──────────────────────────
+(function attachSheetSwipe() {
+  const DISMISS_THRESHOLD = 80; // px downward drag to dismiss
+  document.querySelectorAll('.bottom-sheet').forEach(sheet => {
+    let startY = 0, currentY = 0, dragging = false;
+    const onStart = e => {
+      if (!sheet.classList.contains('active')) return;
+      startY = (e.touches ? e.touches[0] : e).clientY;
+      currentY = startY;
+      dragging = true;
+      sheet.style.transition = 'none';
+    };
+    const onMove = e => {
+      if (!dragging) return;
+      currentY = (e.touches ? e.touches[0] : e).clientY;
+      const dy = Math.max(0, currentY - startY);
+      sheet.style.transform = `translateY(${dy}px)`;
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      sheet.style.transition = '';
+      sheet.style.transform = '';
+      if (currentY - startY > DISMISS_THRESHOLD) {
+        // Find and click the matching backdrop to trigger close
+        const backdropId = sheet.id.replace('-sheet', '-backdrop');
+        const backdrop = document.getElementById(backdropId);
+        if (backdrop) backdrop.click();
+        else if (sheet.id === 'settings-sheet') closeSettings();
+        else if (sheet.id === 'bundle-sheet')   closeBundleSheet();
+        else if (sheet.id === 'enhance-sheet')  closeEnhancements();
+      }
+    };
+    sheet.addEventListener('touchstart', onStart, { passive: true });
+    sheet.addEventListener('touchmove',  onMove,  { passive: true });
+    sheet.addEventListener('touchend',   onEnd);
+  });
+})();
 
 // ── Plan generation ──────────────────────────────────────────────
 
