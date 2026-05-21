@@ -1,10 +1,8 @@
-"""Plan endpoints — library-first generation with Claude planner fallback."""
+"""Plan endpoints — library-first generation."""
 
-import os
 import uuid
 from datetime import datetime
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db, get_pricing_db
@@ -13,8 +11,6 @@ from .helpers import _select_from_library, _recipe_cost
 from .bundles import get_latest_bundle
 
 router = APIRouter()
-
-PLANNER_URL = os.environ.get("PLANNER_URL", "http://paknsave-planner:5001")
 
 
 @router.get("/latest")
@@ -25,14 +21,7 @@ def get_latest_plan():
 
 @router.post("/generate")
 def generate_plan(user: dict = Depends(require_user)):
-    """
-    Generate a new meal plan.
-
-    Primary path: select from the recipe library — instant, free, improves as
-    the library grows.  Falls back to the AI planner service when the library
-    has fewer than 5 eligible candidates (e.g. very early on or with heavy
-    exclusions).
-    """
+    """Generate a new meal plan from the recipe library."""
     db         = get_db()
     pricing_db = get_pricing_db()
 
@@ -47,17 +36,10 @@ def generate_plan(user: dict = Depends(require_user)):
     selected = _select_from_library(db, budget, exclusions, exclude_ids, user_id=user.get("sub"))
 
     if selected is None:
-        # Library too small — fall back to the AI planner
-        try:
-            resp = httpx.post(f"{PLANNER_URL}/generate", timeout=180.0)
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.ConnectError:
-            raise HTTPException(status_code=503, detail="Planner service unavailable")
-        except httpx.TimeoutException:
-            raise HTTPException(status_code=504, detail="Plan generation timed out")
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=502, detail=e.response.text)
+        raise HTTPException(
+            status_code=422,
+            detail="Not enough recipes in the library to build a plan. Try relaxing your exclusions or adding more recipes.",
+        )
 
     # Build a bundle from the selected recipes
     recipe_ids = [r["recipeId"] for r in selected]
