@@ -845,6 +845,8 @@ let allRecipes    = [];     // full library across all weeks
 let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
+let activeCost    = 'all';
+let filterOpen    = false;
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
 const DEFAULT_STORE = 'paknsave-lower-hutt';
 
@@ -1456,14 +1458,15 @@ function commitAdHocItem(storeKey) {
 // VIEW: RECIPES
 // ══════════════════════════════════════════════════════════════
 
-const PROTEIN_EMOJI = { chicken: '🍗', beef: '🥩', pork: '🐷', lamb: '🐑', vegetarian: '🥦' };
+const PROTEIN_EMOJI = { chicken: '🍗', beef: '🥩', pork: '🐷', lamb: '🐑', vegetarian: '🥦', fish: '🐟' };
 
 function inferProtein(recipe) {
   const text = (recipe.name + ' ' + (recipe.ingredients || []).map(i => i.name).join(' ')).toLowerCase();
-  if (/chicken|turkey/.test(text))    return 'chicken';
-  if (/beef|mince|steak/.test(text))  return 'beef';
-  if (/pork|bacon|ham/.test(text))    return 'pork';
-  if (/lamb/.test(text))              return 'lamb';
+  if (/chicken|turkey/.test(text))                                                return 'chicken';
+  if (/beef|mince|steak/.test(text))                                              return 'beef';
+  if (/pork|bacon|ham|sausage/.test(text))                                        return 'pork';
+  if (/lamb/.test(text))                                                           return 'lamb';
+  if (/fish|salmon|tuna|prawn|shrimp|seafood|snapper|cod|hoki|mussel/.test(text)) return 'fish';
   return 'vegetarian';
 }
 
@@ -1475,6 +1478,106 @@ function parseCookMinutes(str) {
   if (h) mins += parseInt(h[1]) * 60;
   if (m) mins += parseInt(m[1]);
   return mins || 30;
+}
+
+function _recipeCost(recipe) {
+  if (recipe.baselineCost != null) return recipe.baselineCost;
+  const tiers = { budget: 10, mid: 17, premium: 28 };
+  if (recipe.costTier && tiers[recipe.costTier] != null) return tiers[recipe.costTier];
+  const sum = (recipe.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+  return sum > 0 ? sum : null;
+}
+
+function _activeFilterCount() {
+  return (activeProtein !== 'all' ? 1 : 0)
+       + (activeCookTime !== 'all' ? 1 : 0)
+       + (activeCost !== 'all' ? 1 : 0);
+}
+
+function _updateFilterBadge() {
+  const count = _activeFilterCount();
+  const badge = document.getElementById('filter-badge');
+  const btn   = document.getElementById('filter-btn');
+  if (badge) badge.textContent = count > 0 ? ` · ${count}` : '';
+  if (btn)   btn.classList.toggle('has-filters', count > 0);
+}
+
+function toggleFilterPanel() {
+  filterOpen = !filterOpen;
+  document.getElementById('filter-panel').classList.toggle('open', filterOpen);
+  document.getElementById('filter-btn').classList.toggle('active', filterOpen);
+}
+
+function clearAllFilters() {
+  activeProtein  = 'all';
+  activeCookTime = 'all';
+  activeCost     = 'all';
+  document.querySelectorAll('#protein-chips [data-protein]').forEach(c =>
+    c.classList.toggle('active', c.dataset.protein === 'all'));
+  document.querySelectorAll('#time-chips [data-time]').forEach(c =>
+    c.classList.toggle('active', c.dataset.time === 'all'));
+  document.querySelectorAll('#cost-chips [data-cost]').forEach(c =>
+    c.classList.toggle('active', c.dataset.cost === 'all'));
+  _updateFilterBadge();
+  renderRecipeList();
+}
+
+function _recipeListItemHtml(meal, extraClass = '') {
+  const rating    = lastRating(meal);
+  const badge     = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
+                  : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
+                  : '';
+  const cost      = meal.estimatedCost ?? _recipeCost(meal);
+  const costTier  = cost != null ? (cost < 12 ? 'budget' : cost < 20 ? 'mid' : 'premium') : null;
+  const costBadge = cost != null
+    ? `<span class="recipe-cost-badge recipe-cost-badge--${costTier}">${fmt$(cost)}</span>`
+    : '';
+  const cls = extraClass ? ` ${extraClass}` : '';
+  return `
+    <div class="recipe-list-item${cls}" onclick="openRecipe('${meal.recipeId}')">
+      <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
+      <div style="flex:1">
+        <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
+        <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients${costBadge}</div>
+      </div>
+      <div style="color:var(--text-muted)">›</div>
+    </div>`;
+}
+
+const _PROTEIN_GROUPS = [
+  { key: 'chicken',    label: 'Chicken',        emoji: '🍗' },
+  { key: 'beef',       label: 'Beef',           emoji: '🥩' },
+  { key: 'pork',       label: 'Pork',           emoji: '🐷' },
+  { key: 'lamb',       label: 'Lamb',           emoji: '🐑' },
+  { key: 'fish',       label: 'Fish & Seafood', emoji: '🐟' },
+  { key: 'vegetarian', label: 'Vegetarian',     emoji: '🥦' },
+];
+
+function _renderGroupedRecipes(recipes) {
+  const planIds = new Set((plan?.recipes || []).map(r => r.recipeId));
+  const inPlan  = recipes.filter(r => planIds.has(r.recipeId));
+  const rest    = recipes.filter(r => !planIds.has(r.recipeId));
+
+  const buckets = {};
+  _PROTEIN_GROUPS.forEach(g => { buckets[g.key] = []; });
+  rest.forEach(r => {
+    const p = inferProtein(r);
+    if (buckets[p]) buckets[p].push(r);
+    else buckets.vegetarian.push(r);
+  });
+
+  let html = '';
+  if (inPlan.length) {
+    html += `<div class="recipe-group-header">📋 This week's plan <span class="recipe-group-count">${inPlan.length}</span></div>`;
+    html += inPlan.map(r => _recipeListItemHtml(r, 'week-recipe-item')).join('');
+  }
+  for (const g of _PROTEIN_GROUPS) {
+    const items = buckets[g.key];
+    if (!items.length) continue;
+    html += `<div class="recipe-group-header">${g.emoji} ${g.label} <span class="recipe-group-count">${items.length}</span></div>`;
+    html += items.map(r => _recipeListItemHtml(r)).join('');
+  }
+  return html;
 }
 
 async function loadRecipes() {
@@ -1496,28 +1599,8 @@ function renderWeekRecipesInTab() {
   if (!section || !container) return;
   const recipes = plan?.recipes || [];
   if (!recipes.length) { section.style.display = 'none'; return; }
-
   section.style.display = 'block';
-  container.innerHTML = recipes.map(meal => {
-    const rating = lastRating(meal);
-    const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
-                 : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
-                 : '';
-    const cost = meal.estimatedCost ?? null;
-    const costTier = cost != null ? (cost < 12 ? 'budget' : cost < 20 ? 'mid' : 'premium') : null;
-    const costBadge = cost != null
-      ? `<span class="recipe-cost-badge recipe-cost-badge--${costTier}">${fmt$(cost)}</span>`
-      : '';
-    return `
-    <div class="recipe-list-item week-recipe-item" onclick="openRecipe('${meal.recipeId}')">
-      <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
-      <div style="flex:1">
-        <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
-        <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients${costBadge}</div>
-      </div>
-      <div style="color:var(--text-muted)">›</div>
-    </div>`;
-  }).join('');
+  container.innerHTML = recipes.map(m => _recipeListItemHtml(m, 'week-recipe-item')).join('');
 }
 
 function renderRecipeList() {
@@ -1541,30 +1624,37 @@ function renderRecipeList() {
     });
   }
 
+  if (activeCost !== 'all') {
+    filtered = filtered.filter(r => {
+      const cost = _recipeCost(r);
+      if (cost === null) return false;
+      if (activeCost === 'low')  return cost < 12;
+      if (activeCost === 'mid')  return cost >= 12 && cost < 20;
+      if (activeCost === 'high') return cost >= 20;
+    });
+  }
+
   const countEl = document.getElementById('library-count');
   if (countEl) countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''}`;
 
-  const noResultsHtml = recipeSearch
-    ? _emptyState({ icon: _SVG_SEARCH, title: `No recipes match "${recipeSearch}"`, subtitle: null, ctaLabel: 'Clear search', ctaFn: 'clearSearch()' })
-    : _emptyState({ icon: _SVG_SEARCH, title: 'No recipes yet', subtitle: 'Recipes will appear here once added.' });
+  _updateFilterBadge();
 
-  document.getElementById('recipe-list-items').innerHTML = filtered.length
-    ? filtered.map(meal => {
-        const rating = lastRating(meal);
-        const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
-                     : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
-                     : '';
-        return `
-          <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
-            <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
-            <div style="flex:1">
-              <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
-              <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients</div>
-            </div>
-            <div style="color:var(--text-muted)">›</div>
-          </div>`;
-      }).join('')
-    : noResultsHtml;
+  const container = document.getElementById('recipe-list-items');
+
+  if (!filtered.length) {
+    const isFiltered = _activeFilterCount() > 0;
+    container.innerHTML = recipeSearch
+      ? _emptyState({ icon: _SVG_SEARCH, title: `No recipes match "${recipeSearch}"`, subtitle: null, ctaLabel: 'Clear search', ctaFn: 'clearSearch()' })
+      : isFiltered
+        ? _emptyState({ icon: _SVG_SEARCH, title: 'No recipes match these filters', subtitle: null, ctaLabel: 'Clear filters', ctaFn: 'clearAllFilters()' })
+        : _emptyState({ icon: _SVG_SEARCH, title: 'No recipes yet', subtitle: 'Recipes will appear here once added.' });
+    return;
+  }
+
+  const useGrouped = !recipeSearch && activeProtein === 'all';
+  container.innerHTML = useGrouped
+    ? _renderGroupedRecipes(filtered)
+    : filtered.map(r => _recipeListItemHtml(r)).join('');
 }
 
 function clearSearch() {
@@ -1574,7 +1664,7 @@ function clearSearch() {
   renderRecipeList();
 }
 
-// ── Search + filter chip wiring ──────────────────────────────
+// ── Search + filter wiring ───────────────────────────────────
 document.getElementById('recipe-search').addEventListener('input', e => {
   recipeSearch = e.target.value.trim();
   renderRecipeList();
@@ -1594,6 +1684,15 @@ document.getElementById('time-chips').addEventListener('click', e => {
   if (!chip) return;
   activeCookTime = chip.dataset.time;
   document.querySelectorAll('#time-chips .filter-chip').forEach(c =>
+    c.classList.toggle('active', c === chip));
+  renderRecipeList();
+});
+
+document.getElementById('cost-chips').addEventListener('click', e => {
+  const chip = e.target.closest('[data-cost]');
+  if (!chip) return;
+  activeCost = chip.dataset.cost;
+  document.querySelectorAll('#cost-chips .filter-chip').forEach(c =>
     c.classList.toggle('active', c === chip));
   renderRecipeList();
 });

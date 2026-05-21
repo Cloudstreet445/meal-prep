@@ -104,10 +104,12 @@ def _normalise_name(name: str) -> str:
 
 
 _PROTEIN_KEYWORDS: dict[str, list[str]] = {
-    "chicken":    ["chicken"],
-    "pork":       ["pork", "sausage"],
-    "beef":       ["beef", "mince"],
+    "chicken":    ["chicken", "turkey"],
+    "pork":       ["pork", "sausage", "bacon", "ham"],
+    "beef":       ["beef", "mince", "steak"],
     "lamb":       ["lamb"],
+    "fish":       ["fish", "salmon", "tuna", "prawn", "shrimp", "seafood",
+                   "snapper", "cod", "hoki", "mussel"],
     "vegetarian": [],
 }
 

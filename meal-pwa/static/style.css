@@ -926,6 +926,88 @@ main {
   z-index: 5;
 }
 
+/* ── Search row (search input + filter button) ───────────── */
+.recipe-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.recipe-search-row .recipe-search-wrap {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.filter-btn {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.filter-btn.active,
+.filter-btn.has-filters {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+.filter-btn:active { opacity: 0.7; }
+.filter-badge { color: var(--accent); }
+
+.library-count-row { padding-bottom: 8px; }
+
+/* ── Filter panel (slides open below .library-controls) ──── */
+.filter-panel {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  margin: 0 -16px;
+  position: relative;
+  z-index: 4;
+}
+.filter-panel.open { max-height: 400px; }
+
+.filter-group { padding: 12px 16px 4px; }
+
+.filter-group-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.filter-group .filter-chips {
+  padding: 0 0 8px;
+}
+
+.filter-panel-footer {
+  padding: 6px 16px 12px;
+  text-align: right;
+}
+
+.filter-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.filter-clear-btn:active { opacity: 0.6; }
+
 /* ── Search bar ───────────────────────────────────────────── */
 .recipe-search-wrap {
   position: relative;
@@ -962,13 +1044,7 @@ main {
 .recipe-search:focus { border-color: var(--accent-dim); }
 .recipe-search::placeholder { color: var(--text-muted); }
 
-/* ── Filter rows ─────────────────────────────────────────── */
-.filter-row {
-  display: flex;
-  align-items: center;
-  margin: 0 -16px;
-}
-
+/* ── Filter chips (used inside filter panel) ────────────── */
 .filter-chips {
   display: flex;
   flex-wrap: nowrap;
@@ -1008,12 +1084,31 @@ main {
 .library-count {
   font-size: 11px;
   color: var(--text-muted);
-  padding: 0 16px 10px;
-  flex-shrink: 0;
   white-space: nowrap;
 }
 
 #recipe-list-items { padding-top: 12px; }
+
+/* ── Recipe group headers ────────────────────────────────── */
+.recipe-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 0 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.recipe-group-header:first-child { padding-top: 6px; }
+.recipe-group-count {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 
 .section-divider {
   height: 1px;
