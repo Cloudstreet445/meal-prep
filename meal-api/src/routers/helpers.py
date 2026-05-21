@@ -2,6 +2,7 @@
 
 import math
 import re
+from datetime import date as _date
 
 
 _AMOUNT_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)$')
@@ -153,9 +154,12 @@ def _select_from_library(
     user_id: str | None = None,
 ) -> list[dict] | None:
     """
-    Pick n recipes from the library that fit within budget with protein variety.
-    Respects per-user ratings: disliked recipes are excluded, liked recipes are
-    sorted ahead of unrated ones. Falls back if filtering leaves too few candidates.
+    Pick n recipes from the library that fit within budget.
+
+    Protein variety is enforced, with slot priority driven by which proteins
+    haven't appeared recently (stalest protein gets first pick). Within each
+    slot, candidates are ranked by a composite score: recency decay ×
+    rating multiplier.
     """
     excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
 
@@ -189,41 +193,68 @@ def _select_from_library(
         logging.warning(
             f"Only {len(filtered)} candidates after dislike filter for user {user_id} — including disliked"
         )
-        filtered = candidates  # fallback: ignore dislikes
+        filtered = candidates
 
     candidates = filtered
 
     if len(candidates) < n:
         return None
 
+    today = _date.today()
+
     for r in candidates:
         r["_protein"]   = _infer_protein(r)
         r["_cost"]      = _recipe_cost(r)
         r["_last_used"] = r.get("lastUsedWeek") or "2000-01-01"
-        r["_liked"]     = 0 if r["recipeId"] in liked_ids else 1  # liked sorts first
 
-    candidates.sort(key=lambda r: (r["_liked"], r["_last_used"], r["_cost"]))
+        # Recency: 0.0 (used this week) → 1.0 (not used in 8+ weeks / never)
+        try:
+            weeks_ago = (today - _date.fromisoformat(r["_last_used"])).days / 7
+        except (ValueError, TypeError):
+            weeks_ago = 52
+        recency = min(weeks_ago / 8, 1.0)
+
+        # Liked recipes score 30% higher; disliked already excluded above
+        rating_mult = 1.3 if r["recipeId"] in liked_ids else 1.0
+
+        r["_score"] = recency * rating_mult
+
+    # Best candidates first
+    candidates.sort(key=lambda r: r["_score"], reverse=True)
+
+    # Protein priority: stalest protein gets first pick, preventing repetition ruts
+    protein_last_used = {
+        protein: max(
+            (r["_last_used"] for r in candidates if r["_protein"] == protein),
+            default="2000-01-01",
+        )
+        for protein in ("chicken", "pork", "beef", "lamb", "other")
+    }
+    protein_order = sorted(protein_last_used, key=lambda p: protein_last_used[p])
 
     selected: list[dict] = []
+    selected_ids: set[str] = set()
     total = 0.0
 
-    # Pass 1: one per protein type, least-recently-used first (liked recipes preferred)
-    for protein in ("chicken", "pork", "beef", "lamb", "other"):
+    # Pass 1: one slot per protein, least-recently-used protein first
+    for protein in protein_order:
         if len(selected) >= n:
             break
         for r in candidates:
-            if r["_protein"] == protein and r not in selected:
+            if r["_protein"] == protein and r["recipeId"] not in selected_ids:
                 if total + r["_cost"] <= budget:
                     selected.append(r)
+                    selected_ids.add(r["recipeId"])
                     total += r["_cost"]
                     break
 
-    # Pass 2: fill remaining slots
+    # Pass 2: fill remaining slots, best-scored first
     for r in candidates:
         if len(selected) >= n:
             break
-        if r not in selected and total + r["_cost"] <= budget:
+        if r["recipeId"] not in selected_ids and total + r["_cost"] <= budget:
             selected.append(r)
+            selected_ids.add(r["recipeId"])
             total += r["_cost"]
 
     return selected if len(selected) >= n else None
