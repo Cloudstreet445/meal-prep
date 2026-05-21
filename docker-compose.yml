@@ -38,7 +38,7 @@ services:
     build:
       context: ./meal-pwa
       args:
-        API_HOST: localhost:8000
+        API_HOST: api:8000
     ports:
       - "3000:3000"
     depends_on:

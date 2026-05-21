@@ -4,15 +4,25 @@ import logging
 import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 load_dotenv()
 
-MONGO_URI   = os.environ["MONGO_URI"]
-MEALS_DB    = "paknsave-meals"
-PRICING_DB  = "paknsave-pricing"
-
-_client = MongoClient(MONGO_URI)
 _log = logging.getLogger(__name__)
+
+MONGO_URI = os.environ.get("MONGO_URI", "")
+if not MONGO_URI:
+    _log.critical("MONGO_URI not set — all database operations will fail with 503")
+
+MEALS_DB   = "paknsave-meals"
+PRICING_DB = "paknsave-pricing"
+
+_client = None
+try:
+    if MONGO_URI:
+        _client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+except Exception as exc:
+    _log.critical("Could not create MongoDB client: %s", exc)
 
 
 def _idx(collection, keys, **kwargs):
@@ -24,6 +34,8 @@ def _idx(collection, keys, **kwargs):
 
 
 def _ensure_indexes():
+    if _client is None:
+        return
     db = _client[MEALS_DB]
     _idx(db["recipes"], "recipeId", unique=True)
     _idx(db["recipes"], "usageHistory")
@@ -55,13 +67,20 @@ def _ensure_indexes():
 _ensure_indexes()
 
 
+def _require_client():
+    if _client is None:
+        raise HTTPException(status_code=503, detail="Database unavailable")
+
+
 def get_db():
     """Return paknsave-meals database."""
+    _require_client()
     return _client[MEALS_DB]
 
 
 def get_pricing_db():
     """Return paknsave-pricing database (for live price enrichment)."""
+    _require_client()
     return _client[PRICING_DB]
 
 
