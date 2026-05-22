@@ -894,6 +894,12 @@ main {
   font-weight: 500;
   flex-shrink: 0;
 }
+.item-price--staple {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 400;
+  flex-shrink: 0;
+}
 
 .progress-bar {
   height: 3px;

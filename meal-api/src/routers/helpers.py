@@ -142,7 +142,10 @@ def _recipe_cost(recipe: dict) -> float:
     tier = recipe.get("costTier")
     if tier in _COST_TIER_ESTIMATE:
         return _COST_TIER_ESTIMATE[tier]
-    return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
+    return sum(
+        i.get("estimatedCost", 0) for i in recipe.get("ingredients", [])
+        if _classify_ingredient(i.get("name", "")) != "pantry_staple"
+    )
 
 
 def _select_from_library(
@@ -353,6 +356,67 @@ def _ingredient_to_g(amount) -> float | None:
     return None
 
 
+# ── Ingredient classification ───────────────────────────────────────
+# Phrases are matched against the lowercased ingredient name as an exact match
+# or as a prefix followed by a space/comma (e.g. "salt" matches "salt" and
+# "salt flakes" but NOT "salted butter").  List longer phrases first so more-
+# specific entries are checked before short generic ones.
+_PANTRY_STAPLE_PHRASES: tuple[str, ...] = (
+    # Salts
+    "flaky salt", "sea salt flakes", "sea salt", "rock salt", "kosher salt",
+    "table salt", "iodised salt", "salt",
+    # Basic cooking oils (not specialty oils like sesame, truffle, pumpkin)
+    "vegetable oil", "canola oil", "sunflower oil", "cooking oil", "rice bran oil",
+    # Sugars
+    "caster sugar", "icing sugar", "brown sugar", "raw sugar", "white sugar", "sugar",
+    # Leavening
+    "baking powder", "baking soda", "bicarbonate of soda", "bicarbonate soda",
+    "bicarbonate", "cream of tartar",
+    # Flours
+    "self raising flour", "self-raising flour", "plain flour", "all purpose flour",
+    "wholemeal flour", "cornflour", "cornstarch", "flour",
+    # Vinegars (specific first)
+    "white wine vinegar", "red wine vinegar", "apple cider vinegar",
+    "balsamic vinegar", "rice wine vinegar", "malt vinegar",
+    "rice vinegar", "white vinegar", "vinegar",
+    # Pepper (specific first to avoid matching capsicums)
+    "black pepper", "white pepper", "ground pepper", "cracked pepper",
+    "freshly ground pepper", "freshly cracked pepper",
+    # Dry spices — multi-word first
+    "smoked paprika", "sweet paprika", "paprika",
+    "ground cumin", "ground coriander", "ground turmeric", "ground cinnamon",
+    "ground nutmeg", "ground cardamom", "ground allspice", "ground cloves",
+    "garlic powder", "onion powder",
+    "chilli flakes", "chili flakes", "red pepper flakes", "dried chilli flakes",
+    "cayenne pepper", "cayenne",
+    "curry powder", "garam masala", "mixed spice", "five spice", "chinese five spice",
+    "dried oregano", "dried thyme", "dried rosemary", "dried basil",
+    "dried parsley", "dried coriander", "dried herbs", "italian herbs",
+    "bay leaves", "bay leaf",
+    # Single-word spices (safe: won't collide with common produce names)
+    "cumin", "turmeric", "cinnamon", "nutmeg", "cardamom", "allspice",
+    "oregano", "thyme", "rosemary", "basil",
+    # Common pantry condiments
+    "light soy sauce", "dark soy sauce", "soy sauce",
+    "worcestershire sauce", "worcestershire",
+    # Stock — cubes/powder forms only (avoid flagging fresh/liquid stock)
+    "chicken stock cube", "beef stock cube", "vegetable stock cube",
+    "chicken stock powder", "beef stock powder", "vegetable stock powder",
+    "stock cube", "stock cubes", "stock powder",
+    # Water
+    "water",
+)
+
+
+def _classify_ingredient(name: str) -> str:
+    """Return 'pantry_staple' for ingredients assumed in every pantry, else 'always_buy'."""
+    n = name.lower().strip()
+    for phrase in _PANTRY_STAPLE_PHRASES:
+        if n == phrase or n.startswith(phrase + " ") or n.startswith(phrase + ","):
+            return "pantry_staple"
+    return "always_buy"
+
+
 # Processed/derivative product words — penalised when the ingredient
 # name itself doesn't contain them (e.g. "garlic" → penalise "Garlic Paste")
 _PROCESSED_WORDS = frozenset({
@@ -508,15 +572,18 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
                 raw_amount = raw_amount.get("display", "") or ""
 
             if key not in ingredient_map:
+                ing_type = _classify_ingredient(ing.get("name", ""))
                 ingredient_map[key] = {
-                    "name":         ing.get("name"),
-                    "amount":       raw_amount,
-                    "searchKey":    ing.get("searchKey", ""),
-                    "isSpecial":    False,
-                    "currentPrice": None,
-                    "usedIn":       [],
-                    "usedInNames":  [],
-                    "category":     _guess_category(ing.get("name", "")),
+                    "name":           ing.get("name"),
+                    "amount":         raw_amount,
+                    "searchKey":      ing.get("searchKey", ""),
+                    "isSpecial":      False,
+                    "currentPrice":   None,
+                    "usedIn":         [],
+                    "usedInNames":    [],
+                    "category":       _guess_category(ing.get("name", "")),
+                    "ingredientType": ing_type,
+                    "pantryStaple":   ing_type == "pantry_staple",
                 }
             else:
                 existing = ingredient_map[key]
@@ -548,14 +615,24 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
     for item in ingredient_map.values():
         enriched = _enrich_ingredient(item, pricing_db, store_id)
         enriched["sharedWith"] = enriched["usedInNames"] if len(enriched["usedIn"]) > 1 else []
-        # Use live price as cost; fall back to 0 if no product was matched
         enriched["estimatedCost"] = round(enriched.get("currentPrice") or 0, 2)
+
+        # Pantry staples are assumed to be in stock — zero price, excluded from bill
+        if enriched.get("pantryStaple"):
+            enriched["packPrice"]     = 0.0
+            enriched["currentPrice"]  = 0.0
+            enriched["estimatedCost"] = 0.0
+
         items.append(enriched)
 
     category_order = {"protein": 0, "vegetable": 1, "pantry": 2, "dairy": 3, "other": 4}
     items.sort(key=lambda x: category_order.get(x.get("category", "other"), 4))
 
-    total = round(sum(i.get("packPrice") or i["estimatedCost"] for i in items), 2)
+    total = round(sum(
+        (i.get("packPrice") or i["estimatedCost"])
+        for i in items
+        if not i.get("pantryStaple")
+    ), 2)
     return items, total
 
 

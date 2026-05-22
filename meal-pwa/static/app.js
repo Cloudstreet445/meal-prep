@@ -1278,25 +1278,28 @@ function dealBadge(item) {
 }
 
 function _shopItemHtml(item, i, storeKey) {
-  const usedIn   = (item.usedInNames || item.usedIn || []).join(', ');
-  const shared   = item.sharedWith?.length > 0 ? `<span class="item-shared">shared</span>` : '';
-  const inPantry = isPantryItem(item.name);
+  const usedIn      = (item.usedInNames || item.usedIn || []).join(', ');
+  const shared      = item.sharedWith?.length > 0 ? `<span class="item-shared">shared</span>` : '';
+  const inPantry    = isPantryItem(item.name) || !!item.pantryStaple;
+  const priceHtml   = item.pantryStaple
+    ? '<span class="item-price item-price--staple">in stock</span>'
+    : `<div class="item-price">${item.packPrice != null ? fmt$(item.packPrice) : (item.estimatedCost != null ? fmt$(item.estimatedCost) : '—')}</div>`;
   return `
     <div class="shop-item ${checked[i] ? 'checked' : ''} ${inPantry ? 'in-pantry' : ''}" onclick="toggleItem(${i}, '${storeKey}')">
       <div class="check-box"><span class="check-tick">✓</span></div>
       <div class="item-info">
         <div class="item-name">
-          ${item.name}
+          ${_esc(item.name)}
           ${item.isSpecial && !(item.dealStrength >= 5) ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
           ${dealBadge(item)}
-          ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
+          ${inPantry && !item.pantryStaple ? '<span class="item-pantry">in pantry</span>' : ''}
           ${shared}
         </div>
         <div class="item-sub">${item.amount_parts?.length
-          ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
-          : (item.amount || '')}${usedIn ? ' · ' + usedIn : ''}</div>
+          ? item.amount_parts.map(p => `${_esc(p.amount)} <span class="amount-recipe">(${_esc(p.recipe)})</span>`).join(', ')
+          : _esc(item.amount || '')}${usedIn ? ' · ' + _esc(usedIn) : ''}</div>
       </div>
-      <div class="item-price">${item.packPrice != null ? fmt$(item.packPrice) : (item.estimatedCost != null ? fmt$(item.estimatedCost) : '—')}</div>
+      ${priceHtml}
       ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
     </div>`;
 }
@@ -1310,7 +1313,7 @@ const _CATEGORY_LABELS = {
 };
 
 function _shopRunningTotal(items) {
-  const unchecked = items.filter((_, i) => !checked[i]);
+  const unchecked = items.filter((_, i) => !checked[i] && !items[i]?.pantryStaple);
   const cost = unchecked.reduce((s, item) => s + (item.packPrice ?? item.estimatedCost ?? 0), 0);
   return { count: unchecked.length, cost };
 }
@@ -1342,12 +1345,12 @@ function renderShoppingItems(items, storeKey) {
 
   order.forEach(cat => {
     (groups[cat] || []).forEach(({ item, i }) => {
-      const inPantry = isPantryItem(item.name);
+      const inPantry = isPantryItem(item.name) || !!item.pantryStaple;
       if (inPantry && !hidePantry) {
         pantryItems.push({ item, i });
-      } else if (!inPantry || hidePantry === false) {
+      } else if (!inPantry) {
         if (!mainGroups[cat]) mainGroups[cat] = [];
-        if (!inPantry) mainGroups[cat].push({ item, i });
+        mainGroups[cat].push({ item, i });
       }
     });
   });
