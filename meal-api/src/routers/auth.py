@@ -13,6 +13,8 @@ from ..database import get_db
 from ..auth_utils import create_jwt, decode_jwt, get_current_user, require_user
 from ..limiter import limiter as _limiter
 
+_COOKIE_SECURE = os.getenv("APP_URL", "").startswith("https://")
+
 router = APIRouter()
 
 MAGIC_TOKEN_TTL_MINUTES = 30
@@ -111,8 +113,8 @@ def _set_auth_cookie(response: Response, user_id: str, email: str, session_id: s
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=_COOKIE_SECURE,
+        samesite="lax",
         max_age=SESSION_TTL_DAYS * 86400,
         path="/",
     )
