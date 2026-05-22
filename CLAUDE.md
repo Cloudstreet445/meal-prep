@@ -12,26 +12,25 @@ A weekly meal planning app for New Zealand households. Scrapes live prices from 
 | `meal-api/` | FastAPI + PyMongo | REST API, auth, plan gen, shopping, households |
 | `meal-pwa/` | nginx + vanilla JS (no framework) | SPA served as static files |
 | `paknsave-scraper/` | Python | Scrapes Pak'nSave product prices into MongoDB |
-| `paknsave-planner/` | Python | Standalone CLI meal planner (legacy) |
 
 MongoDB collections: `users`, `households`, `sessions`, `recipes`, `bundles`, `magic_tokens`, `password_reset_tokens`, `pantry_items`
 
 ---
 
-## Deployment — Oracle Cloud Always Free (self-hosted)
+## Deployment — TrueNAS (self-hosted, home server)
 
-**NOT Railway. NOT Vercel. Self-hosted on Oracle Cloud.**
+**NOT Railway. NOT Vercel. NOT Oracle. Self-hosted on TrueNAS.**
 
 - `docker-compose.yml` in repo root is the deploy mechanism
 - Services: `api`, `pwa`, `mongo` containers
-- SSH to Oracle server to deploy: pull, rebuild, `docker-compose up -d`
-- `meal-api/.env` is **gitignored** — must be maintained manually on the Oracle server via SSH
+- SSH to TrueNAS server to deploy: pull, rebuild, `docker-compose up -d`
+- `meal-api/.env` is **gitignored** — must be maintained manually on the TrueNAS server via SSH
 
 ### Environment variables (`meal-api/.env`)
 ```
 MONGO_URI=mongodb://paknsave_app:letmein@192.168.1.85:27017/paknsave-meals?authSource=admin
 JWT_SECRET=<strong secret — never the dev placeholder>
-APP_URL=https://<oracle-public-ip-or-domain>
+APP_URL=https://<truenas-ip-or-domain>
 ```
 In docker-compose, `MONGO_URI` is overridden inline to use the Docker network hostname `mongo` instead of `192.168.1.85`.
 
