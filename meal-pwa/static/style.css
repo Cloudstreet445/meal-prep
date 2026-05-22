@@ -475,54 +475,6 @@ main {
 }
 .section-label-row .section-label { margin-bottom: 0; }
 
-.generate-btn {
-  font-size: 0.72rem;
-  padding: 5px 10px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-.generate-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.generate-btn:disabled { opacity: 0.5; cursor: default; }
-
-.generate-status {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  padding: 10px 0;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.gen-step {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-.gen-step--done { color: var(--success); }
-.gen-step--active {
-  color: var(--accent);
-  animation: gen-pulse 1s ease-in-out infinite;
-}
-@keyframes gen-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-.gen-sep { color: var(--border); font-size: 10px; }
-.gen-error { color: var(--danger); }
-.gen-retry-btn {
-  background: none; border: none;
-  color: var(--accent); cursor: pointer;
-  font-family: inherit; font-size: inherit;
-  text-decoration: underline; padding: 0;
-}
 
 /* ═══════════════════════════════════════════════════════════
    VIEW 1 — THIS WEEK
@@ -2745,10 +2697,6 @@ main {
   white-space: nowrap;
 }
 
-/* ── Ensure generate-status text wraps ─────────────────────── */
-.generate-status {
-  word-break: break-word;
-}
 
 /* ── Focus states ─────────────────────────────────────────── */
 button:focus-visible,
@@ -3224,4 +3172,85 @@ button:focus-visible,
 .pantry-toggle {
   border-top: 1px solid var(--border);
   padding-top: 16px;
+}
+
+/* ── Generate overlay ───────────────── */
+.generate-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s;
+  z-index: 300;
+}
+.generate-overlay.active { opacity: 1; pointer-events: all; }
+.generate-sheet {
+  background: var(--surface-raised); border-radius: 20px;
+  width: min(92vw, 480px); max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  transform: translateY(24px); transition: transform 0.25s;
+}
+.generate-overlay.active .generate-sheet { transform: translateY(0); }
+
+/* Loading */
+.generate-loading { padding: 48px 24px; text-align: center; }
+.generate-spinner {
+  width: 56px; height: 56px; border-radius: 50%;
+  border: 4px solid var(--surface-sunken); border-top-color: var(--accent);
+  animation: generate-spin 0.9s linear infinite; margin: 0 auto 20px;
+}
+@keyframes generate-spin { to { transform: rotate(360deg); } }
+.generate-loading-text { color: var(--text-muted); font-size: 0.95rem; min-height: 1.4em; }
+
+/* Results */
+.generate-results { padding: 16px 16px 0; overflow-y: auto; flex: 1; }
+.generate-results-header {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px;
+}
+.generate-results-title { font-weight: 600; font-size: 1rem; }
+.generate-results-total { color: var(--text-muted); font-size: 0.85rem; }
+.generate-card-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* Meal card */
+.generate-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg2); border-radius: 12px; padding: 12px;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.generate-card__protein-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.generate-card__body { flex: 1; min-width: 0; }
+.generate-card__name {
+  display: block; font-size: 0.9rem; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.generate-card__meta { display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.generate-card__actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.generate-card__lock {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 0.95rem; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+  transition: color 0.15s;
+}
+.generate-card__lock.locked { color: var(--accent); }
+.generate-card__remove {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 0.9rem; cursor: pointer; padding: 4px 6px; border-radius: 6px;
+}
+.generate-card__remove:hover { color: var(--danger); background: rgba(239,68,68,0.08); }
+.generate-card--removing { opacity: 0; transform: translateX(48px); pointer-events: none; }
+
+/* Footer */
+.generate-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.generate-count { color: var(--text-muted); font-size: 0.85rem; }
+.generate-footer-actions { display: flex; gap: 8px; align-items: center; }
+.btn-regen { display: flex; align-items: center; gap: 4px; }
+
+/* Error */
+.generate-error { padding: 32px 24px; text-align: center; }
+.generate-error p { color: var(--danger); font-size: 0.9rem; margin-bottom: 12px; }
+.generate-retry-btn {
+  background: none; border: 1px solid var(--danger); color: var(--danger);
+  border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.85rem;
 }

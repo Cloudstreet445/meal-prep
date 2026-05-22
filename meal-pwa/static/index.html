@@ -57,12 +57,8 @@
         <div class="week-summary" id="week-summary"></div>
         <div class="section-label-row">
           <span class="section-label">This week's dinners</span>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="cooked-progress" id="cooked-progress"></span>
-            <button class="generate-btn" id="generate-btn" onclick="generatePlan()">Generate new plan</button>
-          </div>
+          <span class="cooked-progress" id="cooked-progress"></span>
         </div>
-        <div id="generate-status" class="generate-status" style="display:none"></div>
         <div id="meal-cards"></div>
       </div>
     </div>
@@ -570,6 +566,25 @@
 <!-- Household Settings Section (injected into settings sheet dynamically) -->
 
 <div id="toast" class="toast" aria-live="polite"></div>
+
+<div id="generate-overlay" class="generate-overlay" aria-modal="true" role="dialog">
+  <div id="generate-sheet" class="generate-sheet">
+    <div id="generate-loading" class="generate-loading">
+      <div class="generate-spinner"></div>
+      <p id="generate-loading-text" class="generate-loading-text"></p>
+    </div>
+    <div id="generate-results" class="generate-results" hidden></div>
+    <div id="generate-footer" class="generate-footer" hidden>
+      <span id="generate-count" class="generate-count"></span>
+      <div class="generate-footer-actions">
+        <button class="btn-ghost" onclick="closeGenerateOverlay()">Cancel</button>
+        <button id="generate-regen-btn" class="btn-ghost btn-regen" onclick="regenGeneratePlan()">↺ Regen</button>
+        <button id="generate-save-btn" class="btn-primary" onclick="saveGeneratePlan()">Save plan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/app.js"></script>
 </body>
 </html>

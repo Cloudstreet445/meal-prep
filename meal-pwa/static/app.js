@@ -2468,16 +2468,21 @@ document.getElementById('rating-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('rating-overlay')) closeRatingOverlay();
 });
 
+document.getElementById('generate-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('generate-overlay')) closeGenerateOverlay();
+});
+
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('picker-overlay').classList.contains('active'))  { closePicker();          return; }
-  if (document.getElementById('builder-overlay').classList.contains('active')) { closeBuilder();         return; }
-  if (document.getElementById('cook-mode').classList.contains('active'))       { _exitCookMode();        return; }
-  if (document.getElementById('rating-overlay').classList.contains('active'))  { closeRatingOverlay();   return; }
-  if (document.getElementById('nav-menu-sheet').classList.contains('active'))  { closeNavMenu();         return; }
-  if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();        return; }
-  if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();     return; }
-  if (document.getElementById('enhance-sheet').classList.contains('active'))   { closeEnhancements();    return; }
+  if (document.getElementById('generate-overlay').classList.contains('active')) { closeGenerateOverlay();  return; }
+  if (document.getElementById('picker-overlay').classList.contains('active'))   { closePicker();           return; }
+  if (document.getElementById('builder-overlay').classList.contains('active'))  { closeBuilder();          return; }
+  if (document.getElementById('cook-mode').classList.contains('active'))        { _exitCookMode();         return; }
+  if (document.getElementById('rating-overlay').classList.contains('active'))   { closeRatingOverlay();    return; }
+  if (document.getElementById('nav-menu-sheet').classList.contains('active'))   { closeNavMenu();          return; }
+  if (document.getElementById('settings-sheet').classList.contains('active'))   { closeSettings();         return; }
+  if (document.getElementById('bundle-sheet').classList.contains('active'))     { closeBundleSheet();      return; }
+  if (document.getElementById('enhance-sheet').classList.contains('active'))    { closeEnhancements();     return; }
 });
 
 // ── Swipe-to-dismiss for bottom sheets ──────────────────────────
@@ -2522,50 +2527,210 @@ document.addEventListener('keydown', e => {
 // ── Plan generation ──────────────────────────────────────────────
 
 let _generating = false;
+let _currentDraftWeek = null;
+let _generateAbortController = null;
+let _generateMsgTimer = null;
+
+// ── Generate overlay — loading text ─────────────────────────────
+const _GENERATE_MESSAGES = [
+  "Checking what's on special…",
+  "Balancing your budget…",
+  "Picking the best proteins…",
+  "Building your week…",
+  "Almost there…",
+];
+
+function _startGenerateCycler() {
+  let i = 0;
+  const el = document.getElementById('generate-loading-text');
+  if (el) el.textContent = _GENERATE_MESSAGES[0];
+  _generateMsgTimer = setInterval(() => {
+    i = (i + 1) % _GENERATE_MESSAGES.length;
+    if (el) el.textContent = _GENERATE_MESSAGES[i];
+  }, 1800);
+}
+
+function _stopGenerateCycler() {
+  clearInterval(_generateMsgTimer);
+  _generateMsgTimer = null;
+}
+
+function openGenerateOverlay() {
+  document.getElementById('generate-overlay').classList.add('active');
+  document.getElementById('generate-loading').hidden = false;
+  document.getElementById('generate-results').hidden = true;
+  document.getElementById('generate-footer').hidden = true;
+  _startGenerateCycler();
+}
+
+function closeGenerateOverlay() {
+  _stopGenerateCycler();
+  if (_generateAbortController) { _generateAbortController.abort(); _generateAbortController = null; }
+  document.getElementById('generate-overlay').classList.remove('active');
+}
 
 async function generatePlan() {
   if (_generating) return;
   _generating = true;
-
-  const fab = document.getElementById('tab-fab');
-  if (fab) { fab.classList.add('fab--spinning'); fab.disabled = true; }
-
-  const _steps = ['Checking prices', 'Selecting meals', 'Building plan'];
-  const statusEl = document.getElementById('generate-status');
-  let _stepIdx = 0;
-
-  function _showStep(i) {
-    if (!statusEl) return;
-    statusEl.style.display = 'block';
-    statusEl.innerHTML = _steps.map((s, j) =>
-      `<span class="gen-step ${j < i ? 'gen-step--done' : j === i ? 'gen-step--active' : ''}">${s}</span>`
-    ).join('<span class="gen-sep">›</span>');
-  }
-
-  _showStep(0);
-  const t1 = setTimeout(() => _showStep(1), 1500);
-  const t2 = setTimeout(() => _showStep(2), 3200);
-
+  openGenerateOverlay();
+  _generateAbortController = new AbortController();
   try {
-    const result = await apiPost('/plan/generate');
-    clearTimeout(t1); clearTimeout(t2);
-    if (statusEl) statusEl.style.display = 'none';
-    await notifyNewPlan({ week: result.week });
-    await loadWeek();
-    loadRecipes();
-    await loadShopping();
-    showToast(`Plan ready · ${result.recipeCount || plan?.recipes?.length || 5} meals · ${fmt$(result.estimatedTotal || plan?.estimatedTotal || 0)} est.`, 3000);
-  } catch (e) {
-    clearTimeout(t1); clearTimeout(t2);
-    if (statusEl) {
-      statusEl.style.display = 'block';
-      statusEl.innerHTML = `<span class="gen-error">Generation failed — <button class="gen-retry-btn" onclick="generatePlan()">Try again</button></span>`;
-    }
-    log('GENERATE', 'Error', { error: e.message });
+    const [result] = await Promise.all([
+      apiFetch('/plan/generate', { method: 'POST', params: { draft: 'true' } }),
+      new Promise(r => setTimeout(r, 1500)),
+    ]);
+    _stopGenerateCycler();
+    _currentDraftWeek = result.week;
+    _renderGenerateResults(result.recipes, result.estimatedTotal);
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    _stopGenerateCycler();
+    _showGenerateError();
   } finally {
     _generating = false;
-    if (fab) { fab.classList.remove('fab--spinning'); fab.disabled = false; }
+    _generateAbortController = null;
   }
+}
+
+// ── Generate overlay — results ───────────────────────────────────
+
+function _renderGenerateResults(recipes, total) {
+  const container = document.getElementById('generate-results');
+  container.innerHTML = `
+    <div class="generate-results-header">
+      <span class="generate-results-title">Your plan</span>
+      <span id="generate-results-total" class="generate-results-total">${fmt$(total)} est.</span>
+    </div>
+    <ul id="generate-card-list" class="generate-card-list"></ul>
+  `;
+  const list = document.getElementById('generate-card-list');
+  for (const r of recipes || []) list.appendChild(_buildGenerateCard(r));
+  document.getElementById('generate-loading').hidden = true;
+  container.hidden = false;
+  document.getElementById('generate-footer').hidden = false;
+  _updateGenerateSummary();
+}
+
+function _buildGenerateCard(r) {
+  const chip = _PROTEIN_CHIP[r.primaryProtein] || _PROTEIN_CHIP.other;
+  const li = document.createElement('li');
+  li.className = 'generate-card';
+  li.dataset.recipeId = r.recipeId;
+  li.dataset.locked = '0';
+  li.dataset.cost = r.estimatedCost || 0;
+  li.innerHTML = `
+    <div class="generate-card__protein-dot" style="background:${chip.color}"></div>
+    <div class="generate-card__body">
+      <span class="generate-card__name">${_esc(r.name)}</span>
+      <span class="generate-card__meta">${_esc(r.cookTime || '')} · ${fmt$(r.estimatedCost || 0)}</span>
+    </div>
+    <div class="generate-card__actions">
+      <button class="generate-card__lock" onclick="toggleGenerateCardLock(this)" aria-label="Lock meal" title="Lock — keep on regen">🔓</button>
+      <button class="generate-card__remove" onclick="removeGenerateCard(this)" aria-label="Remove">✕</button>
+    </div>
+  `;
+  attachGenerateCardSwipe(li);
+  return li;
+}
+
+function toggleGenerateCardLock(btn) {
+  const card = btn.closest('.generate-card');
+  const locked = card.dataset.locked === '1';
+  card.dataset.locked = locked ? '0' : '1';
+  btn.classList.toggle('locked', !locked);
+  btn.textContent = locked ? '🔓' : '🔒';
+  btn.title = locked ? 'Lock — keep on regen' : 'Unlock';
+}
+
+function removeGenerateCard(btn) {
+  const card = btn.closest('.generate-card');
+  card.classList.add('generate-card--removing');
+  card.addEventListener('transitionend', () => { card.remove(); _updateGenerateSummary(); }, { once: true });
+}
+
+function _updateGenerateSummary() {
+  const cards   = [...document.querySelectorAll('#generate-card-list .generate-card')];
+  const n       = cards.length;
+  const total   = cards.reduce((s, c) => s + parseFloat(c.dataset.cost || 0), 0);
+  const countEl = document.getElementById('generate-count');
+  const totalEl = document.getElementById('generate-results-total');
+  const saveBtn = document.getElementById('generate-save-btn');
+  if (countEl) countEl.textContent = `${n} meal${n !== 1 ? 's' : ''}`;
+  if (totalEl) totalEl.textContent = `${fmt$(total)} est.`;
+  if (saveBtn) {
+    saveBtn.disabled = n < 2;
+    saveBtn.textContent = n < 2 ? 'Need 2+ meals' : 'Save plan';
+  }
+}
+
+function attachGenerateCardSwipe(card) {
+  let startX, startY;
+  card.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+  }, { passive: true });
+  card.addEventListener('touchmove', e => {
+    const dx = e.touches[0].clientX - startX;
+    const dy = Math.abs(e.touches[0].clientY - startY);
+    if (dx < -20 && dy < 30) card.style.transform = `translateX(${Math.min(dx, 0)}px)`;
+    else card.style.transform = '';
+  }, { passive: true });
+  card.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    card.style.transform = '';
+    if (dx < -60) removeGenerateCard(card.querySelector('.generate-card__remove'));
+  });
+}
+
+// ── Generate overlay — regen + save ─────────────────────────────
+
+async function regenGeneratePlan() {
+  const allCards  = [...document.querySelectorAll('#generate-card-list .generate-card')];
+  const lockedIds = allCards.filter(c => c.dataset.locked === '1').map(c => c.dataset.recipeId);
+  const count     = allCards.length - lockedIds.length;
+  if (count === 0) return;
+
+  const regenBtn = document.getElementById('generate-regen-btn');
+  regenBtn.disabled = true;
+  try {
+    const params = new URLSearchParams({ draft: 'true', count });
+    lockedIds.forEach(id => params.append('locked_ids', id));
+    const result = await apiFetch(`/plan/generate?${params.toString()}`, { method: 'POST' });
+    allCards.filter(c => c.dataset.locked !== '1').forEach(c => c.remove());
+    const list = document.getElementById('generate-card-list');
+    for (const r of result.recipes || []) list.appendChild(_buildGenerateCard(r));
+    _updateGenerateSummary();
+  } catch {
+    showToast('Could not regenerate — try again');
+  } finally {
+    regenBtn.disabled = false;
+  }
+}
+
+async function saveGeneratePlan() {
+  const ids = [...document.querySelectorAll('#generate-card-list .generate-card')].map(c => c.dataset.recipeId);
+  if (ids.length < 2) return;
+  const saveBtn = document.getElementById('generate-save-btn');
+  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+  try {
+    await apiFetch('/bundle/custom', { method: 'POST', body: { recipeIds: ids, week: _currentDraftWeek } });
+    closeGenerateOverlay();
+    await Promise.all([loadWeek(), loadShopping()]);
+    showToast(`Plan saved · ${ids.length} meal${ids.length !== 1 ? 's' : ''}`);
+  } catch {
+    saveBtn.disabled = false; saveBtn.textContent = 'Save plan';
+    showToast('Could not save — try again');
+  }
+}
+
+function _showGenerateError() {
+  const loading = document.getElementById('generate-loading');
+  loading.innerHTML = `
+    <div class="generate-error">
+      <p>Something went wrong. Please try again.</p>
+      <button class="generate-retry-btn" onclick="generatePlan()">Retry</button>
+    </div>
+  `;
+  loading.hidden = false;
 }
 
 // ── Notifications ────────────────────────────────────────────────
