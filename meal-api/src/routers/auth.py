@@ -19,6 +19,8 @@ MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1
 SESSION_TTL_DAYS = 30
 APP_URL = os.getenv("APP_URL", "")
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "strict").lower()
 def _hash_pw(password: str) -> str:
     return _bcrypt_lib.hashpw(password.encode(), _bcrypt_lib.gensalt()).decode()
 
@@ -111,8 +113,8 @@ def _set_auth_cookie(response: Response, user_id: str, email: str, session_id: s
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
         max_age=SESSION_TTL_DAYS * 86400,
         path="/",
     )
