@@ -307,6 +307,15 @@ nav {
   to { transform: rotate(360deg); }
 }
 
+@keyframes slide-out-left {
+  to { transform: translateX(-60px); opacity: 0; }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(60px); opacity: 0; }
+}
+.meal-card--swapping-out { animation: slide-out-left 0.2s ease forwards; pointer-events: none; }
+.meal-card--swapping-in  { animation: slide-in-right 0.25s ease forwards; }
+
 /* ── Content Area ─────────────────────────────────────────── */
 main {
   flex: 1;

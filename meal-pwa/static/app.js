@@ -113,6 +113,7 @@ let checked       = {};
 let currentWeek   = null;
 let currentUser   = null;   // { userId, email, householdId } or null
 let _viewingBundleId = null; // session-only — never persisted across page loads
+let swapState = null;        // { recipeId, protein } when a meal-swap is in progress
 
 // ── Auth Router ───────────────────────────────────────────────────
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -1998,9 +1999,17 @@ function lastRating(recipe) {
 }
 
 function openSwapPicker(recipeId, protein) {
-  // Stub — full implementation in MEA-158 (single meal swap)
-  // For now open the recipe picker filtered to same protein
-  openRecipePicker && openRecipePicker({ swapRecipeId: recipeId, filterProtein: protein });
+  openRecipePicker({ swapRecipeId: recipeId, filterProtein: protein });
+}
+
+function openRecipePicker({ swapRecipeId, filterProtein }) {
+  swapState = { recipeId: swapRecipeId, protein: filterProtein };
+  pickerSlotIndex = -1;
+  pickerSearchText = '';
+  document.getElementById('picker-search-input').value = '';
+  document.getElementById('picker-title').textContent = 'Swap Meal';
+  renderPickerList('');
+  document.getElementById('picker-overlay').classList.add('active');
 }
 
 function showRatingOverlay(recipeId, recipeName) {
@@ -2419,15 +2428,26 @@ function openPicker(slotIndex) {
 }
 
 function closePicker() {
+  swapState = null;
+  document.getElementById('picker-title').textContent = 'Add a Recipe';
   document.getElementById('picker-overlay').classList.remove('active');
 }
 
 function renderPickerList(search) {
   let list = allRecipes;
+
+  if (swapState) {
+    // In swap mode: show same protein only, exclude meals already in the plan
+    const planIds = new Set((plan?.recipes || []).map(r => r.recipeId));
+    planIds.delete(swapState.recipeId); // allow re-selecting current meal
+    list = list.filter(r => inferProtein(r) === swapState.protein && !planIds.has(r.recipeId));
+  }
+
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(r => r.name.toLowerCase().includes(q));
   }
+
   document.getElementById('picker-list-items').innerHTML = list.length
     ? list.map(r => {
         const cost = (r.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
@@ -2444,7 +2464,13 @@ function renderPickerList(search) {
     : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
 }
 
-function pickRecipe(recipeId) {
+async function pickRecipe(recipeId) {
+  if (swapState) {
+    const oldId = swapState.recipeId;
+    closePicker();
+    await doSwap(oldId, recipeId);
+    return;
+  }
   if (pickerSlotIndex >= 0) {
     builderSlots[pickerSlotIndex] = recipeId;
     pickerSlotIndex = -1;
@@ -2458,6 +2484,72 @@ document.getElementById('picker-search-input').addEventListener('input', e => {
   pickerSearchText = e.target.value.trim();
   renderPickerList(pickerSearchText);
 });
+
+async function doSwap(oldRecipeId, newRecipeId) {
+  if (!plan?.bundleId) return;
+
+  const oldCard = document.querySelector(`.meal-card[data-recipe-id="${oldRecipeId}"]`);
+  if (oldCard) oldCard.classList.add('meal-card--swapping-out');
+
+  try {
+    const result = await apiFetch(`/bundle/${plan.bundleId}/swap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldRecipeId, newRecipeId }),
+    });
+
+    const newRecipe = allRecipes.find(r => r.recipeId === newRecipeId);
+    if (newRecipe) {
+      const idx = (plan.recipes || []).findIndex(r => r.recipeId === oldRecipeId);
+      if (idx >= 0) plan.recipes[idx] = newRecipe;
+    }
+    plan.estimatedTotal = result.estimatedTotal;
+
+    _refreshWeekSummary();
+    renderMealCards();
+
+    const newCard = document.querySelector(`.meal-card[data-recipe-id="${newRecipeId}"]`);
+    if (newCard) {
+      newCard.classList.add('meal-card--swapping-in');
+      newCard.addEventListener('animationend', () => newCard.classList.remove('meal-card--swapping-in'), { once: true });
+    }
+  } catch (e) {
+    renderMealCards();
+    showToast('Swap failed — try again', 3000);
+  }
+}
+
+function _refreshWeekSummary() {
+  const _total  = plan.estimatedTotal || 0;
+  const _budget = settings.budget || 60;
+  const _over   = _total > _budget;
+  const _diff   = Math.abs(_total - _budget);
+  const _pct    = Math.min((_total / _budget) * 100, 110);
+  const _barColor = _pct >= 100 ? 'var(--danger)' : _pct >= 80 ? 'var(--warning)' : 'var(--success)';
+
+  const pill = document.getElementById('budget-pill');
+  if (pill) pill.textContent = `${fmt$(_total)} / ${fmt$(_budget)}`;
+
+  document.getElementById('week-summary').innerHTML = `
+    <div class="week-stat-bar">
+      <div class="stat-card">
+        <div class="stat-value">${plan.recipes?.length || 0}</div>
+        <div class="stat-label">MEALS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${fmt$(_total)}</div>
+        <div class="stat-label">ESTIMATED</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:${_over ? 'var(--danger)' : 'var(--success)'}">${fmt$(_diff)}</div>
+        <div class="stat-label" style="color:${_over ? 'var(--danger)' : 'inherit'}">${_over ? 'OVER BUDGET' : 'REMAINING'}</div>
+      </div>
+    </div>
+    <div class="budget-progress-bar">
+      <div class="budget-progress-fill" style="width:${_pct}%;background:${_barColor}"></div>
+    </div>
+    <div class="week-summary-text">${_esc(plan.weekSummary)}</div>`;
+}
 
 // ── Global keyboard / backdrop handlers ─────────────────────────
 
