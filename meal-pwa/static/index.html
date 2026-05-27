@@ -98,28 +98,50 @@
           <div class="section-divider"></div>
         </div>
         <div class="library-controls">
-          <div class="recipe-search-wrap">
-            <span class="recipe-search-icon">⌕</span>
-            <input type="search" id="recipe-search" class="recipe-search" placeholder="Search recipes..." autocomplete="off">
-          </div>
-          <div class="filter-row">
-            <div class="filter-chips" id="protein-chips">
-              <div class="filter-chip active" data-protein="all">All</div>
-              <div class="filter-chip" data-protein="chicken">🍗 Chicken</div>
-              <div class="filter-chip" data-protein="beef">🥩 Beef</div>
-              <div class="filter-chip" data-protein="pork">🐷 Pork</div>
-              <div class="filter-chip" data-protein="lamb">🐑 Lamb</div>
-              <div class="filter-chip" data-protein="vegetarian">🥦 Vege</div>
+          <div class="recipe-search-bar-row">
+            <div class="recipe-search-wrap">
+              <span class="recipe-search-icon">⌕</span>
+              <input type="search" id="recipe-search" class="recipe-search" placeholder="Search recipes..." autocomplete="off">
             </div>
+            <button class="filter-toggle-btn" id="filter-toggle-btn" onclick="toggleFilterSheet()">
+              Filters<span class="filter-badge" id="filter-badge"></span>
+            </button>
           </div>
-          <div class="filter-row">
-            <div class="filter-chips" id="time-chips">
-              <div class="filter-chip active" data-time="all">Any time</div>
-              <div class="filter-chip" data-time="quick">⚡ &lt;30m</div>
-              <div class="filter-chip" data-time="medium">⏱ 30–60m</div>
-              <div class="filter-chip" data-time="slow">🕐 60m+</div>
+          <div class="filter-sheet" id="filter-sheet">
+            <div class="filter-group">
+              <div class="filter-group-label">Protein</div>
+              <div class="filter-chips" id="protein-chips">
+                <div class="filter-chip active" data-protein="all">All</div>
+                <div class="filter-chip" data-protein="chicken">🍗 Chicken</div>
+                <div class="filter-chip" data-protein="beef">🥩 Beef</div>
+                <div class="filter-chip" data-protein="pork">🐷 Pork</div>
+                <div class="filter-chip" data-protein="lamb">🐑 Lamb</div>
+                <div class="filter-chip" data-protein="vegetarian">🥦 Vege</div>
+                <div class="filter-chip" data-protein="fish">🐟 Fish</div>
+              </div>
             </div>
-            <div class="library-count" id="library-count"></div>
+            <div class="filter-group">
+              <div class="filter-group-label">Time</div>
+              <div class="filter-chips" id="time-chips">
+                <div class="filter-chip active" data-time="all">Any</div>
+                <div class="filter-chip" data-time="quick">⚡ &lt;30m</div>
+                <div class="filter-chip" data-time="medium">⏱ 30–60m</div>
+                <div class="filter-chip" data-time="slow">🕐 60m+</div>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">Budget</div>
+              <div class="filter-chips" id="cost-chips">
+                <div class="filter-chip active" data-cost="all">Any</div>
+                <div class="filter-chip" data-cost="low">💚 Under $10</div>
+                <div class="filter-chip" data-cost="mid">💛 $10–$20</div>
+                <div class="filter-chip" data-cost="high">🔴 $20+</div>
+              </div>
+            </div>
+            <div class="filter-sheet-footer">
+              <span class="library-count" id="library-count"></span>
+              <button class="filter-clear-btn" id="filter-clear-btn" onclick="clearAllFilters()">Clear all</button>
+            </div>
           </div>
         </div>
         <div class="state-msg" id="recipes-loading">

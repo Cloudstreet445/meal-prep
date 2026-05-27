@@ -846,6 +846,8 @@ let allRecipes    = [];     // full library across all weeks
 let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
+let activeCost    = 'all';
+let filterOpen    = false;
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
 const DEFAULT_STORE = 'paknsave-lower-hutt';
 
@@ -1521,6 +1523,24 @@ function renderWeekRecipesInTab() {
   }).join('');
 }
 
+function _recipeCard(meal) {
+  const rating = lastRating(meal);
+  const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
+               : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
+               : '';
+  const cost = (meal.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+  const costStr = cost > 0 ? ` · ${fmt$(cost)}` : '';
+  return `
+    <div class="recipe-list-item" onclick="openRecipe('${_esc(meal.recipeId)}')">
+      <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
+      <div style="flex:1">
+        <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
+        <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ing${costStr}</div>
+      </div>
+      <div style="color:var(--text-muted)">›</div>
+    </div>`;
+}
+
 function renderRecipeList() {
   let filtered = allRecipes;
 
@@ -1542,6 +1562,15 @@ function renderRecipeList() {
     });
   }
 
+  if (activeCost !== 'all') {
+    filtered = filtered.filter(r => {
+      const cost = (r.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+      if (activeCost === 'low')  return cost < 10;
+      if (activeCost === 'mid')  return cost >= 10 && cost < 20;
+      if (activeCost === 'high') return cost >= 20;
+    });
+  }
+
   const countEl = document.getElementById('library-count');
   if (countEl) countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''}`;
 
@@ -1549,29 +1578,76 @@ function renderRecipeList() {
     ? _emptyState({ icon: _SVG_SEARCH, title: `No recipes match "${recipeSearch}"`, subtitle: null, ctaLabel: 'Clear search', ctaFn: 'clearSearch()' })
     : _emptyState({ icon: _SVG_SEARCH, title: 'No recipes yet', subtitle: 'Recipes will appear here once added.' });
 
-  document.getElementById('recipe-list-items').innerHTML = filtered.length
-    ? filtered.map(meal => {
-        const rating = lastRating(meal);
-        const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
-                     : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
-                     : '';
-        return `
-          <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
-            <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
-            <div style="flex:1">
-              <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
-              <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients</div>
-            </div>
-            <div style="color:var(--text-muted)">›</div>
-          </div>`;
-      }).join('')
-    : noResultsHtml;
+  if (!filtered.length) {
+    document.getElementById('recipe-list-items').innerHTML = noResultsHtml;
+    return;
+  }
+
+  const shouldGroup = !recipeSearch && activeProtein === 'all';
+  if (!shouldGroup) {
+    document.getElementById('recipe-list-items').innerHTML = filtered.map(_recipeCard).join('');
+    return;
+  }
+
+  const planIds = new Set((plan?.recipes || []).map(r => r.recipeId));
+  const PROTEIN_ORDER = ['chicken', 'beef', 'pork', 'lamb', 'vegetarian', 'fish'];
+  const groups = [];
+
+  if (plan) {
+    const inPlan = filtered.filter(r => planIds.has(r.recipeId));
+    if (inPlan.length) groups.push({ label: `This week's plan (${inPlan.length})`, recipes: inPlan });
+  }
+
+  for (const p of PROTEIN_ORDER) {
+    const rs = filtered.filter(r => !planIds.has(r.recipeId) && inferProtein(r) === p);
+    if (rs.length) groups.push({ label: p.charAt(0).toUpperCase() + p.slice(1) + ` (${rs.length})`, recipes: rs });
+  }
+  const otherProteins = new Set(PROTEIN_ORDER);
+  const other = filtered.filter(r => !planIds.has(r.recipeId) && !otherProteins.has(inferProtein(r)));
+  if (other.length) groups.push({ label: `Other (${other.length})`, recipes: other });
+
+  document.getElementById('recipe-list-items').innerHTML = groups.map(g => `
+    <div class="recipe-group-header">${g.label}</div>
+    ${g.recipes.map(_recipeCard).join('')}
+  `).join('');
 }
 
 function clearSearch() {
   recipeSearch = '';
   const el = document.getElementById('recipe-search');
   if (el) el.value = '';
+  renderRecipeList();
+}
+
+function toggleFilterSheet() {
+  filterOpen = !filterOpen;
+  document.getElementById('filter-sheet').classList.toggle('open', filterOpen);
+  document.getElementById('filter-toggle-btn').classList.toggle('active', filterOpen);
+}
+
+function _activeFilterCount() {
+  return (activeProtein !== 'all' ? 1 : 0) + (activeCookTime !== 'all' ? 1 : 0) + (activeCost !== 'all' ? 1 : 0);
+}
+
+function _updateFilterBadge() {
+  const n = _activeFilterCount();
+  const badge = document.getElementById('filter-badge');
+  const clearBtn = document.getElementById('filter-clear-btn');
+  if (badge) {
+    badge.textContent = n > 0 ? String(n) : '';
+    badge.style.display = n > 0 ? 'inline-flex' : 'none';
+  }
+  if (clearBtn) clearBtn.style.display = n > 0 ? 'inline' : 'none';
+}
+
+function clearAllFilters() {
+  activeProtein = 'all';
+  activeCookTime = 'all';
+  activeCost = 'all';
+  document.querySelectorAll('#protein-chips .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.protein === 'all'));
+  document.querySelectorAll('#time-chips .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.time === 'all'));
+  document.querySelectorAll('#cost-chips .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.cost === 'all'));
+  _updateFilterBadge();
   renderRecipeList();
 }
 
@@ -1587,6 +1663,7 @@ document.getElementById('protein-chips').addEventListener('click', e => {
   activeProtein = chip.dataset.protein;
   document.querySelectorAll('#protein-chips .filter-chip').forEach(c =>
     c.classList.toggle('active', c === chip));
+  _updateFilterBadge();
   renderRecipeList();
 });
 
@@ -1596,6 +1673,17 @@ document.getElementById('time-chips').addEventListener('click', e => {
   activeCookTime = chip.dataset.time;
   document.querySelectorAll('#time-chips .filter-chip').forEach(c =>
     c.classList.toggle('active', c === chip));
+  _updateFilterBadge();
+  renderRecipeList();
+});
+
+document.getElementById('cost-chips').addEventListener('click', e => {
+  const chip = e.target.closest('[data-cost]');
+  if (!chip) return;
+  activeCost = chip.dataset.cost;
+  document.querySelectorAll('#cost-chips .filter-chip').forEach(c =>
+    c.classList.toggle('active', c === chip));
+  _updateFilterBadge();
   renderRecipeList();
 });
 

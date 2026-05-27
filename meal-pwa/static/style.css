@@ -929,10 +929,121 @@ main {
   top: 0;
   /* pull out of .view's 16px padding so it spans full width and sits flush */
   margin: -16px -16px 0;
-  padding: 12px 16px 0;
+  padding: 12px 16px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   z-index: 5;
+}
+
+/* ── Filter bar row ──────────────────────────────────────── */
+.recipe-search-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.recipe-search-bar-row .recipe-search-wrap {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.filter-toggle-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-toggle-btn.active {
+  border-color: var(--accent-dim);
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.filter-badge {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ── Filter sheet (collapsible) ──────────────────────────── */
+.filter-sheet {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease;
+}
+
+.filter-sheet.open {
+  max-height: 320px;
+}
+
+.filter-group {
+  padding-top: 10px;
+}
+
+.filter-group-label {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 0 6px;
+}
+
+.filter-sheet-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 10px;
+}
+
+.filter-clear-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Recipe group header ──────────────────────────────────── */
+.recipe-group-header {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 16px 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.recipe-group-header:first-child {
+  padding-top: 4px;
 }
 
 /* ── Search bar ───────────────────────────────────────────── */
@@ -971,19 +1082,13 @@ main {
 .recipe-search:focus { border-color: var(--accent-dim); }
 .recipe-search::placeholder { color: var(--text-muted); }
 
-/* ── Filter rows ─────────────────────────────────────────── */
-.filter-row {
-  display: flex;
-  align-items: center;
-  margin: 0 -16px;
-}
-
+/* ── Filter chips (inside filter sheet) ──────────────────── */
 .filter-chips {
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
   overflow-x: auto;
-  padding: 0 16px 10px;
+  padding-bottom: 4px;
   scrollbar-width: none;
   flex: 1;
 }
@@ -1017,7 +1122,6 @@ main {
 .library-count {
   font-size: 11px;
   color: var(--text-muted);
-  padding: 0 16px 10px;
   flex-shrink: 0;
   white-space: nowrap;
 }
