@@ -2173,6 +2173,7 @@ function selectStore(id) {
 }
 
 function openSettings() {
+  switchSettingsTab('planning');
   document.getElementById('settings-budget').value  = settings.budget;
   document.getElementById('settings-serves').value  = settings.serves;
   renderExclusionTags();
@@ -2181,6 +2182,13 @@ function openSettings() {
   renderSessionsSection();
   document.getElementById('settings-backdrop').classList.add('active');
   document.getElementById('settings-sheet').classList.add('active');
+}
+
+function switchSettingsTab(tab) {
+  document.querySelectorAll('.settings-tab').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.querySelectorAll('.settings-panel').forEach(panel =>
+    panel.classList.toggle('active', panel.id === `settings-panel-${tab}`));
 }
 
 function saveHidePantrySetting(value) {
