@@ -113,6 +113,7 @@ let checked       = {};
 let currentWeek   = null;
 let currentUser   = null;   // { userId, email, householdId } or null
 let _viewingBundleId = null; // session-only — never persisted across page loads
+let swapState = null;        // { recipeId, protein } when a meal-swap is in progress
 
 // ── Auth Router ───────────────────────────────────────────────────
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -845,6 +846,8 @@ let allRecipes    = [];     // full library across all weeks
 let recipeSearch  = '';
 let activeProtein = 'all';
 let activeCookTime = 'all';
+let activeCost    = 'all';
+let filterOpen    = false;
 let cookRecipeId  = null;   // recipeId of the meal currently in cook mode
 const DEFAULT_STORE = 'paknsave-lower-hutt';
 
@@ -1520,6 +1523,24 @@ function renderWeekRecipesInTab() {
   }).join('');
 }
 
+function _recipeCard(meal) {
+  const rating = lastRating(meal);
+  const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
+               : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
+               : '';
+  const cost = (meal.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+  const costStr = cost > 0 ? ` · ${fmt$(cost)}` : '';
+  return `
+    <div class="recipe-list-item" onclick="openRecipe('${_esc(meal.recipeId)}')">
+      <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
+      <div style="flex:1">
+        <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
+        <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ing${costStr}</div>
+      </div>
+      <div style="color:var(--text-muted)">›</div>
+    </div>`;
+}
+
 function renderRecipeList() {
   let filtered = allRecipes;
 
@@ -1541,6 +1562,15 @@ function renderRecipeList() {
     });
   }
 
+  if (activeCost !== 'all') {
+    filtered = filtered.filter(r => {
+      const cost = (r.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+      if (activeCost === 'low')  return cost < 10;
+      if (activeCost === 'mid')  return cost >= 10 && cost < 20;
+      if (activeCost === 'high') return cost >= 20;
+    });
+  }
+
   const countEl = document.getElementById('library-count');
   if (countEl) countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''}`;
 
@@ -1548,29 +1578,76 @@ function renderRecipeList() {
     ? _emptyState({ icon: _SVG_SEARCH, title: `No recipes match "${recipeSearch}"`, subtitle: null, ctaLabel: 'Clear search', ctaFn: 'clearSearch()' })
     : _emptyState({ icon: _SVG_SEARCH, title: 'No recipes yet', subtitle: 'Recipes will appear here once added.' });
 
-  document.getElementById('recipe-list-items').innerHTML = filtered.length
-    ? filtered.map(meal => {
-        const rating = lastRating(meal);
-        const badge  = rating === 1  ? '<span class="recipe-rating-badge up">👍</span>'
-                     : rating === -1 ? '<span class="recipe-rating-badge down">👎</span>'
-                     : '';
-        return `
-          <div class="recipe-list-item" onclick="openRecipe('${meal.recipeId}')">
-            <div class="recipe-num">${PROTEIN_EMOJI[inferProtein(meal)] || '🍽'}</div>
-            <div style="flex:1">
-              <div class="recipe-list-name">${_esc(meal.name)}${badge}</div>
-              <div class="recipe-list-meta">⏱ ${_esc(meal.cookTime)} · ${meal.ingredients?.length || 0} ingredients</div>
-            </div>
-            <div style="color:var(--text-muted)">›</div>
-          </div>`;
-      }).join('')
-    : noResultsHtml;
+  if (!filtered.length) {
+    document.getElementById('recipe-list-items').innerHTML = noResultsHtml;
+    return;
+  }
+
+  const shouldGroup = !recipeSearch && activeProtein === 'all';
+  if (!shouldGroup) {
+    document.getElementById('recipe-list-items').innerHTML = filtered.map(_recipeCard).join('');
+    return;
+  }
+
+  const planIds = new Set((plan?.recipes || []).map(r => r.recipeId));
+  const PROTEIN_ORDER = ['chicken', 'beef', 'pork', 'lamb', 'vegetarian', 'fish'];
+  const groups = [];
+
+  if (plan) {
+    const inPlan = filtered.filter(r => planIds.has(r.recipeId));
+    if (inPlan.length) groups.push({ label: `This week's plan (${inPlan.length})`, recipes: inPlan });
+  }
+
+  for (const p of PROTEIN_ORDER) {
+    const rs = filtered.filter(r => !planIds.has(r.recipeId) && inferProtein(r) === p);
+    if (rs.length) groups.push({ label: p.charAt(0).toUpperCase() + p.slice(1) + ` (${rs.length})`, recipes: rs });
+  }
+  const otherProteins = new Set(PROTEIN_ORDER);
+  const other = filtered.filter(r => !planIds.has(r.recipeId) && !otherProteins.has(inferProtein(r)));
+  if (other.length) groups.push({ label: `Other (${other.length})`, recipes: other });
+
+  document.getElementById('recipe-list-items').innerHTML = groups.map(g => `
+    <div class="recipe-group-header">${g.label}</div>
+    ${g.recipes.map(_recipeCard).join('')}
+  `).join('');
 }
 
 function clearSearch() {
   recipeSearch = '';
   const el = document.getElementById('recipe-search');
   if (el) el.value = '';
+  renderRecipeList();
+}
+
+function toggleFilterSheet() {
+  filterOpen = !filterOpen;
+  document.getElementById('filter-sheet').classList.toggle('open', filterOpen);
+  document.getElementById('filter-toggle-btn').classList.toggle('active', filterOpen);
+}
+
+function _activeFilterCount() {
+  return (activeProtein !== 'all' ? 1 : 0) + (activeCookTime !== 'all' ? 1 : 0) + (activeCost !== 'all' ? 1 : 0);
+}
+
+function _updateFilterBadge() {
+  const n = _activeFilterCount();
+  const badge = document.getElementById('filter-badge');
+  const clearBtn = document.getElementById('filter-clear-btn');
+  if (badge) {
+    badge.textContent = n > 0 ? String(n) : '';
+    badge.style.display = n > 0 ? 'inline-flex' : 'none';
+  }
+  if (clearBtn) clearBtn.style.display = n > 0 ? 'inline' : 'none';
+}
+
+function clearAllFilters() {
+  activeProtein = 'all';
+  activeCookTime = 'all';
+  activeCost = 'all';
+  document.querySelectorAll('#protein-chips .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.protein === 'all'));
+  document.querySelectorAll('#time-chips .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.time === 'all'));
+  document.querySelectorAll('#cost-chips .filter-chip').forEach(c => c.classList.toggle('active', c.dataset.cost === 'all'));
+  _updateFilterBadge();
   renderRecipeList();
 }
 
@@ -1586,6 +1663,7 @@ document.getElementById('protein-chips').addEventListener('click', e => {
   activeProtein = chip.dataset.protein;
   document.querySelectorAll('#protein-chips .filter-chip').forEach(c =>
     c.classList.toggle('active', c === chip));
+  _updateFilterBadge();
   renderRecipeList();
 });
 
@@ -1595,6 +1673,17 @@ document.getElementById('time-chips').addEventListener('click', e => {
   activeCookTime = chip.dataset.time;
   document.querySelectorAll('#time-chips .filter-chip').forEach(c =>
     c.classList.toggle('active', c === chip));
+  _updateFilterBadge();
+  renderRecipeList();
+});
+
+document.getElementById('cost-chips').addEventListener('click', e => {
+  const chip = e.target.closest('[data-cost]');
+  if (!chip) return;
+  activeCost = chip.dataset.cost;
+  document.querySelectorAll('#cost-chips .filter-chip').forEach(c =>
+    c.classList.toggle('active', c === chip));
+  _updateFilterBadge();
   renderRecipeList();
 });
 
@@ -1998,9 +2087,17 @@ function lastRating(recipe) {
 }
 
 function openSwapPicker(recipeId, protein) {
-  // Stub — full implementation in MEA-158 (single meal swap)
-  // For now open the recipe picker filtered to same protein
-  openRecipePicker && openRecipePicker({ swapRecipeId: recipeId, filterProtein: protein });
+  openRecipePicker({ swapRecipeId: recipeId, filterProtein: protein });
+}
+
+function openRecipePicker({ swapRecipeId, filterProtein }) {
+  swapState = { recipeId: swapRecipeId, protein: filterProtein };
+  pickerSlotIndex = -1;
+  pickerSearchText = '';
+  document.getElementById('picker-search-input').value = '';
+  document.getElementById('picker-title').textContent = 'Swap Meal';
+  renderPickerList('');
+  document.getElementById('picker-overlay').classList.add('active');
 }
 
 function showRatingOverlay(recipeId, recipeName) {
@@ -2076,6 +2173,7 @@ function selectStore(id) {
 }
 
 function openSettings() {
+  switchSettingsTab('planning');
   document.getElementById('settings-budget').value  = settings.budget;
   document.getElementById('settings-serves').value  = settings.serves;
   renderExclusionTags();
@@ -2084,6 +2182,13 @@ function openSettings() {
   renderSessionsSection();
   document.getElementById('settings-backdrop').classList.add('active');
   document.getElementById('settings-sheet').classList.add('active');
+}
+
+function switchSettingsTab(tab) {
+  document.querySelectorAll('.settings-tab').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.querySelectorAll('.settings-panel').forEach(panel =>
+    panel.classList.toggle('active', panel.id === `settings-panel-${tab}`));
 }
 
 function saveHidePantrySetting(value) {
@@ -2419,15 +2524,26 @@ function openPicker(slotIndex) {
 }
 
 function closePicker() {
+  swapState = null;
+  document.getElementById('picker-title').textContent = 'Add a Recipe';
   document.getElementById('picker-overlay').classList.remove('active');
 }
 
 function renderPickerList(search) {
   let list = allRecipes;
+
+  if (swapState) {
+    // In swap mode: show same protein only, exclude meals already in the plan
+    const planIds = new Set((plan?.recipes || []).map(r => r.recipeId));
+    planIds.delete(swapState.recipeId); // allow re-selecting current meal
+    list = list.filter(r => inferProtein(r) === swapState.protein && !planIds.has(r.recipeId));
+  }
+
   if (search) {
     const q = search.toLowerCase();
     list = list.filter(r => r.name.toLowerCase().includes(q));
   }
+
   document.getElementById('picker-list-items').innerHTML = list.length
     ? list.map(r => {
         const cost = (r.ingredients || []).reduce((s, i) => s + (i.estimatedCost || 0), 0);
@@ -2444,7 +2560,13 @@ function renderPickerList(search) {
     : '<div class="state-msg" style="padding-top:32px"><span class="icon">🔍</span>No recipes match</div>';
 }
 
-function pickRecipe(recipeId) {
+async function pickRecipe(recipeId) {
+  if (swapState) {
+    const oldId = swapState.recipeId;
+    closePicker();
+    await doSwap(oldId, recipeId);
+    return;
+  }
   if (pickerSlotIndex >= 0) {
     builderSlots[pickerSlotIndex] = recipeId;
     pickerSlotIndex = -1;
@@ -2458,6 +2580,72 @@ document.getElementById('picker-search-input').addEventListener('input', e => {
   pickerSearchText = e.target.value.trim();
   renderPickerList(pickerSearchText);
 });
+
+async function doSwap(oldRecipeId, newRecipeId) {
+  if (!plan?.bundleId) return;
+
+  const oldCard = document.querySelector(`.meal-card[data-recipe-id="${oldRecipeId}"]`);
+  if (oldCard) oldCard.classList.add('meal-card--swapping-out');
+
+  try {
+    const result = await apiFetch(`/bundle/${plan.bundleId}/swap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldRecipeId, newRecipeId }),
+    });
+
+    const newRecipe = allRecipes.find(r => r.recipeId === newRecipeId);
+    if (newRecipe) {
+      const idx = (plan.recipes || []).findIndex(r => r.recipeId === oldRecipeId);
+      if (idx >= 0) plan.recipes[idx] = newRecipe;
+    }
+    plan.estimatedTotal = result.estimatedTotal;
+
+    _refreshWeekSummary();
+    renderMealCards();
+
+    const newCard = document.querySelector(`.meal-card[data-recipe-id="${newRecipeId}"]`);
+    if (newCard) {
+      newCard.classList.add('meal-card--swapping-in');
+      newCard.addEventListener('animationend', () => newCard.classList.remove('meal-card--swapping-in'), { once: true });
+    }
+  } catch (e) {
+    renderMealCards();
+    showToast('Swap failed — try again', 3000);
+  }
+}
+
+function _refreshWeekSummary() {
+  const _total  = plan.estimatedTotal || 0;
+  const _budget = settings.budget || 60;
+  const _over   = _total > _budget;
+  const _diff   = Math.abs(_total - _budget);
+  const _pct    = Math.min((_total / _budget) * 100, 110);
+  const _barColor = _pct >= 100 ? 'var(--danger)' : _pct >= 80 ? 'var(--warning)' : 'var(--success)';
+
+  const pill = document.getElementById('budget-pill');
+  if (pill) pill.textContent = `${fmt$(_total)} / ${fmt$(_budget)}`;
+
+  document.getElementById('week-summary').innerHTML = `
+    <div class="week-stat-bar">
+      <div class="stat-card">
+        <div class="stat-value">${plan.recipes?.length || 0}</div>
+        <div class="stat-label">MEALS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${fmt$(_total)}</div>
+        <div class="stat-label">ESTIMATED</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:${_over ? 'var(--danger)' : 'var(--success)'}">${fmt$(_diff)}</div>
+        <div class="stat-label" style="color:${_over ? 'var(--danger)' : 'inherit'}">${_over ? 'OVER BUDGET' : 'REMAINING'}</div>
+      </div>
+    </div>
+    <div class="budget-progress-bar">
+      <div class="budget-progress-fill" style="width:${_pct}%;background:${_barColor}"></div>
+    </div>
+    <div class="week-summary-text">${_esc(plan.weekSummary)}</div>`;
+}
 
 // ── Global keyboard / backdrop handlers ─────────────────────────
 

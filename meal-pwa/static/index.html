@@ -98,28 +98,50 @@
           <div class="section-divider"></div>
         </div>
         <div class="library-controls">
-          <div class="recipe-search-wrap">
-            <span class="recipe-search-icon">⌕</span>
-            <input type="search" id="recipe-search" class="recipe-search" placeholder="Search recipes..." autocomplete="off">
-          </div>
-          <div class="filter-row">
-            <div class="filter-chips" id="protein-chips">
-              <div class="filter-chip active" data-protein="all">All</div>
-              <div class="filter-chip" data-protein="chicken">🍗 Chicken</div>
-              <div class="filter-chip" data-protein="beef">🥩 Beef</div>
-              <div class="filter-chip" data-protein="pork">🐷 Pork</div>
-              <div class="filter-chip" data-protein="lamb">🐑 Lamb</div>
-              <div class="filter-chip" data-protein="vegetarian">🥦 Vege</div>
+          <div class="recipe-search-bar-row">
+            <div class="recipe-search-wrap">
+              <span class="recipe-search-icon">⌕</span>
+              <input type="search" id="recipe-search" class="recipe-search" placeholder="Search recipes..." autocomplete="off">
             </div>
+            <button class="filter-toggle-btn" id="filter-toggle-btn" onclick="toggleFilterSheet()">
+              Filters<span class="filter-badge" id="filter-badge"></span>
+            </button>
           </div>
-          <div class="filter-row">
-            <div class="filter-chips" id="time-chips">
-              <div class="filter-chip active" data-time="all">Any time</div>
-              <div class="filter-chip" data-time="quick">⚡ &lt;30m</div>
-              <div class="filter-chip" data-time="medium">⏱ 30–60m</div>
-              <div class="filter-chip" data-time="slow">🕐 60m+</div>
+          <div class="filter-sheet" id="filter-sheet">
+            <div class="filter-group">
+              <div class="filter-group-label">Protein</div>
+              <div class="filter-chips" id="protein-chips">
+                <div class="filter-chip active" data-protein="all">All</div>
+                <div class="filter-chip" data-protein="chicken">🍗 Chicken</div>
+                <div class="filter-chip" data-protein="beef">🥩 Beef</div>
+                <div class="filter-chip" data-protein="pork">🐷 Pork</div>
+                <div class="filter-chip" data-protein="lamb">🐑 Lamb</div>
+                <div class="filter-chip" data-protein="vegetarian">🥦 Vege</div>
+                <div class="filter-chip" data-protein="fish">🐟 Fish</div>
+              </div>
             </div>
-            <div class="library-count" id="library-count"></div>
+            <div class="filter-group">
+              <div class="filter-group-label">Time</div>
+              <div class="filter-chips" id="time-chips">
+                <div class="filter-chip active" data-time="all">Any</div>
+                <div class="filter-chip" data-time="quick">⚡ &lt;30m</div>
+                <div class="filter-chip" data-time="medium">⏱ 30–60m</div>
+                <div class="filter-chip" data-time="slow">🕐 60m+</div>
+              </div>
+            </div>
+            <div class="filter-group">
+              <div class="filter-group-label">Budget</div>
+              <div class="filter-chips" id="cost-chips">
+                <div class="filter-chip active" data-cost="all">Any</div>
+                <div class="filter-chip" data-cost="low">💚 Under $10</div>
+                <div class="filter-chip" data-cost="mid">💛 $10–$20</div>
+                <div class="filter-chip" data-cost="high">🔴 $20+</div>
+              </div>
+            </div>
+            <div class="filter-sheet-footer">
+              <span class="library-count" id="library-count"></span>
+              <button class="filter-clear-btn" id="filter-clear-btn" onclick="clearAllFilters()">Clear all</button>
+            </div>
           </div>
         </div>
         <div class="state-msg" id="recipes-loading">
@@ -242,60 +264,74 @@
 <div class="sheet-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
 <div class="bottom-sheet" id="settings-sheet">
   <div class="sheet-handle"></div>
-  <div class="sheet-title">Settings</div>
+  <div class="sheet-header">
+    <div class="sheet-title">Settings</div>
+    <button class="sheet-close-btn" onclick="closeSettings()">✕</button>
+  </div>
+  <div class="settings-tabs" id="settings-tabs">
+    <button class="settings-tab active" data-tab="planning" onclick="switchSettingsTab('planning')">Planning</button>
+    <button class="settings-tab" data-tab="household" onclick="switchSettingsTab('household')">Household</button>
+    <button class="settings-tab" data-tab="account" onclick="switchSettingsTab('account')">Account</button>
+  </div>
   <div class="sheet-content">
-    <div class="settings-group-label">Planning</div>
-    <div class="settings-section">
-      <div class="settings-label">Weekly Budget</div>
-      <div class="settings-input-row">
-        <span class="settings-affix">$</span>
-        <input type="number" id="settings-budget" class="settings-num-input" min="20" max="500" step="5">
-        <span class="settings-affix">NZD</span>
+    <!-- Tab 1: Planning -->
+    <div class="settings-panel active" id="settings-panel-planning">
+      <div class="settings-section">
+        <div class="settings-label">Weekly Budget</div>
+        <div class="settings-input-row">
+          <span class="settings-affix">$</span>
+          <input type="number" id="settings-budget" class="settings-num-input" min="20" max="500" step="5">
+          <span class="settings-affix">NZD</span>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">Household Size</div>
+        <div class="settings-input-row">
+          <input type="number" id="settings-serves" class="settings-num-input" min="1" max="10" step="1">
+          <span class="settings-affix">people</span>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">PAK'nSave Store</div>
+        <div class="settings-hint">Which store's prices to use for your shopping list</div>
+        <div class="store-options" id="settings-store-options"></div>
+      </div>
+      <div class="settings-group-divider"></div>
+      <div class="settings-group-label">Preferences</div>
+      <div class="settings-section">
+        <div class="settings-label">Ingredient Exclusions</div>
+        <div class="settings-hint">These will be skipped when generating new plans</div>
+        <div class="settings-exclusion-tags" id="settings-exclusion-tags"></div>
+        <div class="settings-exclusion-add">
+          <input type="text" id="settings-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom">
+          <button class="settings-add-btn" id="settings-exclusion-btn">+</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">Pantry Staples</div>
+        <div class="settings-hint">Items you always have at home — dimmed or hidden on your shopping list</div>
+        <button class="settings-link-btn" onclick="closeSettings(); switchTab('pantry')">Manage pantry →</button>
+      </div>
+      <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
+    </div>
+    <!-- Tab 2: Household -->
+    <div class="settings-panel" id="settings-panel-household">
+      <div id="household-section">
+        <div class="settings-hint">Loading…</div>
       </div>
     </div>
-    <div class="settings-section">
-      <div class="settings-label">Household Size</div>
-      <div class="settings-input-row">
-        <input type="number" id="settings-serves" class="settings-num-input" min="1" max="10" step="1">
-        <span class="settings-affix">people</span>
+    <!-- Tab 3: Account -->
+    <div class="settings-panel" id="settings-panel-account">
+      <div class="settings-section" id="account-section" style="display:none">
+        <div class="settings-label">Account</div>
+        <div class="settings-hint" id="account-email"></div>
+        <button class="settings-link-btn" onclick="logout()">Sign out</button>
       </div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-label">PAK'nSave Store</div>
-      <div class="settings-hint">Which store's prices to use for your shopping list</div>
-      <div class="store-options" id="settings-store-options"></div>
-    </div>
-    <div class="settings-group-divider"></div>
-    <div class="settings-group-label">Preferences</div>
-    <div class="settings-section">
-      <div class="settings-label">Ingredient Exclusions</div>
-      <div class="settings-hint">These will be skipped when generating new plans</div>
-      <div class="settings-exclusion-tags" id="settings-exclusion-tags"></div>
-      <div class="settings-exclusion-add">
-        <input type="text" id="settings-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom">
-        <button class="settings-add-btn" id="settings-exclusion-btn">+</button>
+      <div class="settings-section" id="sessions-section" style="display:none">
+        <div class="settings-label">Active Sessions</div>
+        <div id="sessions-list"></div>
+        <button class="settings-link-btn danger-btn" style="margin-top:8px" onclick="revokeAllSessions()">Log out of all devices</button>
       </div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-label">Pantry Staples</div>
-      <div class="settings-hint">Items you always have at home — dimmed or hidden on your shopping list</div>
-      <button class="settings-link-btn" onclick="closeSettings(); switchTab('pantry')">Manage pantry →</button>
-    </div>
-    <button class="builder-save-btn" id="settings-save-btn">Save Settings</button>
-    <div class="settings-group-divider"></div>
-    <div class="settings-group-label">Household</div>
-    <div id="household-section">
-      <div class="settings-hint" id="household-loading">Loading…</div>
-    </div>
-    <div class="settings-section" id="account-section" style="display:none">
-      <div class="settings-label">Account</div>
-      <div class="settings-hint" id="account-email"></div>
-      <button class="settings-link-btn" onclick="logout()">Sign out</button>
-    </div>
-    <div class="settings-section" id="sessions-section" style="display:none">
-      <div class="settings-label">Active Sessions</div>
-      <div id="sessions-list"></div>
-      <button class="settings-link-btn danger-btn" style="margin-top:8px" onclick="revokeAllSessions()">Log out of all devices</button>
     </div>
   </div>
 </div>
