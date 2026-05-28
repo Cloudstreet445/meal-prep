@@ -1744,12 +1744,24 @@ function openRecipe(id) {
         </div>`;
     }).join('');
 
+  // Cost breakdown table
+  const _PROTEIN_RE = /chicken|beef|pork|lamb|mince|steak|fillet|breast|thigh|sausage|bacon|salmon|tuna|fish|prawn|shrimp/i;
+  const proteinCost = (meal.ingredients || []).filter(i => _PROTEIN_RE.test(i.name)).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+  const vegCost     = (meal.ingredients || []).filter(i => !_PROTEIN_RE.test(i.name)).reduce((s, i) => s + (i.estimatedCost || 0), 0);
+  const totalCost   = proteinCost + vegCost;
+  document.getElementById('detail-cost-table').innerHTML = totalCost > 0 ? `
+    <div class="recipe-cost-table">
+      ${proteinCost > 0 ? `<div class="recipe-cost-row"><span>Protein</span><span>${fmt$(proteinCost)}</span></div>` : ''}
+      ${vegCost > 0 ? `<div class="recipe-cost-row"><span>Veg &amp; pantry</span><span>${fmt$(vegCost)}</span></div>` : ''}
+      <div class="recipe-cost-row recipe-cost-row--total"><span>Estimated total</span><span>${fmt$(totalCost)}</span></div>
+    </div>` : '';
+
   // Method: step cards with large step number
   const steps = meal.method || [];
   document.getElementById('method-label').style.display = steps.length ? '' : 'none';
   document.getElementById('detail-method').innerHTML =
     steps.map((s, i) => `
-      <li class="method-step method-step--card">
+      <li class="method-step method-step--card" onclick="this.classList.toggle('checked')">
         <span class="method-step__num">${i + 1}</span>
         <span class="method-step__text">${highlightCookingTerms(_esc(s))}</span>
       </li>`).join('');

@@ -1200,12 +1200,12 @@ main {
 
 .recipe-title {
   font-family: 'Fraunces', serif;
-  font-size: var(--text-3xl);
+  font-size: 24px;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.2;
   color: var(--text);
-  margin-bottom: 14px;
-  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
 }
 
 .recipe-pills {
@@ -1285,23 +1285,58 @@ main {
 .method-step--card {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 14px 0;
+  gap: 14px;
+  padding: 16px 0;
   border-bottom: 1px solid var(--border);
   list-style: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur-fast) var(--ease);
 }
 .method-step--card:last-child { border-bottom: none; }
+.method-step--card.checked { opacity: 0.4; }
+.method-step--card.checked .method-step__text { text-decoration: line-through; }
+.method-step--card.checked .method-step__num { color: var(--text-muted); }
+
 .method-step__num {
   font-family: 'Fraunces', serif;
-  font-size: 36px;
+  font-size: 40px;
   line-height: 1;
   color: var(--accent-dim);
-  min-width: 32px;
+  min-width: 36px;
   text-align: center;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
 }
-.method-step__text { flex: 1; padding-top: 4px; }
+.method-step__text {
+  flex: 1;
+  padding-top: 6px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Cost breakdown table */
+.recipe-cost-table {
+  margin: 12px 0 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.recipe-cost-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.recipe-cost-row:last-child { border-bottom: none; }
+.recipe-cost-row--total {
+  color: var(--text-dim);
+  font-weight: 600;
+  background: var(--surface-sunken);
+}
 
 /* Rating badge on detail view */
 .recipe-detail-rating {
