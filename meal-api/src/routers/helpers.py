@@ -442,7 +442,38 @@ def _word_score(product_name: str, words: list[str]) -> int:
     return score
 
 
-_PRODUCT_PROJECTION = {"name": 1, "brand": 1, "sizeGrams": 1}
+def _match_score(product: dict, words: list[str]) -> int:
+    """Relevance score for a product against ingredient words. Prefers the
+    scraper's precomputed searchTokens (already brand/qualifier/unit-stripped,
+    so matching is far cleaner) and falls back to the raw name for products
+    scraped before tokens were stored."""
+    tokens = product.get("searchTokens")
+    if tokens:
+        tokset = set(tokens)
+        ing = set(words)
+        score = sum(1 for w in words if w in tokset)
+        # Still penalise processed/derivative tokens not asked for (e.g. a bare
+        # "garlic" ingredient matching "Garlic Paste").
+        score -= len((tokset & _PROCESSED_WORDS) - ing) * 2
+        return score
+    return _word_score(product.get("name", ""), words)
+
+
+_PRODUCT_PROJECTION = {"name": 1, "brand": 1, "sizeGrams": 1, "searchTokens": 1}
+
+
+def _candidate_query(words: list[str], price_prefix: str) -> dict:
+    """Match products by the ingredient's primary word against either the
+    scraper's clean searchTokens (brand/unit-stripped, MEA-111) or the raw
+    name (fallback for products scraped before tokens existed)."""
+    first = words[0]
+    return {
+        "$or": [
+            {"searchTokens": first},
+            {"name": re.compile(first, re.IGNORECASE)},
+        ],
+        price_prefix: {"$exists": True},
+    }
 
 
 def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g: float | None) -> dict | None:
@@ -475,7 +506,7 @@ def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g:
         "packs":      packs,
         "total_cost": round(total_cost, 2),
         "per_unit":   (raw_price / pack_g) if pack_g else raw_price,
-        "score":      _word_score(product["name"], words),
+        "score":      _match_score(product, words),
     }
 
 
@@ -568,7 +599,7 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None) 
 
     if best is None:
         candidates = list(pricing_db["products"].find(
-            {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
+            _candidate_query(words, price_prefix),
             projection,
             limit=30,
         ))
@@ -590,7 +621,7 @@ def _ingredient_alternatives(name: str, amount, pricing_db, store_id: str, limit
 
     price_prefix = f"storePrice.{store_id}"
     candidates = list(pricing_db["products"].find(
-        {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
+        _candidate_query(words, price_prefix),
         {**_PRODUCT_PROJECTION, price_prefix: 1},
         limit=30,
     ))

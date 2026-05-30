@@ -506,6 +506,23 @@ class TestShoppingExtras:
         assert chicken["amount"] == "0.5 kg"  # 1kg halved
         assert chicken["currentPrice"] == pytest.approx(4.5)  # 500/1000 × $9
 
+    def test_search_tokens_drive_matching(self, pricing_db):
+        # Brand-led name where the ingredient word isn't first; searchTokens
+        # (brand-stripped) still match, and the processed-word penalty steers
+        # away from "Garlic Paste" toward plain garlic.
+        pricing_db["products"].insert_many([
+            {"_id": "P-clove", "name": "Pams Fresh Garlic 500g", "sizeGrams": 500.0,
+             "searchTokens": ["garlic"],
+             "storePrice": {"paknsave-lower-hutt": {"currentPrice": 4.0, "isSpecial": False}}},
+            {"_id": "P-paste", "name": "Tegel Garlic Paste 200g", "sizeGrams": 200.0,
+             "searchTokens": ["garlic", "paste"],
+             "storePrice": {"paknsave-lower-hutt": {"currentPrice": 2.0, "isSpecial": False}}},
+        ])
+        alts = _ingredient_alternatives("Garlic", "100g", pricing_db, "paknsave-lower-hutt")
+        # Plain garlic ranks above the cheaper paste despite costing more,
+        # because "paste" is an unwanted processed token.
+        assert alts[0]["productId"] == "P-clove"
+
     def test_pantry_items_flagged_and_excluded_from_total(self, pricing_db):
         self._seed_two_brands(pricing_db)
         pantry = {_normalise_name("chicken breast")}
