@@ -1,8 +1,11 @@
 """Shared helper functions for bundle and shopping routes."""
 
+import logging
 import math
 import re
 from datetime import date as _date
+
+_log = logging.getLogger(__name__)
 
 
 _AMOUNT_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)$')
@@ -104,17 +107,28 @@ def _normalise_name(name: str) -> str:
     return re.sub(r'[^a-z0-9]', '', name.lower())
 
 
+# Centre-of-plate protein classes. Order matters: the first class whose
+# keyword appears wins, so meat is detected before plant proteins in mixed
+# dishes. "plant" and "fish" mean a veg/seafood meal still has a recognised
+# main — they are NOT lumped into "other" (which is reserved for meals with no
+# identifiable protein at the centre).
 _PROTEIN_KEYWORDS: dict[str, list[str]] = {
-    "chicken":    ["chicken"],
-    "pork":       ["pork", "sausage"],
-    "beef":       ["beef", "mince"],
-    "lamb":       ["lamb"],
-    "vegetarian": [],
+    "chicken": ["chicken"],
+    "pork":    ["pork", "sausage", "bacon", "ham"],
+    "beef":    ["beef", "mince", "steak"],
+    "lamb":    ["lamb"],
+    "fish":    ["fish", "salmon", "tuna", "prawn", "shrimp", "seafood", "mussel"],
+    "plant":   ["tofu", "tempeh", "lentil", "chickpea", "bean", "paneer", "halloumi", "egg", "falafel"],
 }
+
+# Rotation order also includes "other" (proteinless mains) as a last resort.
+_PROTEIN_CLASSES: tuple[str, ...] = tuple(_PROTEIN_KEYWORDS) + ("other",)
 
 
 def _infer_protein(recipe: dict) -> str:
-    """Return primaryProtein if set (v2 schema), otherwise infer from ingredient names."""
+    """Return the centre-of-plate protein class. Uses primaryProtein if set
+    (v2 schema), otherwise infers from ingredient/recipe names. Returns "other"
+    only when no protein is found — i.e. the meal has no clear main."""
     if recipe.get("primaryProtein"):
         p = recipe["primaryProtein"].lower()
         return p if p in _PROTEIN_KEYWORDS else "other"
@@ -275,7 +289,10 @@ def _select_from_library(
             else:
                 cheap_mult = 1.0
             special_mult = 1.15 if r["_onSpecial"] else 1.0
-            r["_score"] = recency * rating_mult * cheap_mult * special_mult
+            # Prefer meals with a clear protein at the centre of the plate;
+            # proteinless meals ("other") are deprioritised but not excluded.
+            main_mult = 0.5 if r["_protein"] == "other" else 1.0
+            r["_score"] = recency * rating_mult * cheap_mult * special_mult * main_mult
         else:
             r["_score"] = recency * rating_mult
 
@@ -288,7 +305,7 @@ def _select_from_library(
             (r["_last_used"] for r in candidates if r["_protein"] == protein),
             default="2000-01-01",
         )
-        for protein in ("chicken", "pork", "beef", "lamb", "other")
+        for protein in _PROTEIN_CLASSES
     }
     protein_order = sorted(protein_last_used, key=lambda p: protein_last_used[p])
 
@@ -544,14 +561,25 @@ def _apply_pricing(item: dict, best: dict) -> dict:
         item["unitPriceUnit"]  = sp.get("unitPriceUnit", "")
 
     # packPrice: whole-pack checkout cost — what the shopper actually spends
-    item["packPrice"] = min(round(best["total_cost"], 2), _PACK_COST_CAP)
+    raw_pack = round(best["total_cost"], 2)
+    item["packPrice"] = min(raw_pack, _PACK_COST_CAP)
 
     # currentPrice: proportional budget share (cheap staples stay cheap in estimates)
     if pack_g and needed_g and pack_g > 0:
         calculated = (needed_g / pack_g) * raw_price
     else:
         calculated = raw_price
-    item["currentPrice"] = min(round(calculated, 2), _INGREDIENT_COST_CAP)
+    raw_current = round(calculated, 2)
+    item["currentPrice"] = min(raw_current, _INGREDIENT_COST_CAP)
+
+    # A value over the cap almost always means a bad ingredient→product match.
+    # Cap to protect the total, but flag + log so it's visible instead of hidden.
+    if raw_pack > _PACK_COST_CAP or raw_current > _INGREDIENT_COST_CAP:
+        item["costWarning"] = True
+        _log.warning(
+            "Suspicious price for %r → matched %r: pack $%.2f, unit $%.2f (capped)",
+            item.get("name"), product.get("name"), raw_pack, raw_current,
+        )
 
     avg     = sp.get("avgPrice90d")
     current = item["currentPrice"]

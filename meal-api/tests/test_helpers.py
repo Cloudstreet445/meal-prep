@@ -506,6 +506,18 @@ class TestShoppingExtras:
         assert chicken["amount"] == "0.5 kg"  # 1kg halved
         assert chicken["currentPrice"] == pytest.approx(4.5)  # 500/1000 × $9
 
+    def test_absurd_price_is_flagged_and_capped(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "_id": "P-x", "name": "Truffle 1kg", "searchTokens": ["truffle"],
+            "sizeGrams": 1000.0,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 100.0, "isSpecial": False}},
+        })
+        item = {"name": "Truffle", "amount": "1kg"}
+        enriched = _enrich_ingredient(item, pricing_db, "paknsave-lower-hutt")
+        assert enriched["costWarning"] is True
+        assert enriched["packPrice"] == 60.0     # _PACK_COST_CAP
+        assert enriched["currentPrice"] == 20.0  # _INGREDIENT_COST_CAP
+
     def test_search_tokens_drive_matching(self, pricing_db):
         # Brand-led name where the ingredient word isn't first; searchTokens
         # (brand-stripped) still match, and the processed-word penalty steers
@@ -610,6 +622,26 @@ class TestInferProtein:
     def test_infers_from_recipe_name(self):
         r = _make_recipe("r1", "Chicken Curry", [("Onion", 1.0)])
         assert _infer_protein(r) == "chicken"
+
+    def test_plant_protein_from_chickpeas(self):
+        r = _make_recipe("r1", "Curry", [("Chickpeas", 2.0), ("Onion", 1.0)])
+        assert _infer_protein(r) == "plant"
+
+    def test_plant_protein_from_tofu(self):
+        r = _make_recipe("r1", "Stir Fry", [("Firm Tofu", 4.0)])
+        assert _infer_protein(r) == "plant"
+
+    def test_fish_protein_from_salmon(self):
+        r = _make_recipe("r1", "Bake", [("Salmon Fillet", 12.0)])
+        assert _infer_protein(r) == "fish"
+
+    def test_proteinless_meal_is_other(self):
+        r = _make_recipe("r1", "Garden Salad", [("Lettuce", 2.0), ("Tomato", 1.5)])
+        assert _infer_protein(r) == "other"
+
+    def test_meat_wins_over_plant_in_mixed_dish(self):
+        r = _make_recipe("r1", "Chilli", [("Beef Mince", 8.0), ("Beans", 1.0)])
+        assert _infer_protein(r) == "beef"
 
 
 # ── TestRecipeCost ─────────────────────────────────────────────────────────────
@@ -742,6 +774,18 @@ class TestSelectFromLibraryExtras:
         )
         assert result is not None
         assert all("vegetarian" in r.get("dietTags", []) for r in result)
+
+    def test_prefers_protein_centred_meal(self):
+        # With one slot, a meal with a protein at the centre should win over a
+        # proteinless one — "other" is rotated last.
+        library = [
+            _make_recipe("salad", "Garden Salad", [("Lettuce", 2.0), ("Tomato", 1.5)]),
+            _make_recipe("chick", "Chicken Soup", [("Chicken", 6.0)]),
+        ]
+        db = FakeDB(library)
+        result = _select_from_library(db, budget=60, exclusions=[], exclude_ids=set(), n=1, min_n=1)
+        assert result is not None
+        assert result[0]["recipeId"] == "chick"
 
     def test_diet_tags_too_few_returns_none(self):
         library = _make_library()  # none tagged
