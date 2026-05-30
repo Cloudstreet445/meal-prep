@@ -4,8 +4,11 @@ import pytest
 from datetime import datetime
 
 
+from tests.conftest import TEST_HOUSEHOLD_ID
+
 BUNDLE = {
     "bundleId": "bundle-abc123",
+    "householdId": TEST_HOUSEHOLD_ID,
     "week": "2026-05-05",
     "active": True,
     "weekSummary": "5 hearty winter meals",

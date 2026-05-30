@@ -4,8 +4,11 @@ import pytest
 from datetime import datetime
 
 
+from tests.conftest import TEST_HOUSEHOLD_ID
+
 BUNDLE = {
     "bundleId": "bundle-abc123",
+    "householdId": TEST_HOUSEHOLD_ID,
     "week": "2026-05-05",
     "active": True,
     "weekSummary": "5 hearty winter meals",
@@ -90,6 +93,24 @@ class TestGetLatestBundle:
         resp = client.get("/health")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
+
+
+class TestHouseholdScoping:
+    def test_latest_requires_auth(self, anon_client, meals_db):
+        meals_db["bundles"].insert_one(dict(BUNDLE))
+        resp = anon_client.get("/api/bundle/latest")
+        assert resp.status_code == 401
+
+    def test_other_household_bundle_not_returned(self, client, meals_db):
+        # Active bundle owned by a different household must be invisible.
+        meals_db["bundles"].insert_one({**BUNDLE, "bundleId": "other", "householdId": "other-hh"})
+        resp = client.get("/api/bundle/latest")
+        assert resp.status_code == 404
+
+    def test_get_bundle_by_id_scoped_to_household(self, client, meals_db):
+        meals_db["bundles"].insert_one({**BUNDLE, "bundleId": "foreign", "householdId": "other-hh"})
+        resp = client.get("/api/bundle/foreign")
+        assert resp.status_code == 404
 
 
 class TestBundleHistory:

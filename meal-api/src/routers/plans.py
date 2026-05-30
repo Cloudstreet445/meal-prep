@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db, get_pricing_db
-from ..auth_utils import require_user
+from ..auth_utils import require_user, household_id_for
 from .helpers import _select_from_library
 from .settings import effective_settings
 from .bundles import get_latest_bundle
@@ -15,9 +15,9 @@ router = APIRouter()
 
 
 @router.get("/latest")
-def get_latest_plan():
+def get_latest_plan(user: dict = Depends(require_user)):
     """Legacy alias for /api/bundle/latest."""
-    return get_latest_bundle()
+    return get_latest_bundle(user)
 
 
 @router.post("/generate")
@@ -25,6 +25,7 @@ def generate_plan(user: dict = Depends(require_user)):
     """Generate a new meal plan from the recipe library."""
     db         = get_db()
     pricing_db = get_pricing_db()
+    hid        = household_id_for(db, user)
 
     # Use THIS user's saved settings (budget / exclusions / store), not the
     # shared anonymous default. Without this, onboarding choices are ignored.
@@ -35,8 +36,8 @@ def generate_plan(user: dict = Depends(require_user)):
     serves     = settings.get("serves")
     diet_tags  = settings.get("dietTags", [])
 
-    # Exclude the current active bundle's recipes so we don't repeat last week
-    active      = db["bundles"].find_one({"active": True}, sort=[("week", -1), ("createdAt", -1)])
+    # Exclude this household's current active bundle's recipes (no repeats)
+    active      = db["bundles"].find_one({"active": True, "householdId": hid}, sort=[("week", -1), ("createdAt", -1)])
     exclude_ids = set(active.get("recipeIds", [])) if active else set()
 
     # Aim for 5 meals but degrade gracefully to as few as 3 on a tight budget
@@ -65,9 +66,10 @@ def generate_plan(user: dict = Depends(require_user)):
     bundle_id = f"auto-{uuid.uuid4().hex[:8]}"
     now       = datetime.utcnow()
 
-    db["bundles"].update_many({"week": week_id}, {"$set": {"active": False}})
+    db["bundles"].update_many({"week": week_id, "householdId": hid}, {"$set": {"active": False}})
     db["bundles"].insert_one({
         "bundleId":          bundle_id,
+        "householdId":       hid,
         "week":              week_id,
         "active":            True,
         "recipeIds":         recipe_ids,

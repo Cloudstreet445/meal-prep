@@ -7,7 +7,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
-from ..auth_utils import require_user
+from ..auth_utils import require_user, household_id_for
 from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes, _normalise_name
 
 router = APIRouter()
@@ -18,21 +18,35 @@ class CustomBundleIn(BaseModel):
     week: str = Field(..., max_length=10)  # YYYY-MM-DD
 
 
+def _owned_bundle(db, bundle_id: str, hid: str) -> dict:
+    """Fetch a bundle, 404ing if it doesn't exist or belongs to another household."""
+    doc = db["bundles"].find_one({"bundleId": bundle_id, "householdId": hid})
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Bundle {bundle_id} not found")
+    return doc
+
+
 # ══════════════════════════════════════════════════════════════════
 # ROUTES — order matters! specific paths before /{bundle_id}
+#
+# Bundles are scoped per household: every query is filtered by the
+# caller's householdId so members share one plan and households never
+# see or overwrite each other's. (Legacy bundles created before this
+# scoping have no householdId and won't appear — regenerate once.)
 # ══════════════════════════════════════════════════════════════════
 
 @router.get("/latest")
-def get_latest_bundle():
+def get_latest_bundle(user: dict = Depends(require_user)):
     """
     Get the active bundle for the most recent week, with full recipes.
     """
     db = get_db()
     pricing_db = get_pricing_db()
+    hid = household_id_for(db, user)
 
-    # Find most recent week's active bundle
+    # Find most recent week's active bundle for this household
     doc = db["bundles"].find_one(
-        {"active": True},
+        {"active": True, "householdId": hid},
         sort=[("week", -1), ("createdAt", -1)]
     )
     if not doc:
@@ -65,14 +79,16 @@ def get_latest_bundle():
 
 
 @router.get("/history")
-def get_bundle_history():
+def get_bundle_history(user: dict = Depends(require_user)):
     """
     List all weeks with their active bundle summary.
     One entry per week, newest first.
     """
     db = get_db()
+    hid = household_id_for(db, user)
 
     pipeline = [
+        {"$match": {"householdId": hid}},
         {"$sort": {"week": -1, "createdAt": -1}},
         {"$group": {
             "_id":            "$week",
@@ -107,6 +123,7 @@ def create_custom_bundle(body: CustomBundleIn, user: dict = Depends(require_user
         raise HTTPException(status_code=422, detail="recipeIds cannot be empty")
 
     db = get_db()
+    hid = household_id_for(db, user)
 
     recipes = list(db["recipes"].find({"recipeId": {"$in": body.recipeIds}}))
     found_ids = {r["recipeId"] for r in recipes}
@@ -129,9 +146,10 @@ def create_custom_bundle(body: CustomBundleIn, user: dict = Depends(require_user
     bundle_id = f"custom-{uuid.uuid4().hex[:8]}"
     now = datetime.utcnow()
 
-    db["bundles"].update_many({"week": body.week}, {"$set": {"active": False}})
+    db["bundles"].update_many({"week": body.week, "householdId": hid}, {"$set": {"active": False}})
     db["bundles"].insert_one({
         "bundleId":          bundle_id,
+        "householdId":       hid,
         "week":              body.week,
         "active":            True,
         "recipeIds":         body.recipeIds,
@@ -153,11 +171,12 @@ def create_custom_bundle(body: CustomBundleIn, user: dict = Depends(require_user
 
 
 @router.get("/week/{week_id}")
-def get_bundles_for_week(week_id: str):
+def get_bundles_for_week(week_id: str, user: dict = Depends(require_user)):
     """List all bundles for a specific week, newest first."""
     db = get_db()
+    hid = household_id_for(db, user)
     docs = list(db["bundles"].find(
-        {"week": week_id},
+        {"week": week_id, "householdId": hid},
         {"bundleId": 1, "weekSummary": 1, "estimatedTotal": 1,
          "createdAt": 1, "active": 1, "recipeIds": 1, "priceSnapshotDate": 1}
     ).sort("createdAt", -1))
@@ -169,31 +188,25 @@ def get_bundles_for_week(week_id: str):
 
 
 @router.get("/{bundle_id}")
-def get_bundle(bundle_id: str):
+def get_bundle(bundle_id: str, user: dict = Depends(require_user)):
     """Get a specific bundle with full recipe data."""
     db = get_db()
     pricing_db = get_pricing_db()
-
-    doc = db["bundles"].find_one({"bundleId": bundle_id})
-    if not doc:
-        raise HTTPException(status_code=404, detail=f"Bundle {bundle_id} not found")
+    doc = _owned_bundle(db, bundle_id, household_id_for(db, user))
 
     bundle = _clean(doc)
     return _get_bundle_with_recipes(bundle, db, pricing_db)
 
 
 @router.get("/{bundle_id}/shopping")
-def get_bundle_shopping(bundle_id: str, store_id: str = Query(default="paknsave-lower-hutt")):
+def get_bundle_shopping(bundle_id: str, store_id: str = Query(default="paknsave-lower-hutt"), user: dict = Depends(require_user)):
     """
     Derive shopping list from bundle's recipes with live prices.
     sharedWith is computed dynamically — never stored.
     """
     db = get_db()
     pricing_db = get_pricing_db()
-
-    doc = db["bundles"].find_one({"bundleId": bundle_id})
-    if not doc:
-        raise HTTPException(status_code=404, detail=f"Bundle {bundle_id} not found")
+    doc = _owned_bundle(db, bundle_id, household_id_for(db, user))
 
     recipe_ids = doc.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
@@ -221,16 +234,14 @@ def activate_bundle(bundle_id: str, user: dict = Depends(require_user)):
     Other weeks are untouched.
     """
     db = get_db()
-
-    bundle = db["bundles"].find_one({"bundleId": bundle_id})
-    if not bundle:
-        raise HTTPException(status_code=404, detail=f"Bundle {bundle_id} not found")
+    hid = household_id_for(db, user)
+    bundle = _owned_bundle(db, bundle_id, hid)
 
     week_id = bundle["week"]
 
-    # Deactivate all bundles for THIS week only
+    # Deactivate all of this household's bundles for THIS week only
     db["bundles"].update_many(
-        {"week": week_id},
+        {"week": week_id, "householdId": hid},
         {"$set": {"active": False}}
     )
 
@@ -253,14 +264,14 @@ def refresh_bundle_prices(bundle_id: str, store_id: str = Query(default="paknsav
 
     db = get_db()
     pricing_db = get_pricing_db()
-
-    doc = db["bundles"].find_one({"bundleId": bundle_id})
-    if not doc:
-        raise HTTPException(status_code=404, detail=f"Bundle {bundle_id} not found")
+    doc = _owned_bundle(db, bundle_id, household_id_for(db, user))
 
     recipe_ids = doc.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
-    _, new_total = _derive_shopping_list(recipes, pricing_db, store_id)
+    _, new_total = _derive_shopping_list(
+        recipes, pricing_db, store_id,
+        serves=doc.get("serves"), overrides=doc.get("productOverrides") or {},
+    )
 
     db["bundles"].update_one(
         {"bundleId": bundle_id},
@@ -288,10 +299,7 @@ def swap_recipe(bundle_id: str, body: SwapRecipeIn, user: dict = Depends(require
     """Replace one recipe in a bundle without regenerating the whole plan."""
     db = get_db()
     pricing_db = get_pricing_db()
-
-    bundle = db["bundles"].find_one({"bundleId": bundle_id})
-    if not bundle:
-        raise HTTPException(status_code=404, detail="Bundle not found")
+    bundle = _owned_bundle(db, bundle_id, household_id_for(db, user))
 
     recipe_ids = list(bundle.get("recipeIds", []))
     if body.oldRecipeId not in recipe_ids:
@@ -305,7 +313,10 @@ def swap_recipe(bundle_id: str, body: SwapRecipeIn, user: dict = Depends(require
     recipe_ids[idx] = body.newRecipeId
 
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
-    _, new_total = _derive_shopping_list(recipes, pricing_db)
+    _, new_total = _derive_shopping_list(
+        recipes, pricing_db,
+        serves=bundle.get("serves"), overrides=bundle.get("productOverrides") or {},
+    )
 
     names = [r["name"] for r in recipes if r["recipeId"] in recipe_ids]
     week_summary = ", ".join(names[:3]) + (f" + {len(names) - 3} more" if len(names) > 3 else "")
@@ -336,10 +347,7 @@ def set_product_override(bundle_id: str, body: ProductOverrideIn, store_id: str 
     on the bundle, so the list and total reflect the shopper's choice."""
     db = get_db()
     pricing_db = get_pricing_db()
-
-    bundle = db["bundles"].find_one({"bundleId": bundle_id})
-    if not bundle:
-        raise HTTPException(status_code=404, detail="Bundle not found")
+    bundle = _owned_bundle(db, bundle_id, household_id_for(db, user))
 
     key = _normalise_name(body.ingredient)
     if not key:
@@ -361,10 +369,7 @@ def clear_product_override(bundle_id: str, ingredient: str = Query(..., min_leng
     """Remove a brand/cut override, reverting the ingredient to the cheapest match."""
     db = get_db()
     pricing_db = get_pricing_db()
-
-    bundle = db["bundles"].find_one({"bundleId": bundle_id})
-    if not bundle:
-        raise HTTPException(status_code=404, detail="Bundle not found")
+    bundle = _owned_bundle(db, bundle_id, household_id_for(db, user))
 
     overrides = bundle.get("productOverrides") or {}
     overrides.pop(_normalise_name(ingredient), None)

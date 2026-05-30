@@ -1,8 +1,8 @@
 """Shopping list endpoints — thin wrapper over bundle shopping derivation."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from ..database import get_db, get_pricing_db
-from ..auth_utils import get_current_user
+from ..auth_utils import get_current_user, require_user, household_id_for
 from .helpers import _derive_shopping_list, _ingredient_alternatives, _normalise_name
 from .settings import effective_settings
 
@@ -19,19 +19,19 @@ def _pantry_keys(db, user: dict | None) -> set:
 
 
 @router.get("/latest")
-def get_latest_shopping(request: Request, store_id: str = Query(default=None)):
-    """Shopping list for the most recent active bundle.
+def get_latest_shopping(store_id: str = Query(default=None), user: dict = Depends(require_user)):
+    """Shopping list for the household's most recent active bundle.
 
     Honours the caller's saved settings (store + household size), any brand/cut
     overrides stored on the bundle, and the household's pantry (pantry items are
     flagged and excluded from the total)."""
     db = get_db()
     pricing_db = get_pricing_db()
-    user = get_current_user(request)
     settings = effective_settings(db, user)
+    hid = household_id_for(db, user)
 
     bundle = db["bundles"].find_one(
-        {"active": True},
+        {"active": True, "householdId": hid},
         sort=[("week", -1), ("createdAt", -1)]
     )
     if not bundle:

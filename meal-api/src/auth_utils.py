@@ -61,3 +61,14 @@ def require_user(request: Request) -> dict:
         db["sessions"].update_one({"sessionId": sid}, {"$set": {"lastSeenAt": datetime.utcnow()}})
 
     return payload
+
+
+def household_id_for(db, user: dict) -> str:
+    """Resolve the caller's household id. Bundles/plans are scoped per household
+    so members share a plan and households never see each other's. ``db`` is
+    passed in so the caller's (test-patchable) connection is used."""
+    doc = db["users"].find_one({"userId": user["sub"]}, {"householdId": 1})
+    hid = (doc or {}).get("householdId")
+    if not hid:
+        raise HTTPException(status_code=400, detail="User has no household")
+    return hid
