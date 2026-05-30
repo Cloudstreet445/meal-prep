@@ -128,6 +128,37 @@ def _infer_protein(recipe: dict) -> str:
 
 _COST_TIER_ESTIMATE = {"budget": 10.0, "mid": 17.0, "premium": 28.0}
 
+# Fallback cost per ingredient when no estimatedCost is available (NZD).
+_UNPRICED_INGREDIENT_FALLBACK = 1.50
+
+# NZ seasonal produce — maps each month to keywords that are OUT of season.
+# Only covers produce that's noticeably better/cheaper in season.
+_SUMMER_VEG = ["tomato", "courgette", "zucchini", "capsicum", "corn", "cucumber", "eggplant", "basil"]
+_WINTER_VEG = ["pumpkin", "parsnip", "kumara", "silverbeet", "cauliflower"]
+_ASPARAGUS  = ["asparagus"]  # NZ spring (Sep–Nov) only
+_OUT_OF_SEASON: dict[int, list[str]] = {
+    1:  _WINTER_VEG + _ASPARAGUS,
+    2:  _WINTER_VEG + _ASPARAGUS,
+    3:  _ASPARAGUS,
+    4:  _ASPARAGUS,
+    5:  _ASPARAGUS,
+    6:  _SUMMER_VEG + _ASPARAGUS,
+    7:  _SUMMER_VEG + _ASPARAGUS,
+    8:  _SUMMER_VEG + _ASPARAGUS,
+    12: _WINTER_VEG + _ASPARAGUS,
+}
+
+
+def _seasonal_multiplier(recipe: dict, month: int) -> float:
+    """Return a score multiplier: 1.0 if in season, 0.8 if any ingredient is out of season."""
+    out = _OUT_OF_SEASON.get(month, [])
+    if not out:
+        return 1.0
+    text = " ".join(i.get("name", "").lower() for i in recipe.get("ingredients", []))
+    if any(kw in text for kw in out):
+        return 0.8
+    return 1.0
+
 
 def _recipe_cost(recipe: dict) -> float:
     """Return the recipe's estimated cost.
@@ -135,14 +166,20 @@ def _recipe_cost(recipe: dict) -> float:
     Priority order:
       1. recipe.baselineCost — explicit price from scraper/pricing pass
       2. recipe.costTier     — v2 recipes use tier as a proxy (budget/mid/premium)
-      3. sum of ingredient.estimatedCost — legacy v1 per-ingredient prices
+      3. sum of ingredient.estimatedCost — legacy v1 per-ingredient prices,
+         with a fallback for unpriced ingredients to avoid underestimating cost
     """
     if recipe.get("baselineCost") is not None:
         return recipe["baselineCost"]
     tier = recipe.get("costTier")
     if tier in _COST_TIER_ESTIMATE:
         return _COST_TIER_ESTIMATE[tier]
-    return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
+    # Sum ingredient costs; substitute fallback for any ingredient without a price
+    # so recipes with unpriced ingredients aren't treated as artificially cheap.
+    return sum(
+        i.get("estimatedCost") or _UNPRICED_INGREDIENT_FALLBACK
+        for i in recipe.get("ingredients", [])
+    )
 
 
 def _select_from_library(
@@ -217,7 +254,9 @@ def _select_from_library(
         # Liked recipes score 30% higher; disliked already excluded above
         rating_mult = 1.3 if r["recipeId"] in liked_ids else 1.0
 
-        r["_score"] = recency * rating_mult
+        seasonal_mult = _seasonal_multiplier(r, today.month)
+
+        r["_score"] = recency * rating_mult * seasonal_mult
 
     # Best candidates first
     candidates.sort(key=lambda r: r["_score"], reverse=True)
