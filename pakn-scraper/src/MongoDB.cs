@@ -134,6 +134,9 @@ namespace Scraper
                 {
                     { "currentPrice", scrapedProduct.currentPrice },
                     { "unitPrice", scrapedProduct.unitPrice ?? "" },
+                    // numeric companions to unitPrice for price-per-unit ranking
+                    { "unitPriceValue", BsonValue.Create(scrapedProduct.pricePerUnit) },
+                    { "unitPriceUnit", scrapedProduct.pricePerUnitName ?? "" },
                     { "isSpecial", false },
                     { "priceHistory", new BsonArray { new BsonDocument { { "date", today }, { "price", scrapedProduct.currentPrice } } } },
                     { "firstSeen", today },
@@ -151,6 +154,10 @@ namespace Scraper
                     { "size", scrapedProduct.size ?? "" },
                     { "category", scrapedProduct.category },
                     { "sourceSite", scrapedProduct.sourceSite },
+                    // enrichment fields (store-agnostic) for better matching & UI
+                    { "brand", scrapedProduct.brand ?? "" },
+                    { "sizeGrams", BsonValue.Create(scrapedProduct.sizeGrams) },
+                    { "imageUrl", scrapedProduct.imageUrl ?? "" },
                     // searchTokens — precomputed fuzzy-match tokens (MEA-111)
                     { "searchTokens", new BsonArray(GenerateSearchTokens(scrapedProduct.name)) },
                     { "storePrice", new BsonDocument { { StoreId, storePriceEntry } } }
@@ -195,6 +202,18 @@ namespace Scraper
                 );
             }
 
+            // Backfill enrichment fields on products that predate them.
+            if (!existing.Contains("brand"))
+            {
+                await productsCollection!.UpdateOneAsync(
+                    filter,
+                    Builders<BsonDocument>.Update
+                        .Set("brand", scrapedProduct.brand ?? "")
+                        .Set("sizeGrams", BsonValue.Create(scrapedProduct.sizeGrams))
+                        .Set("imageUrl", scrapedProduct.imageUrl ?? "")
+                );
+            }
+
             // Migrate legacy flat-schema documents to storePrice map on first encounter
             if (!existing.Contains("storePrice"))
             {
@@ -227,6 +246,8 @@ namespace Scraper
                 {
                     { "currentPrice", scrapedProduct.currentPrice },
                     { "unitPrice", scrapedProduct.unitPrice ?? "" },
+                    { "unitPriceValue", BsonValue.Create(scrapedProduct.pricePerUnit) },
+                    { "unitPriceUnit", scrapedProduct.pricePerUnitName ?? "" },
                     { "isSpecial", false },
                     { "priceHistory", new BsonArray { new BsonDocument { { "date", today }, { "price", scrapedProduct.currentPrice } } } },
                     { "firstSeen", today },
@@ -262,6 +283,8 @@ namespace Scraper
                     .Push($"{storePrefix}.priceHistory", newEntry)
                     .Set($"{storePrefix}.currentPrice", scrapedProduct.currentPrice)
                     .Set($"{storePrefix}.unitPrice", scrapedProduct.unitPrice ?? "")
+                    .Set($"{storePrefix}.unitPriceValue", BsonValue.Create(scrapedProduct.pricePerUnit))
+                    .Set($"{storePrefix}.unitPriceUnit", scrapedProduct.pricePerUnitName ?? "")
                     .Set($"{storePrefix}.isSpecial", isSpecial)
                     .Set($"{storePrefix}.lastChecked", today)
                     .Set($"{storePrefix}.lastPriceChange", today)

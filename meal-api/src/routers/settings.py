@@ -27,6 +27,23 @@ def _migrate_defaults(db, user: dict) -> dict:
     return seed
 
 
+def effective_settings(db, user: dict | None) -> dict:
+    """Resolve the settings that should drive behaviour for this caller.
+
+    Per-user when authenticated (seeding from the shared default on first access),
+    otherwise the shared anonymous 'default' doc. Always merged over _DEFAULTS so
+    every field is present. This is the single source of truth for plan
+    generation, shopping, and the settings endpoints — they must agree.
+    """
+    if user:
+        doc = db["settings"].find_one({"userId": user["sub"]}, {"_id": 0, "userId": 0})
+        if not doc:
+            doc = _migrate_defaults(db, user)
+    else:
+        doc = db["settings"].find_one({"key": "default"}, {"_id": 0, "key": 0})
+    return {**_DEFAULTS, **(doc or {})}
+
+
 class SettingsIn(BaseModel):
     budget: Optional[float] = Field(None, ge=1, le=10000)
     serves: Optional[int] = Field(None, ge=1, le=20)
@@ -38,13 +55,7 @@ class SettingsIn(BaseModel):
 def get_settings(request: Request):
     user = get_current_user(request)
     db = get_db()
-    if user:
-        doc = db["settings"].find_one({"userId": user["sub"]}, {"_id": 0, "userId": 0})
-        if not doc:
-            doc = _migrate_defaults(db, user)
-    else:
-        doc = db["settings"].find_one({"key": "default"}, {"_id": 0, "key": 0})
-    return {**_DEFAULTS, **(doc or {})}
+    return effective_settings(db, user)
 
 
 @router.put("/")

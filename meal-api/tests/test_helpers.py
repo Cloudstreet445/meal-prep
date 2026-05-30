@@ -5,6 +5,7 @@ from src.routers.helpers import (
     _normalise_name, _guess_category, _derive_shopping_list,
     _parse_amount, _normalise_unit, _add_amounts,
     _infer_protein, _recipe_cost, _select_from_library,
+    _enrich_ingredient,
 )
 
 
@@ -315,7 +316,10 @@ class TestDeriveShoppingList:
         ]
         items, _ = _derive_shopping_list(recipes, pricing_db)
         chicken = next(i for i in items if "chicken" in i["name"].lower())
-        assert chicken["currentPrice"] == 7.99
+        # packPrice is the whole-pack store price; currentPrice is the
+        # proportional share for the 400g actually needed (400/1000 × 7.99).
+        assert chicken["packPrice"] == pytest.approx(7.99)
+        assert chicken["currentPrice"] == pytest.approx(3.2)
         assert chicken["isSpecial"] is True
 
     def test_enriches_only_matching_store(self, pricing_db):
@@ -610,3 +614,128 @@ class TestSelectFromLibrary:
         # $5 can't fit 5 meals
         result = _select_from_library(db, budget=5, exclusions=[], exclude_ids=set())
         assert result is None
+
+
+# ── TestSelectFromLibraryPriceAware ────────────────────────────────────────────
+
+def _seed_product(pricing_db, name, price, *, is_special=False, store_id="paknsave-lower-hutt"):
+    pricing_db["products"].insert_one({
+        "name": name,
+        "storePrice": {store_id: {"currentPrice": price, "isSpecial": is_special}},
+    })
+
+
+class TestSelectFromLibraryPriceAware:
+    """When a pricing_db is supplied, selection uses live cost and specials."""
+
+    def _five_protein_library(self):
+        # One recipe per non-chicken protein, plus two chicken options that
+        # contend for the single chicken slot. 500g of a 1kg pack = 1 pack.
+        return [
+            _make_recipe("chicken-cheap",  "Chicken Frames Soup", [("Chicken Frames", 0.0)]),
+            _make_recipe("chicken-pricey", "Chicken Breast Bake",  [("Chicken Breast", 0.0)]),
+            _make_recipe("pork-1",  "Pork Roast",  [("Pork Mince", 0.0)]),
+            _make_recipe("beef-1",  "Beef Chilli", [("Beef Mince", 0.0)]),
+            _make_recipe("lamb-1",  "Lamb Stew",   [("Lamb Shoulder", 0.0)]),
+            _make_recipe("veg-1",   "Tofu Curry",  [("Tofu", 0.0)]),
+        ]
+
+    def _seed_prices(self, pricing_db, chicken_cheap=3.0, chicken_pricey=9.0):
+        _seed_product(pricing_db, "Chicken Frames 1kg", chicken_cheap)
+        _seed_product(pricing_db, "Chicken Breast 1kg", chicken_pricey)
+        _seed_product(pricing_db, "Pork Mince 1kg",    7.0)
+        _seed_product(pricing_db, "Beef Mince 1kg",    8.0)
+        _seed_product(pricing_db, "Lamb Shoulder 1kg", 12.0)
+        _seed_product(pricing_db, "Tofu 1kg",          3.5)
+
+    def test_uses_live_cost_not_static_estimate(self, pricing_db):
+        self._seed_prices(pricing_db)
+        db = FakeDB(self._five_protein_library())
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        assert result is not None
+        costs = {r["recipeId"]: r["_cost"] for r in result}
+        # _cost reflects the live pack price, not the 0.0 ingredient estimate
+        assert costs["chicken-cheap"] == pytest.approx(3.0)
+        assert costs["pork-1"] == pytest.approx(7.0)
+
+    def test_prefers_cheaper_meal_for_contested_protein(self, pricing_db):
+        self._seed_prices(pricing_db, chicken_cheap=3.0, chicken_pricey=9.0)
+        db = FakeDB(self._five_protein_library())
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        assert result is not None
+        ids = {r["recipeId"] for r in result}
+        assert "chicken-cheap" in ids
+        assert "chicken-pricey" not in ids
+
+    def test_special_boosts_otherwise_equal_meal(self, pricing_db):
+        # Both chicken options cost the same; only one is on special.
+        _seed_product(pricing_db, "Chicken Thigh 1kg", 7.0, is_special=True)
+        _seed_product(pricing_db, "Chicken Drumstick 1kg", 7.0, is_special=False)
+        _seed_product(pricing_db, "Pork Mince 1kg",    7.0)
+        _seed_product(pricing_db, "Beef Mince 1kg",    8.0)
+        _seed_product(pricing_db, "Lamb Shoulder 1kg", 12.0)
+        _seed_product(pricing_db, "Tofu 1kg",          3.5)
+        library = [
+            _make_recipe("chicken-special", "Thigh Tray",     [("Chicken Thigh", 0.0)]),
+            _make_recipe("chicken-normal",  "Drumstick Tray", [("Chicken Drumstick", 0.0)]),
+            _make_recipe("pork-1", "Pork Roast",  [("Pork Mince", 0.0)]),
+            _make_recipe("beef-1", "Beef Chilli", [("Beef Mince", 0.0)]),
+            _make_recipe("lamb-1", "Lamb Stew",   [("Lamb Shoulder", 0.0)]),
+            _make_recipe("veg-1",  "Tofu Curry",  [("Tofu", 0.0)]),
+        ]
+        db = FakeDB(library)
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        assert result is not None
+        ids = {r["recipeId"] for r in result}
+        assert "chicken-special" in ids
+        assert "chicken-normal" not in ids
+
+    def test_total_within_budget_uses_live_prices(self, pricing_db):
+        self._seed_prices(pricing_db)
+        db = FakeDB(self._five_protein_library())
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        assert result is not None
+        assert sum(r["_cost"] for r in result) <= 60
+
+    def test_uses_stored_sizeGrams_when_name_has_no_size(self, pricing_db):
+        # Product name has no parseable size, but the scraper stored sizeGrams.
+        # The proportional cost must use the stored 1000g, not treat it as 1 unit.
+        pricing_db["products"].insert_one({
+            "name": "Chicken Breast",
+            "sizeGrams": 1000.0,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 8.0, "isSpecial": False}},
+        })
+        item = {"name": "Chicken breast", "amount": "500g"}
+        enriched = _enrich_ingredient(item, pricing_db, "paknsave-lower-hutt")
+        assert enriched["packPrice"] == pytest.approx(8.0)        # 1 × 1kg pack
+        assert enriched["currentPrice"] == pytest.approx(4.0)     # 500g / 1000g × $8
+
+    def test_falls_back_to_estimate_when_no_price_match(self, pricing_db):
+        # Empty pricing DB → live cost 0 → fall back to static ingredient cost.
+        library = [
+            _make_recipe("chicken-1", "Chicken Soup",   [("Chicken Drumsticks", 6.0)]),
+            _make_recipe("pork-1",    "Pork Bolognese", [("Pork Mince", 5.0)]),
+            _make_recipe("beef-1",    "Beef Bolognese", [("Beef Mince", 8.0)]),
+            _make_recipe("lamb-1",    "Lamb Stew",      [("Lamb Shoulder", 10.0)]),
+            _make_recipe("veg-1",     "Vege Noodles",   [("Noodles", 2.0)]),
+        ]
+        db = FakeDB(library)
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        assert result is not None
+        costs = {r["recipeId"]: r["_cost"] for r in result}
+        assert costs["chicken-1"] == pytest.approx(6.0)  # from _recipe_cost fallback

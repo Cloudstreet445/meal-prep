@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db, get_pricing_db
 from ..auth_utils import require_user
-from .helpers import _select_from_library, _recipe_cost
+from .helpers import _select_from_library
+from .settings import effective_settings
 from .bundles import get_latest_bundle
 
 router = APIRouter()
@@ -25,15 +26,21 @@ def generate_plan(user: dict = Depends(require_user)):
     db         = get_db()
     pricing_db = get_pricing_db()
 
-    settings   = db["settings"].find_one({"key": "default"}) or {}
+    # Use THIS user's saved settings (budget / exclusions / store), not the
+    # shared anonymous default. Without this, onboarding choices are ignored.
+    settings   = effective_settings(db, user)
     budget     = float(settings.get("budget", 60))
     exclusions = settings.get("exclusions", [])
+    store_id   = settings.get("storeId", "paknsave-lower-hutt")
 
     # Exclude the current active bundle's recipes so we don't repeat last week
     active      = db["bundles"].find_one({"active": True}, sort=[("week", -1), ("createdAt", -1)])
     exclude_ids = set(active.get("recipeIds", [])) if active else set()
 
-    selected = _select_from_library(db, budget, exclusions, exclude_ids, user_id=user.get("sub"))
+    selected = _select_from_library(
+        db, budget, exclusions, exclude_ids,
+        user_id=user.get("sub"), pricing_db=pricing_db, store_id=store_id,
+    )
 
     if selected is None:
         raise HTTPException(
@@ -61,6 +68,7 @@ def generate_plan(user: dict = Depends(require_user)):
         "weekSummary":       week_summary,
         "estimatedTotal":    total,
         "generatedBy":       "library",
+        "storeId":           store_id,
         "priceSnapshotDate": now.strftime("%Y-%m-%d"),
         "createdAt":         now,
         "updatedAt":         now,

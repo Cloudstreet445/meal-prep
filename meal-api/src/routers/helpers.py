@@ -145,6 +145,20 @@ def _recipe_cost(recipe: dict) -> float:
     return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
 
 
+def _live_recipe_cost(recipe: dict, pricing_db, store_id: str) -> tuple[float, bool]:
+    """Cost to actually buy this recipe's ingredients at the given store.
+
+    Reuses the same enrichment the shopping list uses, so the budget decision
+    is made against live prices the shopper will really pay (whole packs),
+    rather than stale tier/baseline estimates. Returns
+    (cost, any_ingredient_on_special). Falls back to (0.0, False) when nothing
+    matched so the caller can drop back to a static estimate.
+    """
+    items, total = _derive_shopping_list([recipe], pricing_db, store_id)
+    on_special = any(i.get("isSpecial") for i in items)
+    return total, on_special
+
+
 def _select_from_library(
     db,
     budget: float,
@@ -152,14 +166,21 @@ def _select_from_library(
     exclude_ids: set[str],
     n: int = 5,
     user_id: str | None = None,
+    pricing_db=None,
+    store_id: str = "paknsave-lower-hutt",
 ) -> list[dict] | None:
     """
     Pick n recipes from the library that fit within budget.
 
     Protein variety is enforced, with slot priority driven by which proteins
     haven't appeared recently (stalest protein gets first pick). Within each
-    slot, candidates are ranked by a composite score: recency decay ×
-    rating multiplier.
+    slot, candidates are ranked by a composite score.
+
+    When ``pricing_db`` is supplied the selection becomes price-aware: each
+    recipe's cost is computed from live store prices, cheaper meals are
+    favoured (so the basket maximises value and leaves budget headroom), and
+    meals using ingredients currently on special are boosted. Without it the
+    legacy behaviour (recency × rating over static cost tiers) is used.
     """
     excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
 
@@ -201,11 +222,22 @@ def _select_from_library(
         return None
 
     today = _date.today()
+    price_aware = pricing_db is not None
+    target_per_meal = (budget / n) if n else budget
 
     for r in candidates:
         r["_protein"]   = _infer_protein(r)
-        r["_cost"]      = _recipe_cost(r)
         r["_last_used"] = r.get("lastUsedWeek") or "2000-01-01"
+
+        if price_aware:
+            live_cost, on_special = _live_recipe_cost(r, pricing_db, store_id)
+            # Fall back to a static estimate when nothing matched (e.g. empty
+            # pricing data) so the recipe still has a sensible cost.
+            r["_cost"]      = live_cost if live_cost > 0 else _recipe_cost(r)
+            r["_onSpecial"] = on_special
+        else:
+            r["_cost"]      = _recipe_cost(r)
+            r["_onSpecial"] = False
 
         # Recency: 0.0 (used this week) → 1.0 (not used in 8+ weeks / never)
         try:
@@ -217,7 +249,18 @@ def _select_from_library(
         # Liked recipes score 30% higher; disliked already excluded above
         rating_mult = 1.3 if r["recipeId"] in liked_ids else 1.0
 
-        r["_score"] = recency * rating_mult
+        if price_aware:
+            # Cheapness: a meal at exactly the per-meal budget scores ×1.0;
+            # cheaper meals are boosted (up to ×2), pricier ones penalised
+            # (down to ×0.5). This drives the greedy passes toward value.
+            if r["_cost"] > 0:
+                cheap_mult = max(0.5, min(target_per_meal / r["_cost"], 2.0))
+            else:
+                cheap_mult = 1.0
+            special_mult = 1.15 if r["_onSpecial"] else 1.0
+            r["_score"] = recency * rating_mult * cheap_mult * special_mult
+        else:
+            r["_score"] = recency * rating_mult
 
     # Best candidates first
     candidates.sort(key=lambda r: r["_score"], reverse=True)
@@ -404,7 +447,7 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
     price_prefix = f"storePrice.{store_id}"
     candidates = list(pricing_db["products"].find(
         {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
-        {"name": 1, price_prefix: 1},
+        {"name": 1, "sizeGrams": 1, price_prefix: 1},
         limit=30,
     ))
 
@@ -423,7 +466,9 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
             continue
 
         score  = _word_score(product["name"], words)
-        pack_g = _parse_pack_size_g(product["name"])
+        # Prefer the numeric pack size stored by the scraper; fall back to
+        # parsing it out of the product name for products that predate it.
+        pack_g = product.get("sizeGrams") or _parse_pack_size_g(product["name"])
 
         if pack_g and needed_g and pack_g > 0:
             packs      = max(1, math.ceil(needed_g / pack_g))
