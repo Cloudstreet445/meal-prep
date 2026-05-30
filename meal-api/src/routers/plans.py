@@ -32,20 +32,26 @@ def generate_plan(user: dict = Depends(require_user)):
     budget     = float(settings.get("budget", 60))
     exclusions = settings.get("exclusions", [])
     store_id   = settings.get("storeId", "paknsave-lower-hutt")
+    serves     = settings.get("serves")
+    diet_tags  = settings.get("dietTags", [])
 
     # Exclude the current active bundle's recipes so we don't repeat last week
     active      = db["bundles"].find_one({"active": True}, sort=[("week", -1), ("createdAt", -1)])
     exclude_ids = set(active.get("recipeIds", [])) if active else set()
 
+    # Aim for 5 meals but degrade gracefully to as few as 3 on a tight budget
+    # rather than failing outright.
     selected = _select_from_library(
         db, budget, exclusions, exclude_ids,
+        n=5, min_n=3,
         user_id=user.get("sub"), pricing_db=pricing_db, store_id=store_id,
+        serves=serves, diet_tags=diet_tags,
     )
 
     if selected is None:
         raise HTTPException(
             status_code=422,
-            detail="Not enough recipes in the library to build a plan. Try relaxing your exclusions or adding more recipes.",
+            detail="Couldn't build a plan within your budget. Try raising your budget, relaxing exclusions/diet filters, or adding more recipes.",
         )
 
     # Build a bundle from the selected recipes
@@ -69,6 +75,7 @@ def generate_plan(user: dict = Depends(require_user)):
         "estimatedTotal":    total,
         "generatedBy":       "library",
         "storeId":           store_id,
+        "serves":            serves,
         "priceSnapshotDate": now.strftime("%Y-%m-%d"),
         "createdAt":         now,
         "updatedAt":         now,
@@ -85,4 +92,6 @@ def generate_plan(user: dict = Depends(require_user)):
         "recipeCount": len(selected),
         "estimatedTotal": total,
         "source":      "library",
+        # True when the budget was too tight for a full 5-meal week
+        "degraded":    len(selected) < 5,
     }

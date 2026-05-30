@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
 from ..auth_utils import require_user
-from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes
+from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes, _normalise_name
 
 router = APIRouter()
 
@@ -40,7 +40,11 @@ def get_latest_bundle():
 
     bundle = _clean(doc)
     bundle = _get_bundle_with_recipes(bundle, db, pricing_db)
-    shopping_items, fresh_total = _derive_shopping_list(bundle["recipes"], pricing_db)
+    shopping_items, fresh_total = _derive_shopping_list(
+        bundle["recipes"], pricing_db,
+        serves=doc.get("serves"),
+        overrides=doc.get("productOverrides") or {},
+    )
     bundle["estimatedTotal"] = fresh_total
 
     # Compute real per-recipe costs from enriched shopping items instead of tier proxies
@@ -194,7 +198,11 @@ def get_bundle_shopping(bundle_id: str, store_id: str = Query(default="paknsave-
     recipe_ids = doc.get("recipeIds", [])
     recipes = list(db["recipes"].find({"recipeId": {"$in": recipe_ids}}))
 
-    shopping_items, total = _derive_shopping_list(recipes, pricing_db, store_id)
+    shopping_items, total = _derive_shopping_list(
+        recipes, pricing_db, store_id,
+        serves=doc.get("serves"),
+        overrides=doc.get("productOverrides") or {},
+    )
 
     return {
         "bundleId":      bundle_id,
@@ -314,3 +322,56 @@ def swap_recipe(bundle_id: str, body: SwapRecipeIn, user: dict = Depends(require
     )
 
     return {"bundleId": bundle_id, "recipeIds": recipe_ids, "estimatedTotal": new_total}
+
+
+class ProductOverrideIn(BaseModel):
+    ingredient: str = Field(..., min_length=1, max_length=100)
+    productId: str = Field(..., min_length=1, max_length=40)
+
+
+@router.put("/{bundle_id}/override")
+def set_product_override(bundle_id: str, body: ProductOverrideIn, store_id: str = Query(default="paknsave-lower-hutt"), user: dict = Depends(require_user)):
+    """Pin a shopping-list ingredient to a specific product (a chosen brand or
+    cut). The override is keyed by the normalised ingredient name and persists
+    on the bundle, so the list and total reflect the shopper's choice."""
+    db = get_db()
+    pricing_db = get_pricing_db()
+
+    bundle = db["bundles"].find_one({"bundleId": bundle_id})
+    if not bundle:
+        raise HTTPException(status_code=404, detail="Bundle not found")
+
+    key = _normalise_name(body.ingredient)
+    if not key:
+        raise HTTPException(status_code=422, detail="Invalid ingredient")
+
+    overrides = bundle.get("productOverrides") or {}
+    overrides[key] = body.productId
+    db["bundles"].update_one({"bundleId": bundle_id}, {"$set": {"productOverrides": overrides}})
+
+    recipes = list(db["recipes"].find({"recipeId": {"$in": bundle.get("recipeIds", [])}}))
+    _, total = _derive_shopping_list(
+        recipes, pricing_db, store_id, serves=bundle.get("serves"), overrides=overrides,
+    )
+    return {"bundleId": bundle_id, "overrides": overrides, "estimatedTotal": total}
+
+
+@router.delete("/{bundle_id}/override")
+def clear_product_override(bundle_id: str, ingredient: str = Query(..., min_length=1, max_length=100), store_id: str = Query(default="paknsave-lower-hutt"), user: dict = Depends(require_user)):
+    """Remove a brand/cut override, reverting the ingredient to the cheapest match."""
+    db = get_db()
+    pricing_db = get_pricing_db()
+
+    bundle = db["bundles"].find_one({"bundleId": bundle_id})
+    if not bundle:
+        raise HTTPException(status_code=404, detail="Bundle not found")
+
+    overrides = bundle.get("productOverrides") or {}
+    overrides.pop(_normalise_name(ingredient), None)
+    db["bundles"].update_one({"bundleId": bundle_id}, {"$set": {"productOverrides": overrides}})
+
+    recipes = list(db["recipes"].find({"recipeId": {"$in": bundle.get("recipeIds", [])}}))
+    _, total = _derive_shopping_list(
+        recipes, pricing_db, store_id, serves=bundle.get("serves"), overrides=overrides,
+    )
+    return {"bundleId": bundle_id, "overrides": overrides, "estimatedTotal": total}

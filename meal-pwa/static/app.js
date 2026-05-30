@@ -1232,6 +1232,7 @@ async function loadShopping() {
 
     document.getElementById('shop-total').textContent = fmt$(data.estimatedTotal);
     window._shopData = items;
+    window._shopBundleId = data.bundleId;
     // Load ad-hoc items from localStorage
     const adhocKey = `adhoc_${storeKey}`;
     const adhocItems = JSON.parse(localStorage.getItem(adhocKey) || '[]');
@@ -1297,10 +1298,10 @@ function _shopItemHtml(item, i, storeKey) {
         </div>
         <div class="item-sub">${item.amount_parts?.length
           ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
-          : (item.amount || '')}${usedIn ? ' · ' + usedIn : ''}</div>
+          : (item.amount || '')}${item.brand ? ' · ' + _esc(item.brand) : ''}${item.isOverride ? ' <span class="item-pinned">pinned</span>' : ''}${usedIn ? ' · ' + usedIn : ''}</div>
       </div>
       <div class="item-price">${item.packPrice != null ? fmt$(item.packPrice) : (item.estimatedCost != null ? fmt$(item.estimatedCost) : '—')}</div>
-      ${!inPantry ? `<button class="swap-btn" onclick="suggestSubstitute('${item.name.replace(/'/g, "\\'")}', event)" title="Suggest substitute">↔</button>` : ''}
+      ${!inPantry ? `<button class="swap-btn" onclick="pickProduct('${item.name.replace(/'/g, "\\'")}', '${(item.amount || '').replace(/'/g, "\\'")}', event)" title="Choose a different brand or cut">↔</button>` : ''}
     </div>`;
 }
 
@@ -1912,6 +1913,57 @@ async function suggestSubstitute(ingredientName, e) {
   }
 }
 
+// Product/brand picker — the shopping list defaults to the cheapest matching
+// product; this lets the shopper switch to another brand or cut and have the
+// total follow their choice (persisted as a per-bundle override).
+async function pickProduct(ingredientName, amount, e) {
+  e.stopPropagation();
+  _subIngredient = ingredientName;
+  document.getElementById('sub-ingredient-name').textContent = ingredientName;
+  document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Loading options…</div>';
+  document.getElementById('sub-overlay').classList.add('active');
+
+  try {
+    const store = settings.storeId || DEFAULT_STORE;
+    const q = new URLSearchParams({ ingredient: ingredientName, amount: amount || '', store_id: store });
+    const data = await apiFetch(`/shopping/alternatives?${q.toString()}`);
+    const alts = data.alternatives || [];
+    if (!alts.length) {
+      document.getElementById('sub-results').innerHTML = '<div class="sub-loading">No products found for this ingredient.</div>';
+      return;
+    }
+    const argName = ingredientName.replace(/'/g, "\\'");
+    document.getElementById('sub-results').innerHTML = alts.map((a, idx) => `
+      <div class="sub-card" onclick="chooseProduct('${argName}', '${_esc(a.productId)}')">
+        <div class="sub-name">${_esc(a.name)}${idx === 0 ? ' <span class="item-pantry">cheapest</span>' : ''}</div>
+        <div class="sub-meta">
+          ${a.packPrice != null ? `<span class="sub-price">${fmt$(a.packPrice)}</span>` : '<span class="sub-no-price">price unavailable</span>'}
+          ${a.unitPrice ? `<span class="sub-unit">${_esc(a.unitPrice)}</span>` : ''}
+          ${a.isSpecial ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
+        </div>
+      </div>`).join('');
+  } catch {
+    document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Could not load options. Try again.</div>';
+  }
+}
+
+async function chooseProduct(ingredientName, productId) {
+  const bundleId = window._shopBundleId;
+  if (!bundleId) { closeSubOverlay(); return; }
+  try {
+    const store = settings.storeId || DEFAULT_STORE;
+    await apiFetch(`/bundle/${bundleId}/override?store_id=${encodeURIComponent(store)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ingredient: ingredientName, productId }),
+    });
+    closeSubOverlay();
+    loadShopping();
+  } catch {
+    document.getElementById('sub-results').innerHTML = '<div class="sub-loading">Could not switch product. Try again.</div>';
+  }
+}
+
 function closeSubOverlay() {
   document.getElementById('sub-overlay').classList.remove('active');
 }
@@ -2363,8 +2415,17 @@ document.getElementById('settings-serves').addEventListener('blur', () => _autoS
 // PANTRY
 // ══════════════════════════════════════════════════════════════
 
-function loadPantry() {
+async function loadPantry() {
+  // Prefer the server pantry (shared across the household and used by the API
+  // to exclude owned items from the shopping total); fall back to localStorage.
   pantry = JSON.parse(localStorage.getItem('pantry') || '[]');
+  try {
+    const server = await apiFetch('/pantry/');
+    if (Array.isArray(server)) {
+      pantry = server;
+      savePantry();
+    }
+  } catch { /* offline or anonymous — keep localStorage copy */ }
   log('PANTRY', 'Loaded', { count: pantry.length });
 }
 
@@ -2399,9 +2460,13 @@ function renderPantryView() {
 }
 
 function removePantryItem(i) {
+  const removed = pantry[i];
   pantry = pantry.filter((_, idx) => idx !== i);
   savePantry();
   renderPantryTags();
+  if (removed) {
+    apiFetch(`/pantry/${encodeURIComponent(removed.canonical)}`, { method: 'DELETE' }).catch(() => {});
+  }
 }
 
 function addPantryItem() {
@@ -2413,6 +2478,11 @@ function addPantryItem() {
   savePantry();
   input.value = '';
   renderPantryTags();
+  apiFetch('/pantry/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: val, canonical }),
+  }).catch(() => {});
 }
 
 document.getElementById('pantry-add-btn').onclick = addPantryItem;

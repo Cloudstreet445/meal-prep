@@ -145,16 +145,16 @@ def _recipe_cost(recipe: dict) -> float:
     return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
 
 
-def _live_recipe_cost(recipe: dict, pricing_db, store_id: str) -> tuple[float, bool]:
+def _live_recipe_cost(recipe: dict, pricing_db, store_id: str, serves: int | None = None) -> tuple[float, bool]:
     """Cost to actually buy this recipe's ingredients at the given store.
 
     Reuses the same enrichment the shopping list uses, so the budget decision
     is made against live prices the shopper will really pay (whole packs),
-    rather than stale tier/baseline estimates. Returns
-    (cost, any_ingredient_on_special). Falls back to (0.0, False) when nothing
-    matched so the caller can drop back to a static estimate.
+    scaled to the household size. Returns (cost, any_ingredient_on_special).
+    Falls back to (0.0, False) when nothing matched so the caller can drop back
+    to a static estimate.
     """
-    items, total = _derive_shopping_list([recipe], pricing_db, store_id)
+    items, total = _derive_shopping_list([recipe], pricing_db, store_id, serves=serves)
     on_special = any(i.get("isSpecial") for i in items)
     return total, on_special
 
@@ -168,21 +168,32 @@ def _select_from_library(
     user_id: str | None = None,
     pricing_db=None,
     store_id: str = "paknsave-lower-hutt",
+    serves: int | None = None,
+    min_n: int | None = None,
+    diet_tags: list[str] | None = None,
 ) -> list[dict] | None:
     """
-    Pick n recipes from the library that fit within budget.
+    Pick recipes from the library that fit within budget.
 
     Protein variety is enforced, with slot priority driven by which proteins
     haven't appeared recently (stalest protein gets first pick). Within each
     slot, candidates are ranked by a composite score.
 
     When ``pricing_db`` is supplied the selection becomes price-aware: each
-    recipe's cost is computed from live store prices, cheaper meals are
-    favoured (so the basket maximises value and leaves budget headroom), and
-    meals using ingredients currently on special are boosted. Without it the
-    legacy behaviour (recency × rating over static cost tiers) is used.
+    recipe's cost is computed from live store prices (scaled to ``serves``),
+    cheaper meals are favoured (so the basket maximises value and leaves budget
+    headroom), and meals using ingredients currently on special are boosted.
+    Without it the legacy behaviour (recency × rating over static cost tiers)
+    is used.
+
+    ``min_n`` lets the plan degrade gracefully: it aims for ``n`` meals but
+    returns as few as ``min_n`` rather than failing outright when the budget is
+    tight (defaults to ``n`` — strict). ``diet_tags`` filters to recipes
+    carrying every requested dietary tag (e.g. 'vegetarian', 'gluten-free').
     """
+    min_n = n if min_n is None else min_n
     excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
+    want_tags = {t.lower().strip() for t in (diet_tags or []) if t.strip()}
 
     raw = list(db["recipes"].find(
         {"recipeId": {"$nin": list(exclude_ids)}} if exclude_ids else {}
@@ -194,7 +205,13 @@ def _select_from_library(
         text = " ".join(i.get("name", "").lower() for i in r.get("ingredients", []))
         return any(t in text for t in excl_terms)
 
-    candidates = [r for r in raw if not _has_excluded(r)]
+    def _meets_diet(r: dict) -> bool:
+        if not want_tags:
+            return True
+        have = {str(t).lower() for t in r.get("dietTags", [])}
+        return want_tags.issubset(have)
+
+    candidates = [r for r in raw if not _has_excluded(r) and _meets_diet(r)]
 
     # Build per-user rating sets
     disliked_ids: set[str] = set()
@@ -209,7 +226,7 @@ def _select_from_library(
                         liked_ids.add(r["recipeId"])
 
     filtered = [r for r in candidates if r["recipeId"] not in disliked_ids]
-    if len(filtered) < n:
+    if len(filtered) < min_n:
         import logging
         logging.warning(
             f"Only {len(filtered)} candidates after dislike filter for user {user_id} — including disliked"
@@ -218,7 +235,7 @@ def _select_from_library(
 
     candidates = filtered
 
-    if len(candidates) < n:
+    if len(candidates) < min_n:
         return None
 
     today = _date.today()
@@ -230,7 +247,7 @@ def _select_from_library(
         r["_last_used"] = r.get("lastUsedWeek") or "2000-01-01"
 
         if price_aware:
-            live_cost, on_special = _live_recipe_cost(r, pricing_db, store_id)
+            live_cost, on_special = _live_recipe_cost(r, pricing_db, store_id, serves=serves)
             # Fall back to a static estimate when nothing matched (e.g. empty
             # pricing data) so the recipe still has a sensible cost.
             r["_cost"]      = live_cost if live_cost > 0 else _recipe_cost(r)
@@ -300,7 +317,7 @@ def _select_from_library(
             selected_ids.add(r["recipeId"])
             total += r["_cost"]
 
-    return selected if len(selected) >= n else None
+    return selected if len(selected) >= min_n else None
 
 
 def _guess_category(name: str) -> str:
@@ -425,14 +442,106 @@ def _word_score(product_name: str, words: list[str]) -> int:
     return score
 
 
-def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
+_PRODUCT_PROJECTION = {"name": 1, "brand": 1, "sizeGrams": 1}
+
+
+def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g: float | None) -> dict | None:
+    """Score and cost a single pricing product against an ingredient.
+
+    Returns None when the product has no price at this store. ``per_unit`` is
+    the price per gram/ml, which lets us compare value fairly across pack sizes.
+    """
+    sp = product.get("storePrice", {}).get(store_id, {})
+    raw_price = sp.get("currentPrice")
+    if raw_price is None:
+        return None
+
+    # Prefer the numeric pack size stored by the scraper; fall back to parsing
+    # it out of the product name for products that predate that field.
+    pack_g = product.get("sizeGrams") or _parse_pack_size_g(product["name"])
+
+    if pack_g and needed_g and pack_g > 0:
+        packs      = max(1, math.ceil(needed_g / pack_g))
+        total_cost = packs * raw_price
+    else:
+        packs      = 1
+        total_cost = raw_price
+
+    return {
+        "product":    product,
+        "sp":         sp,
+        "raw_price":  raw_price,
+        "pack_g":     pack_g,
+        "packs":      packs,
+        "total_cost": round(total_cost, 2),
+        "per_unit":   (raw_price / pack_g) if pack_g else raw_price,
+        "score":      _word_score(product["name"], words),
+    }
+
+
+def _rank_candidates(name: str, amount, candidates: list, store_id: str) -> list[dict]:
+    """Rank pricing products for an ingredient: most relevant first, then
+    cheapest per unit, then cheapest total. The top entry is the sensible
+    default (cheapest among the best textual matches — so 'chicken breast'
+    lands on the cheapest chicken-breast brand); the rest are the alternatives
+    a shopper can switch to.
+    """
+    words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
+    needed_g = _ingredient_to_g(amount)
+    scored = [
+        c for product in candidates
+        if (c := _candidate_pricing(product, store_id, words, needed_g)) is not None
+    ]
+    scored.sort(key=lambda c: (-c["score"], c["per_unit"], c["total_cost"]))
+    return scored
+
+
+def _apply_pricing(item: dict, best: dict) -> dict:
+    """Write the chosen product's pricing/metadata onto a shopping item."""
+    product, sp = best["product"], best["sp"]
+    raw_price, pack_g = best["raw_price"], best["pack_g"]
+    needed_g = _ingredient_to_g(item.get("amount"))
+
+    item["isSpecial"]      = sp.get("isSpecial", False)
+    item["matchedProduct"] = product["name"]
+    if product.get("_id") is not None:
+        item["productId"] = str(product["_id"])
+    if product.get("brand"):
+        item["brand"] = product["brand"]
+    if sp.get("unitPriceValue") is not None:
+        item["unitPriceValue"] = sp.get("unitPriceValue")
+        item["unitPriceUnit"]  = sp.get("unitPriceUnit", "")
+
+    # packPrice: whole-pack checkout cost — what the shopper actually spends
+    item["packPrice"] = min(round(best["total_cost"], 2), _PACK_COST_CAP)
+
+    # currentPrice: proportional budget share (cheap staples stay cheap in estimates)
+    if pack_g and needed_g and pack_g > 0:
+        calculated = (needed_g / pack_g) * raw_price
+    else:
+        calculated = raw_price
+    item["currentPrice"] = min(round(calculated, 2), _INGREDIENT_COST_CAP)
+
+    avg     = sp.get("avgPrice90d")
+    current = item["currentPrice"]
+    if item["isSpecial"] and avg and current and avg > 0:
+        pct = round((1 - current / avg) * 100)
+        if pct > 0:
+            item["dealStrength"] = pct
+            item["priceSavings"] = round(avg - current, 2)
+
+    return item
+
+
+def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None) -> dict:
     """
     Match an ingredient against paknsave-pricing products and calculate cost.
 
-    Fetches up to 30 candidates matching the primary ingredient word, scores
-    each by how many ingredient words appear in the product name, then picks
-    the option with the lowest total purchase cost for the quantity needed
-    (e.g. 1×1kg pack beats 2×500g packs when the 1kg is cheaper overall).
+    By default the cheapest of the best-matching products is chosen (so a
+    recipe's 'chicken breast' defaults to the cheapest chicken-breast brand).
+    When ``override_id`` is given, that specific product is used instead — this
+    is how a shopper can swap to a different brand or cut and have the total
+    follow their choice.
 
     Two prices are stored on the item:
       packPrice    – what the shopper actually pays at checkout (whole packs)
@@ -445,102 +554,109 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str) -> dict:
         return item
 
     price_prefix = f"storePrice.{store_id}"
-    candidates = list(pricing_db["products"].find(
-        {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
-        {"name": 1, "sizeGrams": 1, price_prefix: 1},
-        limit=30,
-    ))
+    projection = {**_PRODUCT_PROJECTION, price_prefix: 1}
 
-    if not candidates:
-        return item
-
-    needed_g = _ingredient_to_g(item.get("amount"))
-
-    # Evaluate every candidate: score by name relevance, cost by quantity needed
     best: dict | None = None
 
-    for product in candidates:
-        sp = product.get("storePrice", {}).get(store_id, {})
-        raw_price = sp.get("currentPrice")
-        if raw_price is None:
-            continue
+    # An explicit user override wins, as long as it's stocked at this store.
+    if override_id:
+        chosen = pricing_db["products"].find_one({"_id": override_id}, projection)
+        if chosen:
+            best = _candidate_pricing(chosen, store_id, words, _ingredient_to_g(item.get("amount")))
+            if best:
+                item["isOverride"] = True
 
-        score  = _word_score(product["name"], words)
-        # Prefer the numeric pack size stored by the scraper; fall back to
-        # parsing it out of the product name for products that predate it.
-        pack_g = product.get("sizeGrams") or _parse_pack_size_g(product["name"])
-
-        if pack_g and needed_g and pack_g > 0:
-            packs      = max(1, math.ceil(needed_g / pack_g))
-            total_cost = packs * raw_price
-        else:
-            packs      = 1
-            total_cost = raw_price
-
-        candidate = {
-            "product":    product,
-            "sp":         sp,
-            "raw_price":  raw_price,
-            "pack_g":     pack_g,
-            "packs":      packs,
-            "total_cost": total_cost,
-            "score":      score,
-        }
-
-        if best is None:
-            best = candidate
-            continue
-
-        # Higher word-match score wins outright; ties go to lowest total cost
-        if score > best["score"] or (
-            score == best["score"] and total_cost < best["total_cost"]
-        ):
-            best = candidate
+    if best is None:
+        candidates = list(pricing_db["products"].find(
+            {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
+            projection,
+            limit=30,
+        ))
+        ranked = _rank_candidates(name, item.get("amount"), candidates, store_id)
+        best = ranked[0] if ranked else None
 
     if best is None:
         return item
 
-    raw_price = best["raw_price"]
-    pack_g    = best["pack_g"]
-
-    item["isSpecial"]      = best["sp"].get("isSpecial", False)
-    item["matchedProduct"] = best["product"]["name"]
-
-    # packPrice: whole-pack checkout cost — what the shopper actually spends
-    item["packPrice"] = min(round(best["total_cost"], 2), _PACK_COST_CAP)
-
-    # currentPrice: proportional budget share (cheap staples stay cheap in estimates)
-    if pack_g and needed_g and pack_g > 0:
-        calculated = (needed_g / pack_g) * raw_price
-    else:
-        calculated = raw_price
-    item["currentPrice"] = min(round(calculated, 2), _INGREDIENT_COST_CAP)
-
-    avg     = best["sp"].get("avgPrice90d")
-    current = item["currentPrice"]
-    if item["isSpecial"] and avg and current and avg > 0:
-        pct = round((1 - current / avg) * 100)
-        if pct > 0:
-            item["dealStrength"] = pct
-            item["priceSavings"] = round(avg - current, 2)
-
-    return item
+    return _apply_pricing(item, best)
 
 
-def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-lower-hutt") -> tuple[list, float]:
+def _ingredient_alternatives(name: str, amount, pricing_db, store_id: str, limit: int = 8) -> list[dict]:
+    """Return ranked alternative products for an ingredient (cheapest-relevant
+    first) for the brand/cut picker in the shopping list."""
+    words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
+    if not words:
+        return []
+
+    price_prefix = f"storePrice.{store_id}"
+    candidates = list(pricing_db["products"].find(
+        {"name": re.compile(words[0], re.IGNORECASE), price_prefix: {"$exists": True}},
+        {**_PRODUCT_PROJECTION, price_prefix: 1},
+        limit=30,
+    ))
+
+    out = []
+    for c in _rank_candidates(name, amount, candidates, store_id)[:limit]:
+        product, sp = c["product"], c["sp"]
+        out.append({
+            "productId":    str(product["_id"]) if product.get("_id") is not None else None,
+            "name":         product["name"],
+            "brand":        product.get("brand") or None,
+            "packPrice":    round(c["total_cost"], 2),
+            "currentPrice": sp.get("currentPrice"),
+            "unitPrice":    sp.get("unitPrice") or None,
+            "sizeGrams":    c["pack_g"],
+            "isSpecial":    sp.get("isSpecial", False),
+        })
+    return out
+
+
+def _scale_amount(raw, factor: float):
+    """Scale a display amount by a serving factor, e.g. '400g' ×1.5 → '600 g'.
+    Leaves unparseable amounts (and factor 1) untouched."""
+    if not raw or not factor or factor == 1:
+        return raw
+    parsed = _parse_amount(raw)
+    if not parsed:
+        return raw
+    value, unit = _normalise_unit(parsed["value"] * factor, parsed["unit"])
+    return f"{value:g} {unit}"
+
+
+def _derive_shopping_list(
+    recipes: list,
+    pricing_db,
+    store_id: str = "paknsave-lower-hutt",
+    *,
+    serves: int | None = None,
+    overrides: dict | None = None,
+    pantry: set | None = None,
+) -> tuple[list, float]:
     """
     Derive a deduplicated shopping list from a list of recipe documents.
 
     - Deduplicates by normalised ingredient name
     - Computes sharedWith dynamically (ingredients used in >1 recipe)
     - Enriches with live prices from paknsave-pricing for the given store
+    - ``serves``: scale each recipe's quantities to this household size
+      (recipes carry their own base ``serves``)
+    - ``overrides``: {normalised ingredient name: productId} brand/cut choices
+    - ``pantry``: normalised names the household already has — flagged
+      ``inPantry`` and excluded from the total (you don't buy what you own)
     - Returns (shopping_items, total)
     """
+    overrides = overrides or {}
+    pantry = pantry or set()
     ingredient_map: dict[str, dict] = {}
 
     for recipe in recipes:
         recipe_id = recipe.get("recipeId", recipe.get("_id", ""))
         recipe_name = recipe.get("name", "")
+
+        # Scale this recipe's quantities to the household size when both the
+        # target and the recipe's own base serving count are known.
+        base_serves = recipe.get("serves")
+        factor = (serves / base_serves) if (serves and base_serves) else 1
 
         for ing in recipe.get("ingredients", []):
             key = _normalise_name(ing.get("name", ""))
@@ -551,6 +667,7 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
             raw_amount = ing.get("amount", "")
             if isinstance(raw_amount, dict):
                 raw_amount = raw_amount.get("display", "") or ""
+            raw_amount = _scale_amount(raw_amount, factor)
 
             if key not in ingredient_map:
                 ingredient_map[key] = {
@@ -568,6 +685,7 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
                 new_raw = ing.get("amount", "")
                 if isinstance(new_raw, dict):
                     new_raw = new_raw.get("display", "") or ""
+                new_raw = _scale_amount(new_raw, factor)
                 if "amount_parts" not in existing:
                     parsed_existing = _parse_amount(existing.get("amount", ""))
                     parsed_new = _parse_amount(new_raw)
@@ -590,17 +708,23 @@ def _derive_shopping_list(recipes: list, pricing_db, store_id: str = "paknsave-l
                 ingredient_map[key]["usedInNames"].append(recipe_name)
 
     items = []
-    for item in ingredient_map.values():
-        enriched = _enrich_ingredient(item, pricing_db, store_id)
+    for key, item in ingredient_map.items():
+        enriched = _enrich_ingredient(item, pricing_db, store_id, override_id=overrides.get(key))
         enriched["sharedWith"] = enriched["usedInNames"] if len(enriched["usedIn"]) > 1 else []
         # Use live price as cost; fall back to 0 if no product was matched
         enriched["estimatedCost"] = round(enriched.get("currentPrice") or 0, 2)
+        # Pantry match is fuzzy: 'garlic' in pantry covers 'garlic cloves'.
+        enriched["inPantry"] = any(p and (p in key or key in p) for p in pantry)
         items.append(enriched)
 
     category_order = {"protein": 0, "vegetable": 1, "pantry": 2, "dairy": 3, "other": 4}
     items.sort(key=lambda x: category_order.get(x.get("category", "other"), 4))
 
-    total = round(sum(i.get("packPrice") or i["estimatedCost"] for i in items), 2)
+    # Total excludes pantry items — you don't buy what you already have.
+    total = round(sum(
+        (i.get("packPrice") or i["estimatedCost"])
+        for i in items if not i.get("inPantry")
+    ), 2)
     return items, total
 
 

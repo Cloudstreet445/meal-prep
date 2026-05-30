@@ -9,7 +9,7 @@ from ..auth_utils import get_current_user, require_user
 router = APIRouter()
 
 DEFAULT_STORE_ID = "paknsave-lower-hutt"
-_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "storeId": DEFAULT_STORE_ID}
+_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "dietTags": [], "storeId": DEFAULT_STORE_ID}
 
 
 def _settings_key(user: dict | None) -> dict:
@@ -48,6 +48,7 @@ class SettingsIn(BaseModel):
     budget: Optional[float] = Field(None, ge=1, le=10000)
     serves: Optional[int] = Field(None, ge=1, le=20)
     exclusions: Optional[List[str]] = Field(None, max_length=50)
+    dietTags: Optional[List[str]] = Field(None, max_length=20)
     storeId: Optional[str] = Field(None, max_length=100)
 
 

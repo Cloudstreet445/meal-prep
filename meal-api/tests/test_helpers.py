@@ -5,7 +5,7 @@ from src.routers.helpers import (
     _normalise_name, _guess_category, _derive_shopping_list,
     _parse_amount, _normalise_unit, _add_amounts,
     _infer_protein, _recipe_cost, _select_from_library,
-    _enrich_ingredient,
+    _enrich_ingredient, _ingredient_alternatives, _scale_amount,
 )
 
 
@@ -453,6 +453,87 @@ class TestDeriveShoppingList:
         assert garlic["isSpecial"] is True
 
 
+# ── TestShoppingExtras: cheapest default, overrides, serves, pantry, alternatives ──
+
+class TestShoppingExtras:
+    def _seed_two_brands(self, pricing_db, store="paknsave-lower-hutt"):
+        pricing_db["products"].insert_one({
+            "_id": "P-cheap", "name": "Pams Chicken Breast 1kg", "brand": "Pams",
+            "sizeGrams": 1000.0,
+            "storePrice": {store: {"currentPrice": 9.0, "isSpecial": False}},
+        })
+        pricing_db["products"].insert_one({
+            "_id": "P-premium", "name": "Free Range Chicken Breast 1kg",
+            "sizeGrams": 1000.0,
+            "storePrice": {store: {"currentPrice": 15.0, "isSpecial": False}},
+        })
+
+    def _recipe(self):
+        return [{
+            "recipeId": "r1", "name": "Chicken Dinner", "serves": 4,
+            "ingredients": [{"name": "Chicken breast", "amount": "1kg"}],
+        }]
+
+    def test_defaults_to_cheapest_brand(self, pricing_db):
+        self._seed_two_brands(pricing_db)
+        items, _ = _derive_shopping_list(self._recipe(), pricing_db)
+        chicken = next(i for i in items if "chicken" in i["name"].lower())
+        assert chicken["productId"] == "P-cheap"
+        assert chicken["packPrice"] == pytest.approx(9.0)
+        assert chicken["brand"] == "Pams"
+
+    def test_override_picks_chosen_product(self, pricing_db):
+        self._seed_two_brands(pricing_db)
+        overrides = {_normalise_name("Chicken breast"): "P-premium"}
+        items, total = _derive_shopping_list(self._recipe(), pricing_db, overrides=overrides)
+        chicken = next(i for i in items if "chicken" in i["name"].lower())
+        assert chicken["productId"] == "P-premium"
+        assert chicken["packPrice"] == pytest.approx(15.0)
+        assert chicken["isOverride"] is True
+        assert total == pytest.approx(15.0)
+
+    def test_alternatives_ranked_cheapest_first(self, pricing_db):
+        self._seed_two_brands(pricing_db)
+        alts = _ingredient_alternatives("Chicken breast", "1kg", pricing_db, "paknsave-lower-hutt")
+        assert [a["productId"] for a in alts] == ["P-cheap", "P-premium"]
+        assert alts[0]["brand"] == "Pams"
+
+    def test_serves_scales_quantities_and_cost(self, pricing_db):
+        self._seed_two_brands(pricing_db)
+        # Recipe serves 4; household of 2 → buy half → 500g of a 1kg pack.
+        items, _ = _derive_shopping_list(self._recipe(), pricing_db, serves=2)
+        chicken = next(i for i in items if "chicken" in i["name"].lower())
+        assert chicken["amount"] == "0.5 kg"  # 1kg halved
+        assert chicken["currentPrice"] == pytest.approx(4.5)  # 500/1000 × $9
+
+    def test_pantry_items_flagged_and_excluded_from_total(self, pricing_db):
+        self._seed_two_brands(pricing_db)
+        pantry = {_normalise_name("chicken breast")}
+        items, total = _derive_shopping_list(self._recipe(), pricing_db, pantry=pantry)
+        chicken = next(i for i in items if "chicken" in i["name"].lower())
+        assert chicken["inPantry"] is True
+        assert total == 0.0  # the only item is in the pantry
+
+
+# ── TestScaleAmount ────────────────────────────────────────────────────────────
+
+class TestScaleAmount:
+    def test_scales_grams(self):
+        assert _scale_amount("400g", 1.5) == "600 g"
+
+    def test_promotes_to_kg(self):
+        assert _scale_amount("600g", 2) == "1.2 kg"
+
+    def test_factor_one_unchanged(self):
+        assert _scale_amount("400g", 1) == "400g"
+
+    def test_unparseable_unchanged(self):
+        assert _scale_amount("3 cloves", 2) == "6 clove"
+
+    def test_empty_unchanged(self):
+        assert _scale_amount("", 2) == ""
+
+
 # ── Helpers for library selection tests ──────────────────────────────────────
 
 def _make_recipe(recipe_id, name, ingredients, last_used="2025-01-01"):
@@ -613,6 +694,45 @@ class TestSelectFromLibrary:
         db = FakeDB(_make_library())
         # $5 can't fit 5 meals
         result = _select_from_library(db, budget=5, exclusions=[], exclude_ids=set())
+        assert result is None
+
+
+class TestSelectFromLibraryExtras:
+    def test_graceful_degrade_returns_partial_plan(self):
+        db = FakeDB(_make_library())
+        # $20 can't fit a full 5-meal week, but should still build >= 3.
+        strict = _select_from_library(db, budget=20, exclusions=[], exclude_ids=set())
+        assert strict is None  # default min_n == n == 5
+        degraded = _select_from_library(db, budget=20, exclusions=[], exclude_ids=set(), min_n=3)
+        assert degraded is not None
+        assert 3 <= len(degraded) < 5
+        assert sum(r["_cost"] for r in degraded) <= 20
+
+    def test_diet_tags_filter(self):
+        library = [
+            _make_recipe("v1", "Tofu Curry",   [("Tofu", 5.0)]),
+            _make_recipe("v2", "Lentil Dahl",  [("Lentils", 4.0)]),
+            _make_recipe("v3", "Veggie Pasta", [("Pasta", 3.0)]),
+            _make_recipe("m1", "Chicken Soup", [("Chicken", 6.0)]),
+            _make_recipe("m2", "Beef Stew",    [("Beef Mince", 8.0)]),
+        ]
+        for r in library[:3]:
+            r["dietTags"] = ["vegetarian"]
+        db = FakeDB(library)
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            n=3, min_n=3, diet_tags=["vegetarian"],
+        )
+        assert result is not None
+        assert all("vegetarian" in r.get("dietTags", []) for r in result)
+
+    def test_diet_tags_too_few_returns_none(self):
+        library = _make_library()  # none tagged
+        db = FakeDB(library)
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            diet_tags=["vegan"], min_n=3,
+        )
         assert result is None
 
 
