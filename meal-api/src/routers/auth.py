@@ -104,14 +104,24 @@ def _create_session(db, user_id: str, request: Request) -> str:
     return session_id
 
 
+# Cookie attributes are shared between set and delete so the browser can match
+# and clear the cookie. `secure` defaults to True (production is HTTPS) but must
+# be disablable: a Secure cookie is silently dropped by the browser over plain
+# HTTP, which makes login appear to succeed and then immediately sign the user
+# out. Set COOKIE_SECURE=0 when serving over http:// (e.g. LAN / TrueNAS before
+# TLS is set up).
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").strip().lower() not in ("0", "false", "no", "off")
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "strict").strip().lower()
+
+
 def _set_auth_cookie(response: Response, user_id: str, email: str, session_id: str):
     token = create_jwt(user_id, email, session_id)
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
         max_age=SESSION_TTL_DAYS * 86400,
         path="/",
     )
@@ -267,7 +277,7 @@ def get_me(request: Request):
 
 @router.post("/logout")
 def logout(request: Request, response: Response):
-    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("access_token", path="/", secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE, httponly=True)
     token = request.cookies.get("access_token")
     if token:
         payload = decode_jwt(token)
