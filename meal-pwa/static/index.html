@@ -435,6 +435,25 @@
   </div>
 </div>
 
+<!-- Weekly Pantry Confirmation Sheet -->
+<div class="sheet-backdrop" id="pantry-confirm-backdrop" onclick="closePantryConfirm()"></div>
+<div class="bottom-sheet" id="pantry-confirm-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">🥫 What's in your pantry?</div>
+  <div class="sheet-content">
+    <p class="pantry-confirm-intro">Quick weekly check — tick what you already have so we leave it off your shopping list. We'll only ask once a week.</p>
+    <div class="pantry-add-row">
+      <input type="text" id="pantry-confirm-input" class="pantry-text-input" placeholder="Add an item you have…" autocomplete="off">
+      <button type="button" class="pantry-add-btn" id="pantry-confirm-add-btn">Add</button>
+    </div>
+    <div id="pantry-confirm-list" class="pantry-confirm-list"></div>
+  </div>
+  <div class="pantry-confirm-actions">
+    <button type="button" class="pantry-confirm-skip" onclick="skipPantryConfirm()">Skip for now</button>
+    <button type="button" class="pantry-confirm-go" onclick="confirmPantryAndGenerate()">Confirm &amp; generate</button>
+  </div>
+</div>
+
 <!-- Nav Menu Sheet -->
 <div class="sheet-backdrop" id="nav-menu-backdrop" onclick="closeNavMenu()"></div>
 <div id="nav-menu-sheet">

@@ -60,6 +60,31 @@ def _parse_amount(raw) -> dict | None:
     return {"value": float(m.group(1)), "unit": unit}
 
 
+_LEADING_AMOUNT_RE = re.compile(r'^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)')
+
+
+def _leading_amount(raw) -> dict | None:
+    """Extract a leading quantity+unit from a free-text amount.
+
+    Recipe amounts are often descriptive — "1.8kg bone-in leg", "600g, peeled
+    and cubed", "1.2kg (approx 8 drumsticks)". ``_parse_amount`` requires the
+    *whole* string to be number+unit, so it returns None for these and the
+    cost path then can't scale by quantity (a 1.8kg lamb leg gets priced as a
+    single pack → absurd $4.99 totals). This reads just the leading
+    quantity+unit and ignores the trailing prose, which is all the cost
+    calculation needs. v2 amount objects defer to the strict parser.
+    """
+    if isinstance(raw, dict):
+        return _parse_amount(raw)
+    if not raw:
+        return None
+    m = _LEADING_AMOUNT_RE.match(str(raw).strip())
+    if not m:
+        return None
+    unit = _UNIT_NORMALIZE.get(m.group(2).lower(), m.group(2).lower())
+    return {"value": float(m.group(1)), "unit": unit}
+
+
 def _normalise_unit(value: float, unit: str) -> tuple[float, str]:
     """Promote g→kg if ≥1000g, ml→L if ≥1000ml."""
     if unit == "g" and value >= 1000:
@@ -410,8 +435,12 @@ def _parse_pack_size_g(product_name: str) -> float | None:
 
 
 def _ingredient_to_g(amount) -> float | None:
-    """Convert an ingredient amount to grams or ml for proportional cost calculation."""
-    parsed = _parse_amount(amount)
+    """Convert an ingredient amount to grams or ml for proportional cost calculation.
+
+    Uses ``_leading_amount`` so descriptive quantities ("1.8kg bone-in leg")
+    still yield a weight to scale pack pricing against.
+    """
+    parsed = _leading_amount(amount)
     if not parsed:
         return None
     value, unit = parsed["value"], parsed["unit"]

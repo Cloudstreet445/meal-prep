@@ -6,6 +6,7 @@ from src.routers.helpers import (
     _parse_amount, _normalise_unit, _add_amounts,
     _infer_protein, _recipe_cost, _select_from_library,
     _enrich_ingredient, _ingredient_alternatives, _scale_amount,
+    _ingredient_to_g, _leading_amount,
 )
 
 
@@ -103,6 +104,57 @@ class TestParseAmount:
 
     def test_non_parseable_returns_none(self):
         assert _parse_amount("a handful") is None
+
+
+class TestLeadingAmount:
+    """Descriptive amounts must still yield a leading quantity for costing."""
+
+    def test_descriptive_mass_parsed(self):
+        assert _leading_amount("1.8kg bone-in leg") == {"value": 1.8, "unit": "kg"}
+
+    def test_trailing_prose_ignored(self):
+        assert _leading_amount("600g, peeled and cubed") == {"value": 600.0, "unit": "g"}
+
+    def test_parenthetical_ignored(self):
+        assert _leading_amount("1.2kg (approx 8 drumsticks)") == {"value": 1.2, "unit": "kg"}
+
+    def test_plain_amount_still_works(self):
+        assert _leading_amount("500g") == {"value": 500.0, "unit": "g"}
+
+    def test_no_leading_number_returns_none(self):
+        assert _leading_amount("a handful") is None
+
+
+class TestIngredientToGrams:
+    def test_descriptive_kg_converts_to_grams(self):
+        # Regression: "1.8kg bone-in leg" used to return None (no pack scaling),
+        # which priced a whole lamb leg as a single cheap pack.
+        assert _ingredient_to_g("1.8kg bone-in leg") == 1800.0
+
+    def test_descriptive_grams(self):
+        assert _ingredient_to_g("600g, peeled and cubed") == 600.0
+
+    def test_culinary_unit(self):
+        assert _ingredient_to_g("2 cloves") == 10.0
+
+
+class TestPackScalingForLargeCuts:
+    def test_lamb_leg_scales_to_realistic_pack_price(self, pricing_db):
+        # A 2kg lamb leg pack at $21.99. A recipe needing "1.8kg bone-in leg"
+        # should cost ~one whole pack, NOT a fraction that reads as $4.99.
+        pricing_db["products"].insert_one({
+            "name": "Bone-In Lamb Leg",
+            "sizeGrams": 2000,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 21.99, "isSpecial": False}},
+        })
+        recipes = [{
+            "recipeId": "r1",
+            "name": "Roast Lamb",
+            "ingredients": [{"name": "Lamb leg", "amount": "1.8kg bone-in leg"}],
+        }]
+        items, _ = _derive_shopping_list(recipes, pricing_db)
+        lamb = next(i for i in items if i["name"] == "Lamb leg")
+        assert lamb["packPrice"] == 21.99
 
 
 class TestNormaliseUnit:
