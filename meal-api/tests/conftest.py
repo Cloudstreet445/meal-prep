@@ -1,6 +1,6 @@
 import os
 os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
-os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("JWT_SECRET", "test-secret-0123456789abcdef0123456789abcdef")
 
 import mongomock
 import pytest

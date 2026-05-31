@@ -38,8 +38,6 @@ def _ensure_indexes():
     _idx(db["settings"], "userId", sparse=True, unique=True)
     _idx(db["users"], "userId", unique=True)
     _idx(db["users"], "email", unique=True)
-    _idx(db["magic_tokens"], "token", unique=True)
-    _idx(db["magic_tokens"], "expiresAt", expireAfterSeconds=0)
     _idx(db["household_invites"], "token", unique=True)
     _idx(db["household_invites"], "expiresAt", expireAfterSeconds=0)
     _idx(db["households"], "householdId", unique=True)

@@ -78,7 +78,8 @@ def suggest_substitutes(body: SubstituteRequest):
         words = [w for w in re.split(r'\W+', term.lower()) if len(w) > 2]
         if not words:
             continue
-        name_pattern = re.compile(words[0], re.IGNORECASE)
+        # re.escape: this term is compiled into a MongoDB $regex query.
+        name_pattern = re.compile(re.escape(words[0]), re.IGNORECASE)
         price_prefix = f"storePrice.{body.store_id}"
         product = pricing_db["products"].find_one(
             {"name": name_pattern, price_prefix: {"$exists": True}},

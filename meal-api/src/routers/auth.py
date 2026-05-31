@@ -6,7 +6,7 @@ import uuid
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Response, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from pydantic import BaseModel
 import bcrypt as _bcrypt_lib
 from ..database import get_db
@@ -15,7 +15,6 @@ from ..limiter import limiter as _limiter
 
 router = APIRouter()
 
-MAGIC_TOKEN_TTL_MINUTES = 30
 RESET_TOKEN_TTL_HOURS = 1
 SESSION_TTL_DAYS = 30
 APP_URL = os.getenv("APP_URL", "")
@@ -275,54 +274,3 @@ def logout(request: Request, response: Response):
         if payload and payload.get("sid"):
             get_db()["sessions"].delete_one({"sessionId": payload["sid"]})
     return {"ok": True}
-
-
-# ── Magic link (legacy — kept for Android deep link compatibility) ──
-
-@router.post("/send-magic-link")
-def send_magic_link(body: EmailRequest):
-    email = body.email.lower().strip()
-    if not EMAIL_RE.match(email):
-        raise HTTPException(400, "Invalid email address")
-    db = get_db()
-    token = str(uuid.uuid4())
-    db["magic_tokens"].insert_one({
-        "token": token,
-        "email": email,
-        "expiresAt": datetime.utcnow() + timedelta(minutes=MAGIC_TOKEN_TTL_MINUTES),
-        "used": False,
-    })
-    link = f"{APP_URL}/?auth_token={token}"
-    try:
-        _send_email(email, "Your Kai Planner login link",
-                    f"Hi,\n\nClick the link below to sign in:\n\n{link}\n\n"
-                    "This link expires in 30 minutes. If you didn't request this, ignore it.")
-    except Exception as exc:
-        print(f"[AUTH] Email send failed ({exc}); link: {link}")
-    return {"sent": True, "email": email}
-
-
-@router.get("/verify")
-def verify_magic_link(token: str = Query(...), response: Response = None, request: Request = None):
-    db = get_db()
-    doc = db["magic_tokens"].find_one({"token": token, "used": False})
-    if not doc or doc["expiresAt"] < datetime.utcnow():
-        raise HTTPException(400, "Invalid or expired login link")
-
-    db["magic_tokens"].update_one({"token": token}, {"$set": {"used": True}})
-
-    email = doc["email"]
-    user = db["users"].find_one({"email": email})
-    if not user:
-        user_id, household_id = _create_user_and_household(db, email)
-    else:
-        user_id = user["userId"]
-        household_id = user.get("householdId")
-        db["users"].update_one({"email": email}, {"$set": {"lastLoginAt": datetime.utcnow()}})
-
-    session_id = _create_session(db, user_id, request)
-    _set_auth_cookie(response, user_id, email, session_id)
-
-    is_new = not user
-    return {"ok": True, "userId": user_id, "email": email, "isNewUser": is_new,
-            "householdId": household_id, "sessionId": session_id}
