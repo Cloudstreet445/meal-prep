@@ -44,12 +44,27 @@ def decode_jwt(token: str) -> dict | None:
         return None
 
 
+def _session_exists(payload: dict) -> bool:
+    """True if the JWT's session is still live in the DB (not revoked)."""
+    sid = payload.get("sid")
+    if not sid:
+        return False
+    from .database import get_db
+    db = get_db()
+    return db["sessions"].find_one({"sessionId": sid, "userId": payload["sub"]}) is not None
+
+
 def get_current_user(request: Request) -> dict | None:
-    """Return decoded JWT payload from cookie, or None. No DB check — use for optional auth."""
+    """Return decoded JWT payload from cookie, or None. Optional auth — but the
+    session must still be live: a token whose session was revoked (e.g. "log out
+    all devices") is treated as unauthenticated rather than honoured to expiry."""
     token = request.cookies.get("access_token")
     if not token:
         return None
-    return decode_jwt(token)
+    payload = decode_jwt(token)
+    if not payload or not _session_exists(payload):
+        return None
+    return payload
 
 
 def require_user(request: Request) -> dict:
@@ -63,12 +78,10 @@ def require_user(request: Request) -> dict:
 
     sid = payload.get("sid")
     if sid:
-        from .database import get_db
-        db = get_db()
-        session = db["sessions"].find_one({"sessionId": sid, "userId": payload["sub"]})
-        if not session:
+        if not _session_exists(payload):
             raise HTTPException(status_code=401, detail="Session has been revoked")
-        db["sessions"].update_one({"sessionId": sid}, {"$set": {"lastSeenAt": datetime.utcnow()}})
+        from .database import get_db
+        get_db()["sessions"].update_one({"sessionId": sid}, {"$set": {"lastSeenAt": datetime.utcnow()}})
 
     return payload
 

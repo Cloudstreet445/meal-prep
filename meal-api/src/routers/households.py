@@ -3,10 +3,11 @@
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from ..database import get_db
 from ..auth_utils import require_user
+from ..limiter import limiter as _limiter
 
 router = APIRouter()
 
@@ -80,7 +81,8 @@ def create_invite(user: dict = Depends(require_user)):
 
 
 @router.post("/join")
-def join_household(token: str, user: dict = Depends(require_user)):
+@_limiter.limit("10/minute")
+def join_household(token: str, request: Request, user: dict = Depends(require_user)):
     db = get_db()
     invite = db["household_invites"].find_one({"token": token, "used": False})
     if not invite or invite["expiresAt"] < datetime.utcnow():

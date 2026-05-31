@@ -7,7 +7,7 @@ import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import bcrypt as _bcrypt_lib
 from ..database import get_db
 from ..auth_utils import create_jwt, decode_jwt, get_current_user, require_user
@@ -23,21 +23,29 @@ def _hash_pw(password: str) -> str:
 
 def _verify_pw(password: str, hashed: str) -> bool:
     return _bcrypt_lib.checkpw(password.encode(), hashed.encode())
+
+# A throwaway hash used to equalise login timing when the email doesn't exist,
+# so a missing account can't be distinguished from a wrong password by how long
+# the response takes (user-enumeration timing oracle).
+_DUMMY_HASH = _bcrypt_lib.hashpw(b"timing-equaliser", _bcrypt_lib.gensalt()).decode()
+
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 # ── Pydantic models ────────────────────────────────────────────────
 
 class EmailRequest(BaseModel):
-    email: str
+    email: str = Field(..., max_length=254)
 
 class PasswordAuthRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., max_length=254)
+    # bcrypt only uses the first 72 bytes; bound input to avoid unbounded
+    # hashing work from huge payloads while still allowing long passphrases.
+    password: str = Field(..., max_length=1024)
 
 class ResetPasswordRequest(BaseModel):
-    token: str
-    password: str
+    token: str = Field(..., max_length=100)
+    password: str = Field(..., max_length=1024)
 
 
 # ── Internal helpers ───────────────────────────────────────────────
@@ -45,7 +53,13 @@ class ResetPasswordRequest(BaseModel):
 def _send_email(to: str, subject: str, body: str):
     smtp_host = os.getenv("SMTP_HOST")
     if not smtp_host:
-        print(f"[AUTH] Email to {to}:\n  Subject: {subject}\n  {body[:200]}")
+        # Dev fallback. Only print the body (which may contain a token link)
+        # when explicitly opted in, so token-bearing links don't land in logs
+        # by default. Set AUTH_DEBUG_EMAIL=1 locally to see them.
+        if os.getenv("AUTH_DEBUG_EMAIL") == "1":
+            print(f"[AUTH] Email to {to}:\n  Subject: {subject}\n  {body}")
+        else:
+            print(f"[AUTH] Email to {to}: {subject!r} (SMTP unset; set AUTH_DEBUG_EMAIL=1 to log body)")
         return
     port = int(os.getenv("SMTP_PORT", "587"))
     user = os.getenv("SMTP_USER", "")
@@ -151,7 +165,12 @@ def login(body: PasswordAuthRequest, response: Response, request: Request):
     db = get_db()
     user = db["users"].find_one({"email": email})
 
-    if not user or not user.get("passwordHash") or not _verify_pw(body.password, user["passwordHash"]):
+    # Always run a bcrypt comparison — against the real hash if the user exists,
+    # otherwise a dummy — so the response time doesn't reveal whether the email
+    # is registered (user-enumeration timing oracle).
+    hashed = user.get("passwordHash") if user else None
+    ok = _verify_pw(body.password, hashed or _DUMMY_HASH)
+    if not user or not hashed or not ok:
         raise HTTPException(401, "Invalid email or password")
 
     db["users"].update_one({"email": email}, {"$set": {"lastLoginAt": datetime.utcnow()}})
@@ -170,6 +189,12 @@ def forgot_password(body: EmailRequest, request: Request):
     db = get_db()
     user = db["users"].find_one({"email": email}, {"userId": 1})
     if user:
+        # Invalidate any previously-issued, unused reset tokens for this user so
+        # only the newest link works (shrinks the window for a leaked token).
+        db["password_reset_tokens"].update_many(
+            {"userId": user["userId"], "used": False},
+            {"$set": {"used": True}},
+        )
         token = str(uuid.uuid4())
         db["password_reset_tokens"].insert_one({
             "token": token,
@@ -187,22 +212,28 @@ def forgot_password(body: EmailRequest, request: Request):
                 "This link expires in 1 hour. If you didn't request this, ignore it.",
             )
         except Exception as exc:
-            print(f"[AUTH] Reset email failed ({exc}); link: {link}")
+            # Never log the link/token — log access would equal account access.
+            print(f"[AUTH] Reset email failed for userId={user['userId']}: {exc}")
     # Always return 200 — no user enumeration
     return {"sent": True}
 
 
 @router.post("/reset-password")
+@_limiter.limit("5/minute")
 def reset_password(body: ResetPasswordRequest, response: Response, request: Request):
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
 
     db = get_db()
-    doc = db["password_reset_tokens"].find_one({"token": body.token, "used": False})
+    # Atomically claim the token: flip used→True only if it's currently unused,
+    # so two concurrent requests can't both consume the same token.
+    doc = db["password_reset_tokens"].find_one_and_update(
+        {"token": body.token, "used": False},
+        {"$set": {"used": True}},
+    )
     if not doc or doc["expiresAt"] < datetime.utcnow():
         raise HTTPException(400, "Invalid or expired reset link")
 
-    db["password_reset_tokens"].update_one({"token": body.token}, {"$set": {"used": True}})
     db["users"].update_one({"userId": doc["userId"]}, {"$set": {"passwordHash": _hash_pw(body.password)}})
     db["sessions"].delete_many({"userId": doc["userId"]})
 
