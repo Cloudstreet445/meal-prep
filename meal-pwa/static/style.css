@@ -161,6 +161,15 @@ header {
   z-index: 10;
 }
 
+/* Logo/title on the left, user avatar + budget on the right (proper app header).
+   Without this the actions wrapped underneath the title. */
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .header-row-1 {
   display: flex;
   align-items: center;

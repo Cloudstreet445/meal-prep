@@ -582,6 +582,14 @@
           </div>
         </div>
       </div>
+      <div class="ob-field">
+        <label class="ob-field-label">Anything to avoid? (optional)</label>
+        <div class="settings-exclusion-tags" id="ob-exclusion-tags"></div>
+        <div class="settings-exclusion-add">
+          <input type="text" id="ob-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom" onkeydown="if(event.key==='Enter'){event.preventDefault();obAddExclusion();}">
+          <button type="button" class="settings-add-btn" onclick="obAddExclusion()">+</button>
+        </div>
+      </div>
       <button class="ob-next-btn" onclick="obNext()">Continue →</button>
       <button class="ob-skip-btn" onclick="finishOnboarding()">Skip for now</button>
     </div>

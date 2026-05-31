@@ -672,7 +672,7 @@ function renderObExclusions() {
   const el = document.getElementById('ob-exclusion-tags');
   if (!el) return;
   el.innerHTML = _obExclusions.map(t =>
-    `<div class="exclusion-tag">${_esc(t)}<button class="exclusion-remove" onclick="obRemoveExclusion('${_esc(t)}')">×</button></div>`
+    `<span class="excl-tag">${_esc(t)}<span class="excl-tag-remove" onclick="obRemoveExclusion('${_esc(t)}')">✕</span></span>`
   ).join('');
 }
 
