@@ -6,7 +6,7 @@ from src.routers.helpers import (
     _parse_amount, _normalise_unit, _add_amounts,
     _infer_protein, _recipe_cost, _select_from_library,
     _enrich_ingredient, _ingredient_alternatives, _scale_amount,
-    _ingredient_to_g, _leading_amount,
+    _ingredient_to_g, _leading_amount, _price_per_g,
 )
 
 
@@ -155,6 +155,108 @@ class TestPackScalingForLargeCuts:
         items, _ = _derive_shopping_list(recipes, pricing_db)
         lamb = next(i for i in items if i["name"] == "Lamb leg")
         assert lamb["packPrice"] == 21.99
+
+
+class TestPricePerG:
+    def test_per_kg_normalised_to_gram(self):
+        assert _price_per_g({"unitPriceValue": 14.98, "unitPriceUnit": "kg"}) == 14.98 / 1000
+
+    def test_per_litre(self):
+        assert _price_per_g({"unitPriceValue": 3.0, "unitPriceUnit": "L"}) == 3.0 / 1000
+
+    def test_per_100g(self):
+        assert _price_per_g({"unitPriceValue": 2.0, "unitPriceUnit": "100g"}) == 2.0 / 100
+
+    def test_missing_returns_none(self):
+        assert _price_per_g({"currentPrice": 5.0}) is None
+
+    def test_zero_returns_none(self):
+        assert _price_per_g({"unitPriceValue": 0, "unitPriceUnit": "kg"}) is None
+
+
+class TestVariableWeightPricing:
+    """Butcher meat / loose produce: priced by exact weight off the store's
+    per-kg rate, not as whole 'packs' of an arbitrary estimated cut."""
+
+    def test_lamb_leg_priced_by_kg_rate_not_estimated_cut(self, pricing_db):
+        # currentPrice is just an estimate for one ~1.5kg cut; sizeGrams is null.
+        # The real signal is $14.98/kg. 1.8kg needed → ~$26.96.
+        pricing_db["products"].insert_one({
+            "name": "Fresh Lamb Leg",
+            "searchTokens": ["lamb", "leg"],
+            "storePrice": {"paknsave-lower-hutt": {
+                "currentPrice": 22.47, "unitPriceValue": 14.98, "unitPriceUnit": "kg",
+                "isSpecial": False,
+            }},
+        })
+        recipes = [{
+            "recipeId": "r1", "name": "Roast Lamb",
+            "ingredients": [{"name": "Lamb leg", "amount": "1.8kg bone-in leg"}],
+        }]
+        items, _ = _derive_shopping_list(recipes, pricing_db)
+        lamb = next(i for i in items if i["name"] == "Lamb leg")
+        assert lamb["soldByWeight"] is True
+        assert lamb["packPrice"] == round(1.8 * 14.98, 2)  # 26.96
+
+    def test_loose_produce_priced_by_weight(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Loose Carrots",
+            "searchTokens": ["carrots"],
+            "storePrice": {"paknsave-lower-hutt": {
+                "currentPrice": 2.50, "unitPriceValue": 2.50, "unitPriceUnit": "kg",
+                "isSpecial": False,
+            }},
+        })
+        recipes = [{
+            "recipeId": "r1", "name": "Soup",
+            "ingredients": [{"name": "Carrots", "amount": "3 carrots"}],  # 3×80g = 240g
+        }]
+        items, _ = _derive_shopping_list(recipes, pricing_db)
+        carrot = next(i for i in items if i["name"] == "Carrots")
+        assert carrot["packPrice"] == round(0.240 * 2.50, 2)  # 0.60
+
+
+class TestFixedPackStillRounds:
+    def test_sealed_pack_rounds_up_to_whole_packs(self, pricing_db):
+        # A 500g pasta box you can only buy whole. Need 200g → one $1.50 box,
+        # but the proportional budget share is 200/500 × 1.50 = 0.60.
+        pricing_db["products"].insert_one({
+            "name": "Pams Pasta 500g",
+            "sizeGrams": 500,
+            "searchTokens": ["pasta"],
+            "storePrice": {"paknsave-lower-hutt": {
+                "currentPrice": 1.50, "unitPriceValue": 3.0, "unitPriceUnit": "kg",
+                "isSpecial": False,
+            }},
+        })
+        recipes = [{
+            "recipeId": "r1", "name": "Dinner",
+            "ingredients": [{"name": "Pasta", "amount": "200g"}],
+        }]
+        items, _ = _derive_shopping_list(recipes, pricing_db)
+        pasta = next(i for i in items if i["name"] == "Pasta")
+        assert pasta.get("soldByWeight") is not True
+        assert pasta["packPrice"] == 1.50
+        assert pasta["currentPrice"] == 0.60
+
+
+class TestImplausibleMatchRejected:
+    def test_zero_overlap_match_left_unpriced_and_flagged(self, pricing_db):
+        # The only "stock"-ish product is a saucepan — no token overlap with the
+        # ingredient. Don't invent a price off it.
+        pricing_db["products"].insert_one({
+            "name": "Stainless Stockpot",
+            "searchTokens": ["stockpot"],
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 49.0, "isSpecial": False}},
+        })
+        recipes = [{
+            "recipeId": "r1", "name": "Soup",
+            "ingredients": [{"name": "Chicken stock", "amount": "500ml"}],
+        }]
+        items, _ = _derive_shopping_list(recipes, pricing_db)
+        stock = next(i for i in items if i["name"] == "Chicken stock")
+        assert stock.get("packPrice") is None
+        assert stock.get("costWarning") is True
 
 
 class TestNormaliseUnit:
@@ -567,8 +669,8 @@ class TestShoppingExtras:
         item = {"name": "Truffle", "amount": "1kg"}
         enriched = _enrich_ingredient(item, pricing_db, "paknsave-lower-hutt")
         assert enriched["costWarning"] is True
-        assert enriched["packPrice"] == 60.0     # _PACK_COST_CAP
-        assert enriched["currentPrice"] == 20.0  # _INGREDIENT_COST_CAP
+        assert enriched["packPrice"] == 80.0     # _PACK_COST_CAP
+        assert enriched["currentPrice"] == 50.0  # _INGREDIENT_COST_CAP
 
     def test_search_tokens_drive_matching(self, pricing_db):
         # Brand-led name where the ingredient word isn't first; searchTokens

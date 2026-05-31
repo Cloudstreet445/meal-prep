@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
 from ..auth_utils import require_user, household_id_for
-from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes, _normalise_name
+from .helpers import _clean, _clean_list, _derive_shopping_list, _get_bundle_with_recipes, _normalise_name, _pantry_keys
+from .settings import effective_settings
 
 router = APIRouter()
 
@@ -54,10 +55,15 @@ def get_latest_bundle(user: dict = Depends(require_user)):
 
     bundle = _clean(doc)
     bundle = _get_bundle_with_recipes(bundle, db, pricing_db)
+    # Derive the list exactly as the Shopping tab does — same store, overrides
+    # AND pantry exclusion — so the week-tab total and the shopping total agree.
+    settings = effective_settings(db, user)
     shopping_items, fresh_total = _derive_shopping_list(
         bundle["recipes"], pricing_db,
+        store_id=settings.get("storeId", "paknsave-lower-hutt"),
         serves=doc.get("serves"),
         overrides=doc.get("productOverrides") or {},
+        pantry=_pantry_keys(db, user),
     )
     bundle["estimatedTotal"] = fresh_total
 
