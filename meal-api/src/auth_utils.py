@@ -5,11 +5,16 @@ from datetime import datetime, timedelta
 from fastapi import Request, HTTPException
 import jwt
 
-import logging as _logging
 JWT_SECRET = os.getenv("JWT_SECRET", "")
-if not JWT_SECRET:
-    _logging.getLogger(__name__).critical(
-        "JWT_SECRET not set — all auth endpoints will fail"
+# Fail closed: an empty, placeholder, or too-short secret means tokens are
+# trivially forgeable (PyJWT will still sign AND verify with a weak key, so
+# auth doesn't "fail" — it silently becomes spoofable). Refuse to start.
+_PLACEHOLDER_SECRETS = {"change-me-to-a-random-secret", "test-secret-change-me", "secret", "changeme"}
+if not JWT_SECRET or JWT_SECRET in _PLACEHOLDER_SECRETS or len(JWT_SECRET) < 32:
+    raise ValueError(
+        "JWT_SECRET must be set to a strong random value of at least 32 characters "
+        "(generate with `openssl rand -hex 32`). Refusing to start with a weak or "
+        "placeholder secret, which would make authentication tokens forgeable."
     )
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
@@ -29,7 +34,12 @@ def create_jwt(user_id: str, email: str, session_id: str) -> str:
 
 def decode_jwt(token: str) -> dict | None:
     try:
-        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            options={"require": ["exp", "sub", "sid"]},
+        )
     except jwt.PyJWTError:
         return None
 

@@ -203,9 +203,9 @@ function closeEnhancements() {
 }
 
 // ── Capacitor deep links ─────────────────────────────────────────
-// When the Android app is opened via kaiplannerapp://auth?token=... ,
-// Capacitor fires appUrlOpen before the page navigates. We extract the
-// token and run the same auth callback used by the PWA magic link flow.
+// When the Android app is opened via kaiplannerapp://?tab=shopping ,
+// Capacitor fires appUrlOpen before the page navigates. Token-based
+// (magic link) auth has been removed — only in-app navigation is handled.
 if (window.Capacitor?.isNativePlatform?.()) {
   document.addEventListener('deviceready', () => {
     window.Capacitor.Plugins.App.addListener('appUrlOpen', async (data) => {
@@ -213,11 +213,6 @@ if (window.Capacitor?.isNativePlatform?.()) {
       if (!url) return;
       try {
         const parsed = new URL(url);
-        // kaiplannerapp://auth?token=XXX
-        const token = parsed.searchParams.get('token') || parsed.searchParams.get('auth_token');
-        if (token) {
-          await handleAuthCallback(token);
-        }
         // kaiplannerapp://?tab=shopping
         const tab = parsed.searchParams.get('tab');
         if (tab) switchTab(tab);

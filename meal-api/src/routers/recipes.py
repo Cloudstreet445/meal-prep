@@ -1,10 +1,11 @@
 """Recipe endpoints."""
 
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from ..database import get_db
-from ..auth_utils import get_current_user
+from ..auth_utils import require_user
+from ..limiter import limiter as _limiter
 
 
 class RatingIn(BaseModel):
@@ -47,21 +48,30 @@ def get_recipe(recipe_id: str):
 
 
 @router.post("/{recipe_id}/rate")
-def rate_recipe(recipe_id: str, body: RatingIn, request: Request):
-    """Add a rating to a recipe. Scoped to the authenticated user if available."""
+@_limiter.limit("30/minute")
+def rate_recipe(recipe_id: str, body: RatingIn, request: Request, user: dict = Depends(require_user)):
+    """Rate a recipe (👍/👎). Auth required, and each user has at most one
+    rating per recipe — re-rating overwrites the previous score rather than
+    stacking. This prevents anonymous mass-downvoting from poisoning plan
+    generation (👎 recipes are excluded for the rating user)."""
     if body.score not in (1, -1):
         raise HTTPException(status_code=422, detail="score must be 1 or -1")
-    user = get_current_user(request)
-    user_id = user["sub"] if user else "default"
+    user_id = user["sub"]
     db = get_db()
-    result = db["recipes"].update_one(
-        {"recipeId": recipe_id},
-        {"$push": {"ratings": {
-            "userId": user_id,
-            "score": body.score,
-            "date": datetime.now().strftime("%Y-%m-%d"),
-        }}}
-    )
-    if result.matched_count == 0:
+
+    if db["recipes"].count_documents({"recipeId": recipe_id}, limit=1) == 0:
         raise HTTPException(status_code=404, detail=f"Recipe {recipe_id} not found")
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    # One rating per user: update in place if they've rated before…
+    updated = db["recipes"].update_one(
+        {"recipeId": recipe_id, "ratings.userId": user_id},
+        {"$set": {"ratings.$.score": body.score, "ratings.$.date": today}},
+    )
+    if updated.matched_count == 0:
+        # …otherwise append their first rating.
+        db["recipes"].update_one(
+            {"recipeId": recipe_id},
+            {"$push": {"ratings": {"userId": user_id, "score": body.score, "date": today}}},
+        )
     return {"ok": True}

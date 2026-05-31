@@ -380,35 +380,10 @@ async function _doReset(token) {
   }
 }
 
-// ── Magic link callback (legacy Android deep link) ────────────────
-async function handleAuthCallback(token) {
-  _renderAuth('<div class="auth-page"><div class="auth-page-logo">Kai <span>Planner</span></div><div class="auth-page-tagline">Signing you in…</div></div>');
-  try {
-    const res = await fetch(`${API}/auth/verify?token=${encodeURIComponent(token)}`, { credentials: 'include' });
-    if (!res.ok) throw new Error('Invalid link');
-    const data = await _safeJson(res);
-    currentUser = { userId: data.userId, email: data.email, householdId: data.householdId };
-    _setLogoutVisible(true);
-    _hideAuthRoot();
-    window.history.replaceState({}, '', '/');
-    if (data.isNewUser) await showOnboarding();
-  } catch (_) {
-    _authNav('/login');
-  }
-}
-
 // ── Main auth init ────────────────────────────────────────────────
 async function initAuth() {
   const path = window.location.pathname;
   const params = new URLSearchParams(window.location.search);
-
-  // Magic link callback
-  const authToken = params.get('auth_token');
-  if (authToken) {
-    window.history.replaceState({}, '', '/');
-    await handleAuthCallback(authToken);
-    return;
-  }
 
   // Invite token
   const inviteToken = params.get('invite_token');

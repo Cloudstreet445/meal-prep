@@ -168,23 +168,28 @@ function _shopItemHtml(item, i, storeKey) {
   const usedIn   = (item.usedInNames || item.usedIn || []).join(', ');
   const shared   = item.sharedWith?.length > 0 ? `<span class="item-shared">shared</span>` : '';
   const inPantry = isPantryItem(item.name);
+  // Names/amounts/recipe titles flow DB→API (AI-generated) and from ad-hoc
+  // user input — escape everything interpolated into innerHTML. For values
+  // passed into inline onclick="..." JS string args, HTML-escape AND
+  // backslash-escape quotes so they can't break out of the handler.
+  const jsArg = (s) => _esc(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
   return `
     <div class="shop-item ${checked[i] ? 'checked' : ''} ${inPantry ? 'in-pantry' : ''}" onclick="toggleItem(${i}, '${storeKey}')">
       <div class="check-box"><span class="check-tick">✓</span></div>
       <div class="item-info">
         <div class="item-name">
-          ${item.name}
+          ${_esc(item.name)}
           ${item.isSpecial && !(item.dealStrength >= 5) ? '<span class="item-special">🔥 SPECIAL</span>' : ''}
           ${dealBadge(item)}
           ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
           ${shared}
         </div>
         <div class="item-sub">${item.amount_parts?.length
-          ? item.amount_parts.map(p => `${p.amount} <span class="amount-recipe">(${p.recipe})</span>`).join(', ')
-          : (item.amount || '')}${item.brand ? ' · ' + _esc(item.brand) : ''}${item.isOverride ? ' <span class="item-pinned">pinned</span>' : ''}${usedIn ? ' · ' + usedIn : ''}</div>
+          ? item.amount_parts.map(p => `${_esc(p.amount)} <span class="amount-recipe">(${_esc(p.recipe)})</span>`).join(', ')
+          : _esc(item.amount || '')}${item.brand ? ' · ' + _esc(item.brand) : ''}${item.isOverride ? ' <span class="item-pinned">pinned</span>' : ''}${usedIn ? ' · ' + _esc(usedIn) : ''}</div>
       </div>
       <div class="item-price">${item.packPrice != null ? fmt$(item.packPrice) : (item.estimatedCost != null ? fmt$(item.estimatedCost) : '—')}</div>
-      ${!inPantry ? `<button class="swap-btn" onclick="pickProduct('${item.name.replace(/'/g, "\\'")}', '${(item.amount || '').replace(/'/g, "\\'")}', event)" title="Choose a different brand or cut">↔</button>` : ''}
+      ${!inPantry ? `<button class="swap-btn" onclick="pickProduct('${jsArg(item.name)}', '${jsArg(item.amount || '')}', event)" title="Choose a different brand or cut">↔</button>` : ''}
     </div>`;
 }
 

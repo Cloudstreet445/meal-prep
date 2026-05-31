@@ -80,12 +80,16 @@ class TestRateRecipe:
         doc = meals_db["recipes"].find_one({"recipeId": "chicken-stir-fry-abc123"})
         assert doc["ratings"][0]["score"] == -1
 
-    def test_accumulates_multiple_ratings(self, client, meals_db):
+    def test_re_rating_overwrites_in_place(self, client, meals_db):
+        """A user has at most one rating per recipe — re-rating updates the
+        existing entry instead of stacking (prevents downvote spam)."""
         meals_db["recipes"].insert_one(dict(RECIPE))
         client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": 1})
         client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": -1})
         doc = meals_db["recipes"].find_one({"recipeId": "chicken-stir-fry-abc123"})
-        assert len(doc["ratings"]) == 2
+        assert len(doc["ratings"]) == 1
+        assert doc["ratings"][0]["score"] == -1
+        assert doc["ratings"][0]["userId"] == TEST_USER_ID
 
     def test_invalid_score_returns_422(self, client, meals_db):
         meals_db["recipes"].insert_one(dict(RECIPE))
@@ -95,6 +99,11 @@ class TestRateRecipe:
     def test_unknown_recipe_returns_404(self, client):
         resp = client.post("/api/recipes/does-not-exist/rate", json={"score": 1})
         assert resp.status_code == 404
+
+    def test_requires_auth(self, anon_client, meals_db):
+        meals_db["recipes"].insert_one(dict(RECIPE))
+        resp = anon_client.post("/api/recipes/chicken-stir-fry-abc123/rate", json={"score": 1})
+        assert resp.status_code == 401
 
 
 class TestGetRecipe:

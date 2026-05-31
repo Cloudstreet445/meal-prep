@@ -484,10 +484,13 @@ def _candidate_query(words: list[str], price_prefix: str) -> dict:
     scraper's clean searchTokens (brand/unit-stripped, MEA-111) or the raw
     name (fallback for products scraped before tokens existed)."""
     first = words[0]
+    # re.escape the user-derived term: it is compiled into a MongoDB $regex,
+    # so unescaped metacharacters would let a caller inject regex (ReDoS /
+    # catastrophic backtracking, or skew matching).
     return {
         "$or": [
             {"searchTokens": first},
-            {"name": re.compile(first, re.IGNORECASE)},
+            {"name": re.compile(re.escape(first), re.IGNORECASE)},
         ],
         price_prefix: {"$exists": True},
     }
