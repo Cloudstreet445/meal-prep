@@ -22,6 +22,21 @@ MongoDB collections: `users`, `households`, `sessions`, `recipes`, `bundles`, `m
 
 **NOT Railway. NOT Vercel. Self-hosted on Oracle Cloud.**
 
+### ⚠️ Branching / deploy rule — READ FIRST (Claude: do not repeat past mistakes)
+- **Deployments build from `main` only.** GitHub Actions (`.github/workflows/docker.yaml`)
+  triggers on push to `main` (paths `meal-pwa/**`, `meal-api/**`, `pakn-scraper/**`),
+  builds the images, pushes them to the registry, and the self-hosted runner pulls them.
+- **Make edits directly on `main`.** A fix on any other branch does **not** deploy. The
+  user has standing permission to commit straight to `main` for this project.
+- **Do NOT use the merge-once-then-keep-pushing-a-branch pattern.** Past failure: a feature
+  branch was merged to `main` once, then more fixes were pushed to that same (now stale)
+  branch — those fixes never reached `main`, never built, never deployed, and looked "lost."
+  If something is already merged, branch fresh from `main` (or just edit `main`).
+- After pushing to `main`, the user still must redeploy on the host:
+  `docker-compose pull pwa && docker-compose up -d pwa` (or the relevant service).
+- Verify a header/asset change actually shipped:
+  `curl -sI http://192.168.1.85:3000/ | grep -i content-security`
+
 - `docker-compose.yml` in repo root is the deploy mechanism
 - Services: `api`, `pwa`, `mongo` containers
 - SSH to Oracle server to deploy: pull, rebuild, `docker-compose up -d`
