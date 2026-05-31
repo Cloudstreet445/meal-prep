@@ -47,8 +47,21 @@ MongoDB collections: `users`, `households`, `sessions`, `recipes`, `bundles`, `m
 MONGO_URI=mongodb://paknsave_app:letmein@192.168.1.85:27017/paknsave-meals?authSource=admin
 JWT_SECRET=<strong secret — never the dev placeholder>
 APP_URL=https://<oracle-public-ip-or-domain>
+COOKIE_SECURE=0   # REQUIRED while served over plain HTTP (LAN / TrueNAS, no TLS)
 ```
 In docker-compose, `MONGO_URI` is overridden inline to use the Docker network hostname `mongo` instead of `192.168.1.85`.
+
+> ⚠️ **HTTP vs HTTPS gotcha (Claude: this has bitten twice).** The security
+> hardening assumes HTTPS. When the app is served over plain `http://` (the
+> current LAN setup), HTTPS-only browser features silently break things:
+> - **`COOKIE_SECURE=0` is mandatory** — a `Secure` auth cookie is dropped by
+>   the browser over HTTP, so login succeeds then immediately "signs out".
+> - The nginx CSP must **not** include `upgrade-insecure-requests` (it upgrades
+>   same-origin css/js to an HTTPS port nothing listens on → unstyled page).
+>
+> Set `COOKIE_SECURE=1` (or remove it) and re-add the CSP directive once real
+> TLS is terminated in front of the app.
+
 
 ---
 
