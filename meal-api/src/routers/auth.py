@@ -234,7 +234,7 @@ def revoke_all_sessions(response: Response, user: dict = Depends(require_user)):
     """Log out of all devices."""
     db = get_db()
     db["sessions"].delete_many({"userId": user["sub"]})
-    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("access_token", path="/", secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE, httponly=True)
     return {"ok": True}
 
 
