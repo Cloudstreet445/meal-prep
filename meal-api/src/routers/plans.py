@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db, get_pricing_db
 from ..auth_utils import require_user, household_id_for
+from ..analytics import track, PLAN_GENERATED, PLAN_GENERATION_FAILED
 from .helpers import _select_from_library
 from .settings import effective_settings
 from .bundles import get_latest_bundle
@@ -50,6 +51,11 @@ def generate_plan(user: dict = Depends(require_user)):
     )
 
     if selected is None:
+        # Product signal: budget too tight / library/diet filters too narrow to
+        # build a plan. Capture the inputs (no PII) so we can see what blocks it.
+        track(db, PLAN_GENERATION_FAILED, user_id=user.get("sub"), household_id=hid,
+              props={"budget": budget, "serves": serves, "dietTags": diet_tags,
+                     "exclusionCount": len(exclusions or [])})
         raise HTTPException(
             status_code=422,
             detail="Couldn't build a plan within your budget. Try raising your budget, relaxing exclusions/diet filters, or adding more recipes.",
@@ -88,6 +94,11 @@ def generate_plan(user: dict = Depends(require_user)):
         {"$set": {"lastUsedWeek": week_id}, "$addToSet": {"bundleHistory": bundle_id}},
     )
 
+    degraded = len(selected) < 5
+    track(db, PLAN_GENERATED, user_id=user.get("sub"), household_id=hid,
+          props={"recipeCount": len(selected), "estimatedTotal": total,
+                 "budget": budget, "degraded": degraded})
+
     return {
         "bundleId":    bundle_id,
         "week":        week_id,
@@ -95,5 +106,5 @@ def generate_plan(user: dict = Depends(require_user)):
         "estimatedTotal": total,
         "source":      "library",
         # True when the budget was too tight for a full 5-meal week
-        "degraded":    len(selected) < 5,
+        "degraded":    degraded,
     }

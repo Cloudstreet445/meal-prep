@@ -49,6 +49,10 @@ def _ensure_indexes():
     _idx(db["sessions"], "expiresAt", expireAfterSeconds=0)
     _idx(db["password_reset_tokens"], "token", unique=True)
     _idx(db["password_reset_tokens"], "expiresAt", expireAfterSeconds=0)
+    # Analytics events: queried by name + time, and self-pruned via TTL on ts.
+    from .analytics import EVENT_TTL_DAYS
+    _idx(db["events"], [("event", 1), ("ts", -1)])
+    _idx(db["events"], "ts", expireAfterSeconds=EVENT_TTL_DAYS * 86400)
     pricing_db = _client[PRICING_DB]
     _idx(pricing_db["products"], "category")
 

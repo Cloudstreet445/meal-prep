@@ -12,6 +12,7 @@ import bcrypt as _bcrypt_lib
 from ..database import get_db
 from ..auth_utils import create_jwt, decode_jwt, get_current_user, require_user
 from ..limiter import limiter as _limiter
+from ..analytics import track, USER_REGISTERED
 
 router = APIRouter()
 
@@ -152,6 +153,7 @@ def register(body: PasswordAuthRequest, response: Response, request: Request):
 
     session_id = _create_session(db, user_id, request)
     _set_auth_cookie(response, user_id, email, session_id)
+    track(db, USER_REGISTERED, user_id=user_id, household_id=household_id)
     return {"ok": True, "userId": user_id, "email": email, "isNewUser": True,
             "householdId": household_id, "sessionId": session_id}
 
