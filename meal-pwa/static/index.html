@@ -614,6 +614,16 @@
 <!-- Household Settings Section (injected into settings sheet dynamically) -->
 
 <div id="toast" class="toast" aria-live="polite"></div>
-<script src="/app.js"></script>
+<!-- app.js was split into ordered modules (classic scripts share global scope;
+     load order is significant — init must stay last). -->
+<script src="/js/01-core.js"></script>
+<script src="/js/02-auth.js"></script>
+<script src="/js/03-onboarding.js"></script>
+<script src="/js/04-platform.js"></script>
+<script src="/js/05-ui.js"></script>
+<script src="/js/06-week-shopping.js"></script>
+<script src="/js/07-recipes-cook.js"></script>
+<script src="/js/08-bundles-settings.js"></script>
+<script src="/js/09-misc-init.js"></script>
 </body>
 </html>
