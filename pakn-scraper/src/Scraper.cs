@@ -44,7 +44,7 @@ namespace Scraper
             string category
         )
         {
-            string name = "", size = "", dollarString = "", centString = "";
+            string name = "", size = "", dollarString = "", centString = "", imageUrl = "";
 
             var allPElements = await productElement.QuerySelectorAllAsync("p");
             foreach (var p in allPElements)
@@ -100,6 +100,7 @@ namespace Scraper
             {
                 var imgDiv = await productElement.QuerySelectorAllAsync("a > div > img");
                 string? imgUrl = await imgDiv.Last().GetAttributeAsync("src");
+                imageUrl = imgUrl ?? "";
                 var imageFilename = imgUrl!.Split("/").Last();
                 imageFilename = imageFilename.Split("?").First();
                 id = "P" + imageFilename.Split(".").First();
@@ -110,8 +111,8 @@ namespace Scraper
                 return null;
             }
 
-            string? unitName;
-            float? unitNum;
+            string? unitName = null;
+            float? unitNum = null;
             string unitPrice = "";
             try
             {
@@ -206,7 +207,12 @@ namespace Scraper
 
                 Product product = new Product(
                     id: id, name: name, size: size, category: category,
-                    sourceSite: "paknsave.co.nz", currentPrice: currentPrice, unitPrice: unitPrice
+                    sourceSite: "paknsave.co.nz", currentPrice: currentPrice, unitPrice: unitPrice,
+                    brand: ExtractBrand(name),
+                    sizeGrams: ParseSizeToGrams(size),
+                    pricePerUnit: unitNum,
+                    pricePerUnitName: unitName,
+                    imageUrl: imageUrl
                 );
 
                 if (IsValidProduct(product)) return product;

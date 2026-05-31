@@ -32,6 +32,8 @@ def _ensure_indexes():
     _idx(db["bundles"], [("week", 1), ("active", 1)])
     _idx(db["bundles"], [("active", 1), ("week", -1), ("createdAt", -1)])
     _idx(db["bundles"], [("week", -1), ("createdAt", -1)])
+    # Bundles are queried per household (active plan, history, week, by-id)
+    _idx(db["bundles"], [("householdId", 1), ("active", 1), ("week", -1), ("createdAt", -1)])
     _idx(db["settings"], "key", sparse=True)
     _idx(db["settings"], "userId", sparse=True, unique=True)
     _idx(db["users"], "userId", unique=True)

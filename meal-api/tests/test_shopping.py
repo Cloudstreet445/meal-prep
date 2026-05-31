@@ -4,8 +4,11 @@ import pytest
 from datetime import datetime
 
 
+from tests.conftest import TEST_HOUSEHOLD_ID
+
 BUNDLE = {
     "bundleId": "bundle-abc123",
+    "householdId": TEST_HOUSEHOLD_ID,
     "week": "2026-05-05",
     "active": True,
     "weekSummary": "5 hearty winter meals",
@@ -112,3 +115,26 @@ class TestGetLatestShopping:
         resp = client.get("/api/shopping/latest")
         assert resp.status_code == 200
         assert resp.json()["scrapedAt"] is None
+
+
+class TestAlternatives:
+    def test_returns_alternatives_cheapest_first(self, client, pricing_db):
+        pricing_db["products"].insert_many([
+            {"_id": "P-cheap", "name": "Pams Chicken Breast 1kg", "brand": "Pams",
+             "sizeGrams": 1000.0,
+             "storePrice": {"paknsave-lower-hutt": {"currentPrice": 9.0, "isSpecial": False}}},
+            {"_id": "P-premium", "name": "Free Range Chicken Breast 1kg",
+             "sizeGrams": 1000.0,
+             "storePrice": {"paknsave-lower-hutt": {"currentPrice": 15.0, "isSpecial": False}}},
+        ])
+        resp = client.get("/api/shopping/alternatives",
+                          params={"ingredient": "Chicken breast", "amount": "1kg"})
+        assert resp.status_code == 200
+        alts = resp.json()["alternatives"]
+        assert [a["productId"] for a in alts] == ["P-cheap", "P-premium"]
+        assert alts[0]["brand"] == "Pams"
+
+    def test_returns_empty_when_no_match(self, client, pricing_db):
+        resp = client.get("/api/shopping/alternatives", params={"ingredient": "Unobtanium"})
+        assert resp.status_code == 200
+        assert resp.json()["alternatives"] == []

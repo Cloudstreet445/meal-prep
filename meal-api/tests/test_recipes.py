@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import datetime
+from tests.conftest import TEST_USER_ID
 
 RECIPE = {
     "recipeId": "chicken-stir-fry-abc123",
@@ -69,7 +70,8 @@ class TestRateRecipe:
         doc = meals_db["recipes"].find_one({"recipeId": "chicken-stir-fry-abc123"})
         assert len(doc["ratings"]) == 1
         assert doc["ratings"][0]["score"] == 1
-        assert doc["ratings"][0]["userId"] == "default"
+        # Ratings now attribute to the authenticated user (per-user, feeds plan gen)
+        assert doc["ratings"][0]["userId"] == TEST_USER_ID
 
     def test_adds_thumbs_down(self, client, meals_db):
         meals_db["recipes"].insert_one(dict(RECIPE))

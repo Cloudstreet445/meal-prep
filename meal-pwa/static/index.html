@@ -582,6 +582,14 @@
           </div>
         </div>
       </div>
+      <div class="ob-field">
+        <label class="ob-field-label">Anything to avoid? (optional)</label>
+        <div class="settings-exclusion-tags" id="ob-exclusion-tags"></div>
+        <div class="settings-exclusion-add">
+          <input type="text" id="ob-exclusion-input" class="settings-text-input" placeholder="e.g. mushroom" onkeydown="if(event.key==='Enter'){event.preventDefault();obAddExclusion();}">
+          <button type="button" class="settings-add-btn" onclick="obAddExclusion()">+</button>
+        </div>
+      </div>
       <button class="ob-next-btn" onclick="obNext()">Continue →</button>
       <button class="ob-skip-btn" onclick="finishOnboarding()">Skip for now</button>
     </div>
@@ -606,6 +614,16 @@
 <!-- Household Settings Section (injected into settings sheet dynamically) -->
 
 <div id="toast" class="toast" aria-live="polite"></div>
-<script src="/app.js"></script>
+<!-- app.js was split into ordered modules (classic scripts share global scope;
+     load order is significant — init must stay last). -->
+<script src="/js/01-core.js"></script>
+<script src="/js/02-auth.js"></script>
+<script src="/js/03-onboarding.js"></script>
+<script src="/js/04-platform.js"></script>
+<script src="/js/05-ui.js"></script>
+<script src="/js/06-week-shopping.js"></script>
+<script src="/js/07-recipes-cook.js"></script>
+<script src="/js/08-bundles-settings.js"></script>
+<script src="/js/09-misc-init.js"></script>
 </body>
 </html>

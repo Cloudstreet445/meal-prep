@@ -136,5 +136,76 @@ namespace ScraperTests
         {
             Assert.AreEqual(0, GenerateSearchTokens("").Count);
         }
+
+        // ── ExtractBrand ────────────────────────────────────────────
+
+        [TestMethod]
+        public void ExtractBrand_RecognisesLeadingBrand()
+        {
+            Assert.AreEqual<string?>("Pams", ExtractBrand("Pams Fresh NZ Chicken Drumsticks 1kg"));
+        }
+
+        [TestMethod]
+        public void ExtractBrand_StripsPunctuation()
+        {
+            // "Wattie's" → apostrophe stripped → "watties" (a known brand token)
+            Assert.AreEqual<string?>("Watties", ExtractBrand("Wattie's Tomato Sauce 560ml"));
+        }
+
+        [TestMethod]
+        public void ExtractBrand_UnknownBrandReturnsNull()
+        {
+            Assert.IsNull(ExtractBrand("Fresh Broccoli Each"));
+        }
+
+        [TestMethod]
+        public void ExtractBrand_EmptyNameReturnsNull()
+        {
+            Assert.IsNull(ExtractBrand(""));
+        }
+
+        // ── ParseSizeToGrams ────────────────────────────────────────
+
+        [TestMethod]
+        public void ParseSizeToGrams_Kg()
+        {
+            Assert.AreEqual(1000f, ParseSizeToGrams("1kg"));
+        }
+
+        [TestMethod]
+        public void ParseSizeToGrams_Grams()
+        {
+            Assert.AreEqual(400f, ParseSizeToGrams("400g"));
+        }
+
+        [TestMethod]
+        public void ParseSizeToGrams_Litres()
+        {
+            Assert.AreEqual(2000f, ParseSizeToGrams("2L"));
+        }
+
+        [TestMethod]
+        public void ParseSizeToGrams_Millilitres()
+        {
+            Assert.AreEqual(500f, ParseSizeToGrams("500ml"));
+        }
+
+        [TestMethod]
+        public void ParseSizeToGrams_Decimal()
+        {
+            Assert.AreEqual(1500f, ParseSizeToGrams("1.5kg"));
+        }
+
+        [TestMethod]
+        public void ParseSizeToGrams_NoUnitReturnsNull()
+        {
+            Assert.IsNull(ParseSizeToGrams("each"));
+        }
+
+        [TestMethod]
+        public void ParseSizeToGrams_EmptyReturnsNull()
+        {
+            Assert.IsNull(ParseSizeToGrams(""));
+        }
     }
 }

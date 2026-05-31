@@ -9,7 +9,7 @@ from ..auth_utils import get_current_user, require_user
 router = APIRouter()
 
 DEFAULT_STORE_ID = "paknsave-lower-hutt"
-_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "storeId": DEFAULT_STORE_ID}
+_DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "dietTags": [], "storeId": DEFAULT_STORE_ID}
 
 
 def _settings_key(user: dict | None) -> dict:
@@ -27,17 +27,14 @@ def _migrate_defaults(db, user: dict) -> dict:
     return seed
 
 
-class SettingsIn(BaseModel):
-    budget: Optional[float] = Field(None, ge=1, le=10000)
-    serves: Optional[int] = Field(None, ge=1, le=20)
-    exclusions: Optional[List[str]] = Field(None, max_length=50)
-    storeId: Optional[str] = Field(None, max_length=100)
+def effective_settings(db, user: dict | None) -> dict:
+    """Resolve the settings that should drive behaviour for this caller.
 
-
-@router.get("/")
-def get_settings(request: Request):
-    user = get_current_user(request)
-    db = get_db()
+    Per-user when authenticated (seeding from the shared default on first access),
+    otherwise the shared anonymous 'default' doc. Always merged over _DEFAULTS so
+    every field is present. This is the single source of truth for plan
+    generation, shopping, and the settings endpoints — they must agree.
+    """
     if user:
         doc = db["settings"].find_one({"userId": user["sub"]}, {"_id": 0, "userId": 0})
         if not doc:
@@ -45,6 +42,21 @@ def get_settings(request: Request):
     else:
         doc = db["settings"].find_one({"key": "default"}, {"_id": 0, "key": 0})
     return {**_DEFAULTS, **(doc or {})}
+
+
+class SettingsIn(BaseModel):
+    budget: Optional[float] = Field(None, ge=1, le=10000)
+    serves: Optional[int] = Field(None, ge=1, le=20)
+    exclusions: Optional[List[str]] = Field(None, max_length=50)
+    dietTags: Optional[List[str]] = Field(None, max_length=20)
+    storeId: Optional[str] = Field(None, max_length=100)
+
+
+@router.get("/")
+def get_settings(request: Request):
+    user = get_current_user(request)
+    db = get_db()
+    return effective_settings(db, user)
 
 
 @router.put("/")

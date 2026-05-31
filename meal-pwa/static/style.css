@@ -161,6 +161,15 @@ header {
   z-index: 10;
 }
 
+/* Logo/title on the left, user avatar + budget on the right (proper app header).
+   Without this the actions wrapped underneath the title. */
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .header-row-1 {
   display: flex;
   align-items: center;
@@ -2132,6 +2141,13 @@ main {
   font-size: var(--text-xs);
   color: var(--text-dim);
 }
+.sub-unit {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.sub-card {
+  cursor: pointer;
+}
 .sub-loading {
   text-align: center;
   color: var(--text-dim);
@@ -2609,6 +2625,19 @@ main {
   color: var(--amber);
   background: rgba(212, 168, 67, 0.1);
   border: 1px solid rgba(212, 168, 67, 0.3);
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.item-pinned {
+  display: inline-block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
   border-radius: 8px;
   padding: 1px 6px;
   margin-left: 6px;

@@ -356,6 +356,48 @@ namespace Scraper
             return result.Replace("l", "L").Replace("mL", "ml");
         }
 
+        // KnownBrands — leading brand tokens we can confidently lift out of a
+        // product name into a structured `brand` field. Subset of TokenStopWords;
+        // only single-word brands we are confident appear first in the name.
+        public static readonly HashSet<string> KnownBrands = new HashSet<string>
+        {
+            "pams", "anchor", "meadow", "dairyworks", "hellers", "wattie",
+            "watties", "homebrand", "mainland", "tegel", "value", "essentials",
+            "budget",
+        };
+
+        // ExtractBrand()
+        // --------------
+        // Returns the leading brand token of a product name if it is recognised,
+        // otherwise null. 'Pams Fresh NZ Chicken Drumsticks 1kg' returns 'Pams'.
+        public static string? ExtractBrand(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            string first = Regex.Replace(name.Trim().Split(' ')[0].ToLower(), "[^a-z0-9]", "");
+            if (first.Length == 0 || !KnownBrands.Contains(first)) return null;
+            return char.ToUpper(first[0]) + first.Substring(1);
+        }
+
+        // ParseSizeToGrams()
+        // ------------------
+        // Converts a size tag ('1kg', '400g', '500ml', '2L') to a numeric
+        // grams/ml value (kg -> g, L -> ml). Returns null when no unit parses.
+        public static float? ParseSizeToGrams(string? size)
+        {
+            if (string.IsNullOrWhiteSpace(size)) return null;
+            var m = Regex.Match(size.ToLower(), @"(\d+(?:\.\d+)?)\s*(kg|g|ml|l)\b");
+            if (!m.Success) return null;
+            float val = float.Parse(m.Groups[1].Value);
+            switch (m.Groups[2].Value)
+            {
+                case "kg": return val * 1000;
+                case "g":  return val;
+                case "l":  return val * 1000;
+                case "ml": return val;
+                default:   return null;
+            }
+        }
+
         // DeriveCategoryFromURL()
         // -----------------------
         // Derives category name from url by taking the last /bracket/
