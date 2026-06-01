@@ -906,10 +906,11 @@ def _derive_shopping_list(
     - ``cache``: optional memo dict shared across repeated calls (plan
       generation) to avoid re-running the same product lookups
     - ``estimate_unmatched``: when True, an ingredient that matched no product
-      gets a flagged category fallback estimate instead of $0. Off by default so
-      the shopping tab keeps its "unpriced + flagged, never invented" behaviour;
-      the budget selector turns it on so an un-priceable recipe isn't treated as
-      free. Items costed this way carry ``isEstimate``.
+      gets a flagged fallback estimate instead of $0 (the recipe's own static
+      ``estimatedCost`` if present, else a coarse per-category figure). Off by
+      default so the shopping tab keeps its "unpriced + flagged, never invented"
+      behaviour; the budget selector turns it on so an un-priceable recipe isn't
+      treated as free. Items costed this way carry ``isEstimate``.
     - Returns (shopping_items, total)
     """
     overrides = overrides or {}
@@ -946,9 +947,15 @@ def _derive_shopping_list(
                     "usedIn":       [],
                     "usedInNames":  [],
                     "category":     _guess_category(ing.get("name", "")),
+                    # Recipe's own static price, used as the preferred fallback
+                    # when no store product matches (more specific than a
+                    # category guess). Internal; popped before returning.
+                    "_estHint":     ing.get("estimatedCost"),
                 }
             else:
                 existing = ingredient_map[key]
+                if not existing.get("_estHint") and ing.get("estimatedCost"):
+                    existing["_estHint"] = ing.get("estimatedCost")
                 new_raw = ing.get("amount", "")
                 if isinstance(new_raw, dict):
                     new_raw = new_raw.get("display", "") or ""
@@ -985,9 +992,14 @@ def _derive_shopping_list(
         # full of unpriceable items isn't treated as free during selection).
         matched = enriched.get("packPrice") is not None or enriched.get("currentPrice") is not None
         if estimate_unmatched and not matched and not enriched.get("inPantry"):
-            enriched["currentPrice"] = _FALLBACK_COST_BY_CATEGORY.get(enriched.get("category", "other"), 3.0)
+            # Prefer the recipe's own static estimate; fall back to a coarse
+            # per-category figure only when the ingredient carries no price.
+            hint = enriched.get("_estHint")
+            enriched["currentPrice"] = hint if (hint and hint > 0) \
+                else _FALLBACK_COST_BY_CATEGORY.get(enriched.get("category", "other"), 3.0)
             enriched["isEstimate"]   = True
             enriched["costWarning"]  = True
+        enriched.pop("_estHint", None)
         # Use live price as cost; falls back to 0 only for pantry/unestimated.
         enriched["estimatedCost"] = round(enriched.get("currentPrice") or 0, 2)
         items.append(enriched)
