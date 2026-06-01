@@ -40,13 +40,18 @@ def generate_plan(user: dict = Depends(require_user)):
     active      = db["bundles"].find_one({"active": True, "householdId": hid}, sort=[("week", -1), ("createdAt", -1)])
     exclude_ids = set(active.get("recipeIds", [])) if active else set()
 
+    # Pantry is shared between the budget decision and the stored total so both
+    # exclude what the household already owns — keeping the cost the selector
+    # gates on identical to the cost we save and display.
+    pantry = _pantry_keys(db, user)
+
     # Aim for 5 meals but degrade gracefully to as few as 3 on a tight budget
     # rather than failing outright.
     selected = _select_from_library(
         db, budget, exclusions, exclude_ids,
         n=5, min_n=3,
         user_id=user.get("sub"), pricing_db=pricing_db, store_id=store_id,
-        serves=serves, diet_tags=diet_tags,
+        serves=serves, diet_tags=diet_tags, pantry=pantry,
     )
 
     if selected is None:
@@ -63,7 +68,7 @@ def generate_plan(user: dict = Depends(require_user)):
     _, total = _derive_shopping_list(
         selected, pricing_db, store_id,
         serves=serves,
-        pantry=_pantry_keys(db, user),
+        pantry=pantry,
     )
 
     names        = [r["name"] for r in selected]
