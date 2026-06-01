@@ -117,6 +117,12 @@ Ticket naming: `MEA-NNN`. Completed sprint work through MEA-168.
 - Floating Action Button (FAB) — generate plan on Week tab, add item on Shopping tab
 - Single meal swap (⇄ button on meal cards)
 - Rating-aware plan generation (👎 recipes excluded)
+- Budget-accurate selection: the budget gate costs the real deduplicated,
+  pantry-aware basket (matches stored `estimatedTotal`); coverage-aware so
+  poorly-priced recipes are down-ranked
+- Pack-efficient plans (opt-in `packEfficiency` setting): trades protein variety
+  to reuse cheap bulk packs across meals (marginal-cost greedy, self-limiting);
+  shopping list surfaces whole-pack leftovers (`leftoverG` → "≈500g spare")
 - Shopping list: sticky category headers, live running total, checked items sink, ad-hoc items
 - PWA manifest with SVG + PNG icons
 - Onboarding: 3 steps (store → budget+household → ready), each skippable

@@ -308,6 +308,13 @@
         </div>
       </div>
       <div class="settings-section">
+        <label class="settings-toggle-row" for="settings-pack-efficient">
+          <span class="settings-toggle-label">Pack-efficient plans</span>
+          <input type="checkbox" id="settings-pack-efficient" onchange="savePackEfficiencySetting(this.checked)">
+        </label>
+        <div class="settings-hint">Reuse cheap bulk packs (e.g. a 1kg chicken) across meals to cut waste and cost, instead of always mixing up proteins.</div>
+      </div>
+      <div class="settings-section">
         <div class="settings-label">Pantry Staples</div>
         <div class="settings-hint">Items you always have at home — dimmed or hidden on your shopping list</div>
         <button class="settings-link-btn" onclick="closeSettings(); switchTab('pantry')">Manage pantry →</button>

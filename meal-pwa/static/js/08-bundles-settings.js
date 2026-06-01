@@ -255,6 +255,8 @@ function openSettings() {
   switchSettingsTab('planning');
   document.getElementById('settings-budget').value  = settings.budget;
   document.getElementById('settings-serves').value  = settings.serves;
+  const packToggle = document.getElementById('settings-pack-efficient');
+  if (packToggle) packToggle.checked = !!settings.packEfficiency;
   renderExclusionTags();
   renderStoreSelector();
   renderHouseholdSection();
@@ -277,6 +279,13 @@ function saveHidePantrySetting(value) {
     const storeKey = `checked_${plan.bundleId}`;
     renderShoppingItems(window._shopData, storeKey);
   }
+}
+
+function savePackEfficiencySetting(value) {
+  settings.packEfficiency = value;
+  // Persisted server-side (drives the next plan generation), so use the PUT
+  // settings endpoint like the other planning fields.
+  apiPost('/settings/', { packEfficiency: value }, 'PUT').catch(() => {});
 }
 
 async function renderHouseholdSection() {

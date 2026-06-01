@@ -1074,3 +1074,94 @@ class TestSelectFromLibraryPriceAware:
         assert result is not None
         costs = {r["recipeId"]: r["_cost"] for r in result}
         assert costs["chicken-1"] == pytest.approx(6.0)  # from _recipe_cost fallback
+
+
+class TestPackEfficientSelection:
+    """pack_efficient mode trades protein variety for whole-pack reuse."""
+
+    def _library(self):
+        # Two chicken recipes share the same cut (500g each → one 1kg pack),
+        # plus four other distinct proteins. With variety on, only one chicken
+        # meal can appear; pack-efficient should stack both onto the one pack.
+        return [
+            _make_recipe("chicken-a", "Chicken Stir Fry", [("Chicken Breast", 0.0)]),
+            _make_recipe("chicken-b", "Chicken Curry",    [("Chicken Breast", 0.0)]),
+            _make_recipe("pork-1", "Pork Roast",  [("Pork Mince", 0.0)]),
+            _make_recipe("beef-1", "Beef Chilli", [("Beef Mince", 0.0)]),
+            _make_recipe("lamb-1", "Lamb Stew",   [("Lamb Shoulder", 0.0)]),
+            _make_recipe("veg-1",  "Tofu Curry",  [("Tofu", 0.0)]),
+        ]
+
+    def _seed(self, pricing_db):
+        # Chicken is the cheap bulk pack; other proteins are pricier so the
+        # planner has a real incentive to reuse the chicken pack.
+        _seed_product(pricing_db, "Chicken Breast 1kg", 6.0)
+        _seed_product(pricing_db, "Pork Mince 1kg",    9.0)
+        _seed_product(pricing_db, "Beef Mince 1kg",   10.0)
+        _seed_product(pricing_db, "Lamb Shoulder 1kg", 12.0)
+        _seed_product(pricing_db, "Tofu 1kg",          5.0)
+
+    def test_variety_mode_picks_one_chicken(self, pricing_db):
+        self._seed(pricing_db)
+        result = _select_from_library(
+            FakeDB(self._library()), budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        ids = {r["recipeId"] for r in result}
+        assert not ({"chicken-a", "chicken-b"} <= ids), "variety should avoid two chicken meals"
+
+    def test_pack_efficient_reuses_one_pack_for_two_meals(self, pricing_db):
+        self._seed(pricing_db)
+        result = _select_from_library(
+            FakeDB(self._library()), budget=60, exclusions=[], exclude_ids=set(),
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+            pack_efficient=True,
+        )
+        ids = {r["recipeId"] for r in result}
+        # Both chicken meals selected, riding one 1kg pack.
+        assert {"chicken-a", "chicken-b"} <= ids
+        # And the second meal added almost nothing: the basket for both chicken
+        # meals is the single $6 pack, not $12.
+        chicken_only = [r for r in result if r["recipeId"] in ("chicken-a", "chicken-b")]
+        _, total = _derive_shopping_list(
+            chicken_only, pricing_db, "paknsave-lower-hutt",
+        )
+        assert total == pytest.approx(6.0)
+
+    def test_pack_efficient_still_respects_budget(self, pricing_db):
+        self._seed(pricing_db)
+        result = _select_from_library(
+            FakeDB(self._library()), budget=20, exclusions=[], exclude_ids=set(),
+            n=5, min_n=1,
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+            pack_efficient=True,
+        )
+        assert result is not None
+        _, total = _derive_shopping_list(result, pricing_db, "paknsave-lower-hutt")
+        assert total <= 20
+
+
+class TestLeftoverSurfacing:
+    """Whole-pack rounding exposes the spare quantity you've paid for."""
+
+    def test_leftover_grams_reported(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Chicken Breast",
+            "sizeGrams": 1000.0,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 8.0, "isSpecial": False}},
+        })
+        item = {"name": "Chicken breast", "amount": "500g"}
+        enriched = _enrich_ingredient(item, pricing_db, "paknsave-lower-hutt")
+        assert enriched["leftoverG"] == 500      # 1kg pack − 500g used
+        assert enriched["packsBought"] == 1
+        assert enriched["packSizeG"] == 1000
+
+    def test_no_leftover_when_amount_fills_pack(self, pricing_db):
+        pricing_db["products"].insert_one({
+            "name": "Beef Mince",
+            "sizeGrams": 500.0,
+            "storePrice": {"paknsave-lower-hutt": {"currentPrice": 7.0, "isSpecial": False}},
+        })
+        item = {"name": "Beef mince", "amount": "500g"}
+        enriched = _enrich_ingredient(item, pricing_db, "paknsave-lower-hutt")
+        assert enriched["leftoverG"] == 0

@@ -194,6 +194,12 @@ _FALLBACK_COST_BY_CATEGORY = {
     "other":     3.0,
 }
 
+# Floor on a meal's marginal basket cost in pack-efficient mode, so a meal that
+# adds essentially nothing (everything already bought) can't divide to infinity
+# when ranking value-per-dollar; keeps a near-free addition strongly preferred
+# without letting a zero-value recipe win outright.
+_MARGINAL_FLOOR = 0.50
+
 
 def _recipe_cost(recipe: dict) -> float:
     """Return the recipe's estimated cost.
@@ -252,13 +258,21 @@ def _select_from_library(
     min_n: int | None = None,
     diet_tags: list[str] | None = None,
     pantry: set | None = None,
+    pack_efficient: bool = False,
 ) -> list[dict] | None:
     """
     Pick recipes from the library that fit within budget.
 
-    Protein variety is enforced, with slot priority driven by which proteins
-    haven't appeared recently (stalest protein gets first pick). Within each
-    slot, candidates are ranked by a composite score.
+    Protein variety is enforced by default, with slot priority driven by which
+    proteins haven't appeared recently (stalest protein gets first pick). Within
+    each slot, candidates are ranked by a composite score.
+
+    ``pack_efficient`` flips the strategy from variety to waste/cost: it fills
+    the plan by best value-per-marginal-dollar, so a cheap bulk pack (e.g. 1kg
+    chicken) is reused across meals instead of being half-wasted. It's
+    self-limiting — once a pack is consumed, the next meal on that cut needs a
+    fresh pack and its marginal cost jumps, so the planner diversifies. Requires
+    pricing data; ignored without it.
 
     When ``pricing_db`` is supplied the selection becomes price-aware: each
     recipe's cost is computed from live store prices (scaled to ``serves``),
@@ -406,46 +420,70 @@ def _select_from_library(
     selected: list[dict] = []
     selected_ids: set[str] = set()
 
-    def _fits(extra: dict) -> bool:
-        """Would adding ``extra`` keep the real shared basket within budget?
+    def _basket_total(recipes: list[dict]) -> float:
+        """Real shared basket cost (dedup + pantry-excluded) — exactly the
+        figure stored as the bundle total. Shared staples and whole-pack
+        rounding are counted once. Without pricing data, sums static costs.
 
-        Costs the whole tentative basket (dedup + pantry-excluded), so shared
-        staples and whole-pack rounding are counted once — exactly as the stored
-        bundle total will be. Without pricing data, falls back to summing the
-        per-recipe static costs.
+        estimate_unmatched=True so an un-priceable ingredient counts as its
+        fallback estimate and a thinly-priced recipe can't sneak in by looking
+        free (the stored/displayed total keeps the default, so it never exceeds
+        this gate).
         """
-        tentative = selected + [extra]
         if price_aware:
-            # estimate_unmatched=True: an un-priceable ingredient counts as its
-            # fallback estimate here, so a thinly-priced recipe can't sneak in by
-            # looking free. (The stored/displayed total keeps the default
-            # behaviour, so it never exceeds this gate.)
             _, total = _derive_shopping_list(
-                tentative, pricing_db, store_id,
+                recipes, pricing_db, store_id,
                 serves=serves, pantry=pantry, cache=price_cache,
                 estimate_unmatched=True,
             )
-        else:
-            total = sum(x["_cost"] for x in tentative)
-        return total <= budget
+            return total
+        return sum(x["_cost"] for x in recipes)
 
-    # Pass 1: one slot per protein, least-recently-used protein first
-    for protein in protein_order:
-        if len(selected) >= n:
-            break
+    def _fits(extra: dict) -> bool:
+        return _basket_total(selected + [extra]) <= budget
+
+    if pack_efficient and price_aware:
+        # Pack-efficient mode: instead of forcing protein variety, maximise
+        # value per *marginal* dollar so the plan reuses whole packs across
+        # meals — e.g. one cheap 1kg chicken pack feeding two meals rather than
+        # buying two packs. This is self-limiting: once a pack is used up, a
+        # further meal on that cut needs a fresh pack, so its marginal cost
+        # jumps and the planner naturally moves on to another protein.
+        while len(selected) < n:
+            current = _basket_total(selected)
+            best_r, best_eff = None, -1.0
+            for r in candidates:
+                if r["recipeId"] in selected_ids:
+                    continue
+                new_total = _basket_total(selected + [r])
+                if new_total > budget:
+                    continue
+                marginal = max(new_total - current, _MARGINAL_FLOOR)
+                eff = r["_score"] / marginal  # value per added dollar
+                if eff > best_eff:
+                    best_r, best_eff = r, eff
+            if best_r is None:
+                break
+            selected.append(best_r)
+            selected_ids.add(best_r["recipeId"])
+    else:
+        # Pass 1: one slot per protein, least-recently-used protein first
+        for protein in protein_order:
+            if len(selected) >= n:
+                break
+            for r in candidates:
+                if r["_protein"] == protein and r["recipeId"] not in selected_ids and _fits(r):
+                    selected.append(r)
+                    selected_ids.add(r["recipeId"])
+                    break
+
+        # Pass 2: fill remaining slots, best-scored first
         for r in candidates:
-            if r["_protein"] == protein and r["recipeId"] not in selected_ids and _fits(r):
+            if len(selected) >= n:
+                break
+            if r["recipeId"] not in selected_ids and _fits(r):
                 selected.append(r)
                 selected_ids.add(r["recipeId"])
-                break
-
-    # Pass 2: fill remaining slots, best-scored first
-    for r in candidates:
-        if len(selected) >= n:
-            break
-        if r["recipeId"] not in selected_ids and _fits(r):
-            selected.append(r)
-            selected_ids.add(r["recipeId"])
 
     return selected if len(selected) >= min_n else None
 
@@ -671,14 +709,18 @@ def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g:
         packs      = 1
         pack_price = per_g * needed_g
         prop_cost  = pack_price
+        leftover_g = 0.0  # bought to weight — nothing left over
     elif needed_g and pack_g and pack_g > 0:
         packs      = max(1, math.ceil(needed_g / pack_g))
         pack_price = packs * raw_price
         prop_cost  = (needed_g / pack_g) * raw_price
+        # What you've paid for but won't use this week (whole-pack rounding).
+        leftover_g = max(0.0, packs * pack_g - needed_g)
     else:
         packs      = 1
         pack_price = raw_price
         prop_cost  = raw_price
+        leftover_g = None  # unknown pack size → can't say
 
     if per_g is not None:
         per_unit = per_g
@@ -699,6 +741,8 @@ def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g:
         # Kept for _ingredient_alternatives, which surfaces the buy price.
         "total_cost": round(pack_price, 2),
         "per_unit":   per_unit,
+        "needed_g":   needed_g,
+        "leftover_g": leftover_g,
         "score":      _match_score(product, words),
     }
 
@@ -735,6 +779,16 @@ def _apply_pricing(item: dict, best: dict) -> dict:
         item["unitPriceUnit"]  = sp.get("unitPriceUnit", "")
     if best.get("by_weight"):
         item["soldByWeight"] = True
+
+    # Whole-pack rounding means you may pay for more than the recipe needs.
+    # Surface that leftover so it isn't silent — the UI can show "≈500g spare"
+    # and the planner can try to use it across meals.
+    leftover_g = best.get("leftover_g")
+    if leftover_g is not None:
+        item["leftoverG"] = round(leftover_g)
+        item["packsBought"] = best.get("packs")
+        if best.get("pack_g"):
+            item["packSizeG"] = round(best["pack_g"])
 
     # packPrice: checkout cost — what the shopper actually spends.
     raw_pack = best["pack_price"]

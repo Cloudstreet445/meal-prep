@@ -168,6 +168,12 @@ function _shopItemHtml(item, i, storeKey) {
   const usedIn   = (item.usedInNames || item.usedIn || []).join(', ');
   const shared   = item.sharedWith?.length > 0 ? `<span class="item-shared">shared</span>` : '';
   const inPantry = isPantryItem(item.name);
+  // Whole-pack rounding can leave spare you've paid for — surface it so it
+  // isn't silent (only when it's a meaningful amount and not a pantry staple).
+  const fmtG = (g) => g >= 1000 ? `${(g / 1000).toFixed(1)}kg` : `${g}g`;
+  const leftover = (!inPantry && item.leftoverG >= 50)
+    ? `<span class="item-leftover" title="Whole-pack rounding — spare you've paid for. Tip: turn on pack-efficient plans to reuse it.">≈${fmtG(item.leftoverG)} spare</span>`
+    : '';
   // Names/amounts/recipe titles flow DB→API (AI-generated) and from ad-hoc
   // user input — escape everything interpolated into innerHTML. For values
   // passed into inline onclick="..." JS string args, HTML-escape AND
@@ -183,6 +189,7 @@ function _shopItemHtml(item, i, storeKey) {
           ${dealBadge(item)}
           ${inPantry ? '<span class="item-pantry">in pantry</span>' : ''}
           ${shared}
+          ${leftover}
         </div>
         <div class="item-sub">${item.amount_parts?.length
           ? item.amount_parts.map(p => `${_esc(p.amount)} <span class="amount-recipe">(${_esc(p.recipe)})</span>`).join(', ')
