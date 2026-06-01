@@ -1141,6 +1141,46 @@ class TestPackEfficientSelection:
         assert total <= 20
 
 
+class TestThemeBoost:
+    """meal_themes softly prefers on-theme recipes for a contested slot."""
+
+    def _setup(self, pricing_db):
+        # Two beef meals contend for the single beef slot; one is tagged italian.
+        _seed_product(pricing_db, "Beef Mince 1kg", 8.0)
+        _seed_product(pricing_db, "Pork Mince 1kg", 7.0)
+        _seed_product(pricing_db, "Chicken Breast 1kg", 6.0)
+        ita = _make_recipe("beef-ita", "Beef Ragu", [("Beef Mince", 0.0)])
+        ita["tags"] = ["italian", "pasta"]
+        plain = _make_recipe("beef-plain", "Beef Patties", [("Beef Mince", 0.0)])
+        plain["tags"] = ["nz-classic"]
+        pork = _make_recipe("pork-1", "Pork Roast", [("Pork Mince", 0.0)])
+        chicken = _make_recipe("chicken-1", "Chicken Bake", [("Chicken Breast", 0.0)])
+        return FakeDB([ita, plain, pork, chicken])
+
+    def test_on_theme_recipe_wins_contested_slot(self, pricing_db):
+        db = self._setup(pricing_db)
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            n=3, min_n=1,
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+            meal_themes=["italian"],
+        )
+        ids = {r["recipeId"] for r in result}
+        assert "beef-ita" in ids
+        assert "beef-plain" not in ids
+
+    def test_no_themes_leaves_selection_unbiased(self, pricing_db):
+        db = self._setup(pricing_db)
+        # Without themes the cheaper-by-score path picks beef-plain (first by
+        # equal score / order); just assert it doesn't crash and returns a plan.
+        result = _select_from_library(
+            db, budget=60, exclusions=[], exclude_ids=set(),
+            n=3, min_n=1,
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+        )
+        assert result is not None
+
+
 class TestLeftoverSurfacing:
     """Whole-pack rounding exposes the spare quantity you've paid for."""
 

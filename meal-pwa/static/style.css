@@ -3207,6 +3207,38 @@ button:focus-visible,
 .ob-store-option.selected { border-color: var(--accent); color: var(--text); }
 .ob-loading { color: var(--text-dim); font-size: 14px; }
 
+/* Meal-theme picker chips (onboarding step 2) */
+.ob-theme-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; margin: 4px 0 20px;
+}
+.ob-theme-chip {
+  padding: 9px 16px; background: var(--bg2);
+  border: 1.5px solid var(--bg3); border-radius: 999px;
+  color: var(--text-dim); cursor: pointer; font-size: 14px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ob-theme-chip.selected {
+  border-color: var(--accent); color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Theme-suggested staples in the weekly pantry confirm */
+.pantry-confirm-suggested { margin-top: 14px; }
+.pantry-suggested-label {
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+.pantry-suggested-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pantry-suggested-chip {
+  padding: 7px 12px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text); cursor: pointer; font-size: 13px;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.pantry-suggested-chip:hover { border-color: var(--accent); }
+.pantry-suggested-chip.added { opacity: 0.5; border-color: var(--accent); cursor: default; }
+
 /* ── Install Banner ─────────────────────────────────────────── */
 .install-banner {
   position: fixed; bottom: 80px; left: 16px; right: 16px;

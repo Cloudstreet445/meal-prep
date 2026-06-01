@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
 from ..auth_utils import get_current_user, require_user
+from ..meal_themes import normalise_themes
 
 router = APIRouter()
 
 DEFAULT_STORE_ID = "paknsave-lower-hutt"
 _DEFAULTS = {"budget": 60.0, "serves": 2, "exclusions": [], "dietTags": [], "storeId": DEFAULT_STORE_ID,
-             "packEfficiency": False}
+             "packEfficiency": False, "mealThemes": []}
 
 
 def _settings_key(user: dict | None) -> dict:
@@ -53,6 +54,9 @@ class SettingsIn(BaseModel):
     storeId: Optional[str] = Field(None, max_length=100)
     # Prefer reusing bulk packs across meals over protein variety (less waste).
     packEfficiency: Optional[bool] = None
+    # Cuisine themes the household cooks (asian/thai/indian/…). Drives pantry
+    # staple suggestions and a soft boost toward matching recipes.
+    mealThemes: Optional[List[str]] = Field(None, max_length=20)
 
 
 @router.get("/")
@@ -65,6 +69,10 @@ def get_settings(request: Request):
 @router.put("/")
 def update_settings(body: SettingsIn, request: Request, user: dict = Depends(require_user)):
     updates = body.model_dump(exclude_none=True)
+    if "mealThemes" in updates:
+        # Drop anything that isn't a known theme so bad input can't poison
+        # plan generation or the suggestions endpoint.
+        updates["mealThemes"] = normalise_themes(updates["mealThemes"])
     if updates:
         db = get_db()
         db["settings"].update_one(

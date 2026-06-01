@@ -454,6 +454,7 @@
       <button type="button" class="pantry-add-btn" id="pantry-confirm-add-btn">Add</button>
     </div>
     <div id="pantry-confirm-list" class="pantry-confirm-list"></div>
+    <div id="pantry-confirm-suggested" class="pantry-confirm-suggested"></div>
   </div>
   <div class="pantry-confirm-actions">
     <button type="button" class="pantry-confirm-skip" onclick="skipPantryConfirm()">Skip for now</button>
@@ -620,8 +621,27 @@
       <button class="ob-skip-btn" onclick="finishOnboarding()">Skip for now</button>
     </div>
 
-    <!-- Step 2: Ready -->
+    <!-- Step 2: Meal themes -->
     <div class="onboarding-step" id="ob-step-2" style="display:none">
+      <div class="ob-emoji">🍜</div>
+      <div class="ob-title">What do you like to cook?</div>
+      <div class="ob-desc">Pick the cuisines you cook most. We'll lean your plans this way and suggest the staples you probably already have.</div>
+      <div class="ob-theme-chips" id="ob-theme-chips"></div>
+      <button class="ob-next-btn" onclick="obThemesNext()">Continue →</button>
+      <button class="ob-skip-btn" onclick="obNext()">Skip for now</button>
+    </div>
+
+    <!-- Step 3: Pantry staples from themes -->
+    <div class="onboarding-step" id="ob-step-3" style="display:none">
+      <div class="ob-emoji">🫙</div>
+      <div class="ob-title">What's already in your pantry?</div>
+      <div class="ob-desc">Tick the staples you already have — they'll stay off your shopping list and keep your budget honest.</div>
+      <div class="pantry-confirm-list" id="ob-pantry-list"></div>
+      <button class="ob-next-btn" onclick="obNext()">Continue →</button>
+    </div>
+
+    <!-- Step 4: Ready -->
+    <div class="onboarding-step" id="ob-step-4" style="display:none">
       <div class="ob-emoji">✅</div>
       <div class="ob-title">You're all set!</div>
       <div class="ob-desc">Kai Planner will now build your first weekly plan. Tap Generate to get started.</div>

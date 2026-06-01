@@ -1,12 +1,29 @@
 // ── Onboarding ──────────────────────────────────────────────────
 let _obStep = 0;
-const _obStepCount = 3;
+const _obStepCount = 5;
 let _obExclusions = [];
 let _obStore = null;
+let _obThemes = [];
+let _obPantrySuggestions = [];
+let _obPantryChecked = new Set();   // canonicals the user confirmed they own
+
+// Mirrors the backend THEME_LABELS (src/meal_themes.py).
+const MEAL_THEMES = [
+  { id: 'asian',         label: 'Asian' },
+  { id: 'thai',          label: 'Thai' },
+  { id: 'indian',        label: 'Indian' },
+  { id: 'mexican',       label: 'Mexican' },
+  { id: 'italian',       label: 'Italian' },
+  { id: 'mediterranean', label: 'Mediterranean' },
+  { id: 'nz-classic',    label: 'Kiwi Classic' },
+];
 
 async function showOnboarding() {
   _obStep = 0;
   _obExclusions = [];
+  _obThemes = [];
+  _obPantryChecked = new Set();
+  renderObThemeChips();
   // Load stores for step 1
   try {
     const stores = await apiFetch('/settings/stores');
@@ -69,6 +86,63 @@ function obNext() {
   renderObDots();
 }
 
+// ── Theme picker (step 2) ─────────────────────────────────────────
+function renderObThemeChips() {
+  const el = document.getElementById('ob-theme-chips');
+  if (!el) return;
+  el.innerHTML = MEAL_THEMES.map(t => `
+    <button type="button" class="ob-theme-chip${_obThemes.includes(t.id) ? ' selected' : ''}"
+            data-theme="${t.id}" onclick="obToggleTheme('${t.id}')">${_esc(t.label)}</button>
+  `).join('');
+}
+
+function obToggleTheme(id) {
+  _obThemes = _obThemes.includes(id) ? _obThemes.filter(t => t !== id) : [..._obThemes, id];
+  renderObThemeChips();
+}
+
+// Continue from the theme step: pull suggested staples for the chosen themes,
+// then advance to the confirm-your-pantry step.
+async function obThemesNext() {
+  if (!_obThemes.length) { obNext(); return; }
+  const list = document.getElementById('ob-pantry-list');
+  if (list) list.innerHTML = '<div class="pantry-confirm-empty">Loading staples…</div>';
+  try {
+    const data = await apiFetch('/pantry/suggestions', { params: { themes: _obThemes.join(',') } });
+    _obPantrySuggestions = data.suggestions || [];
+    // Default everything ticked — it's faster to untick the few you lack.
+    _obPantryChecked = new Set(_obPantrySuggestions.map(s => s.canonical));
+  } catch (_) {
+    _obPantrySuggestions = [];
+  }
+  renderObPantryList();
+  obNext();
+}
+
+function renderObPantryList() {
+  const list = document.getElementById('ob-pantry-list');
+  if (!list) return;
+  if (!_obPantrySuggestions.length) {
+    list.innerHTML = `<div class="pantry-confirm-empty">No suggestions — you can add pantry staples any time from Settings.</div>`;
+    return;
+  }
+  list.innerHTML = _obPantrySuggestions.map(s => {
+    const checked = _obPantryChecked.has(s.canonical);
+    return `
+      <label class="pantry-confirm-item${checked ? '' : ' pantry-confirm-item--off'}">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="obTogglePantryItem('${_esc(s.canonical)}')">
+        <span class="pantry-confirm-box" aria-hidden="true"></span>
+        <span class="pantry-confirm-name">${_esc(s.name)}</span>
+      </label>`;
+  }).join('');
+}
+
+function obTogglePantryItem(canonical) {
+  if (_obPantryChecked.has(canonical)) _obPantryChecked.delete(canonical);
+  else _obPantryChecked.add(canonical);
+  renderObPantryList();
+}
+
 async function finishOnboarding() {
   const budget = parseFloat(document.getElementById('ob-budget')?.value) || 60;
   const serves = parseInt(document.getElementById('ob-serves')?.value) || 2;
@@ -77,9 +151,20 @@ async function finishOnboarding() {
   try {
     await apiFetch('/settings/', {
       method: 'PUT',
-      body: JSON.stringify({ budget, serves, storeId, exclusions: _obExclusions }),
+      body: JSON.stringify({ budget, serves, storeId, exclusions: _obExclusions, mealThemes: _obThemes }),
     });
   } catch (e) { console.error('[ONBOARDING] Settings save failed:', e); }
+
+  // Seed the pantry with the staples the user confirmed they already own.
+  const confirmed = (_obPantrySuggestions || []).filter(s => _obPantryChecked.has(s.canonical));
+  if (confirmed.length) {
+    try {
+      await apiFetch('/pantry/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ items: confirmed.map(s => ({ name: s.name, canonical: s.canonical })) }),
+      });
+    } catch (e) { console.error('[ONBOARDING] Pantry seed failed:', e); }
+  }
 
   document.getElementById('onboarding-overlay').style.display = 'none';
   if (window._obResolve) { window._obResolve(); window._obResolve = null; }

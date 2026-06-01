@@ -52,7 +52,7 @@ VALID_TAGS = {
     # Character
     "freezer-friendly", "leftovers", "meal-prep", "budget",
     # Cuisine
-    "asian", "mexican", "italian", "nz-classic", "mediterranean",
+    "asian", "thai", "indian", "mexican", "italian", "nz-classic", "mediterranean",
     # Season feel
     "winter-warmer", "summer-fresh",
 }

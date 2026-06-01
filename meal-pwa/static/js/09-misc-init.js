@@ -144,10 +144,49 @@ async function openPantryConfirm() {
   try { await loadPantry(); } catch { /* offline — use what we have */ }
   _pantryUnchecked = new Set();
   renderPantryConfirmList();
+  renderPantrySuggestions();   // theme staples you haven't added yet
   const input = document.getElementById('pantry-confirm-input');
   if (input) input.value = '';
   document.getElementById('pantry-confirm-backdrop').classList.add('active');
   document.getElementById('pantry-confirm-sheet').classList.add('active');
+}
+
+// Theme-driven staples the household hasn't added yet — one-tap to add. Keeps
+// the weekly check useful even when the pantry is sparse.
+async function renderPantrySuggestions() {
+  const el = document.getElementById('pantry-confirm-suggested');
+  if (!el) return;
+  el.innerHTML = '';
+  let suggestions = [];
+  try {
+    const data = await apiFetch('/pantry/suggestions');   // uses saved themes
+    suggestions = (data.suggestions || []).filter(s => !s.inPantry);
+  } catch (_) { return; }
+  if (!suggestions.length) return;
+  el.innerHTML = `
+    <div class="pantry-suggested-label">Suggested for your cuisines</div>
+    <div class="pantry-suggested-chips">
+      ${suggestions.map(s => `
+        <button type="button" class="pantry-suggested-chip" data-canonical="${_esc(s.canonical)}"
+                onclick="addSuggestedPantryItem(this, '${_esc(s.name).replace(/'/g, "\\'")}', '${_esc(s.canonical)}')">
+          + ${_esc(s.name)}
+        </button>`).join('')}
+    </div>`;
+}
+
+function addSuggestedPantryItem(btn, name, canonical) {
+  if (pantry.some(p => p.canonical === canonical)) return;
+  pantry = [...pantry, { name, canonical }];
+  savePantry();
+  _pantryUnchecked.delete(canonical);
+  btn.classList.add('added');
+  btn.disabled = true;
+  renderPantryConfirmList();
+  apiFetch('/pantry/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, canonical }),
+  }).catch(() => {});
 }
 
 function closePantryConfirm() {

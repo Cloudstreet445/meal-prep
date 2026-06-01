@@ -38,6 +38,7 @@ def generate_plan(user: dict = Depends(require_user)):
     # Opt-in: trade protein variety for pack-efficiency / less waste — reuse a
     # cheap bulk pack (e.g. 1kg chicken) across meals instead of half-wasting it.
     pack_efficient = bool(settings.get("packEfficiency", False))
+    meal_themes    = settings.get("mealThemes", [])
 
     # Exclude this household's current active bundle's recipes (no repeats)
     active      = db["bundles"].find_one({"active": True, "householdId": hid}, sort=[("week", -1), ("createdAt", -1)])
@@ -55,7 +56,7 @@ def generate_plan(user: dict = Depends(require_user)):
         n=5, min_n=3,
         user_id=user.get("sub"), pricing_db=pricing_db, store_id=store_id,
         serves=serves, diet_tags=diet_tags, pantry=pantry,
-        pack_efficient=pack_efficient,
+        pack_efficient=pack_efficient, meal_themes=meal_themes,
     )
 
     if selected is None:

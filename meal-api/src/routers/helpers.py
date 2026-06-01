@@ -5,6 +5,8 @@ import math
 import re
 from datetime import date as _date
 
+from ..meal_themes import THEME_RECIPE_TAGS
+
 _log = logging.getLogger(__name__)
 
 
@@ -259,6 +261,7 @@ def _select_from_library(
     diet_tags: list[str] | None = None,
     pantry: set | None = None,
     pack_efficient: bool = False,
+    meal_themes: list[str] | None = None,
 ) -> list[dict] | None:
     """
     Pick recipes from the library that fit within budget.
@@ -299,11 +302,19 @@ def _select_from_library(
     returns as few as ``min_n`` rather than failing outright when the budget is
     tight (defaults to ``n`` — strict). ``diet_tags`` filters to recipes
     carrying every requested dietary tag (e.g. 'vegetarian', 'gluten-free').
+
+    ``meal_themes`` (asian/thai/indian/…) softly boosts recipes whose tags match
+    the household's chosen cuisines — a preference, not a hard filter, so a
+    themed plan still falls back to other meals when needed.
     """
     pantry = pantry or set()
     min_n = n if min_n is None else min_n
     excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
     want_tags = {t.lower().strip() for t in (diet_tags or []) if t.strip()}
+    # Recipe tags that count as on-theme for the soft boost below.
+    theme_tags: set[str] = set()
+    for t in (meal_themes or []):
+        theme_tags |= THEME_RECIPE_TAGS.get(str(t).lower().strip(), set())
 
     raw = list(db["recipes"].find(
         {"recipeId": {"$nin": list(exclude_ids)}} if exclude_ids else {}
@@ -383,6 +394,10 @@ def _select_from_library(
         # Liked recipes score 30% higher; disliked already excluded above
         rating_mult = 1.3 if r["recipeId"] in liked_ids else 1.0
 
+        # On-theme recipes get a gentle nudge (preference, not a filter).
+        recipe_tags = {str(x).lower() for x in r.get("tags", [])}
+        theme_mult = 1.25 if (theme_tags and recipe_tags & theme_tags) else 1.0
+
         if price_aware:
             # Cheapness: a meal at exactly the per-meal budget scores ×1.0;
             # cheaper meals are boosted (up to ×2), pricier ones penalised
@@ -400,9 +415,9 @@ def _select_from_library(
             # drops toward ×0.4. Keeps a thinly-priced recipe selectable but
             # dispreferred, so the plan leans on decent shopping data.
             coverage_mult = 0.4 + 0.6 * r["_coverage"]
-            r["_score"] = recency * rating_mult * cheap_mult * special_mult * main_mult * coverage_mult
+            r["_score"] = recency * rating_mult * cheap_mult * special_mult * main_mult * coverage_mult * theme_mult
         else:
-            r["_score"] = recency * rating_mult
+            r["_score"] = recency * rating_mult * theme_mult
 
     # Best candidates first
     candidates.sort(key=lambda r: r["_score"], reverse=True)

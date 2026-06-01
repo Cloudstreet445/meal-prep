@@ -125,7 +125,12 @@ Ticket naming: `MEA-NNN`. Completed sprint work through MEA-168.
   shopping list surfaces whole-pack leftovers (`leftoverG` → "≈500g spare")
 - Shopping list: sticky category headers, live running total, checked items sink, ad-hoc items
 - PWA manifest with SVG + PNG icons
-- Onboarding: 3 steps (store → budget+household → ready), each skippable
+- Onboarding: 5 steps (store → budget+household → meal themes → pantry staples → ready), each skippable
+- Meal-type themes (`mealThemes` setting: asian/thai/indian/mexican/italian/mediterranean/nz-classic).
+  Single source of truth in `meal-api/src/meal_themes.py`. Themes (a) softly boost
+  on-theme recipes in plan gen, and (b) drive pantry-staple suggestions
+  (`GET /pantry/suggestions`, confirm/deny in onboarding + weekly pantry check;
+  `POST /pantry/bulk` seeds confirmed staples)
 
 ---
 

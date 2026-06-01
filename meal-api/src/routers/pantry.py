@@ -1,12 +1,15 @@
 """Per-user server-side pantry endpoints."""
 
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from ..database import get_db
-from ..auth_utils import require_user
+from ..auth_utils import require_user, get_current_user
 from ..sanitize import clean_text
+from ..meal_themes import pantry_suggestions_for
+from .helpers import _normalise_name
+from .settings import effective_settings
 
 router = APIRouter()
 
@@ -22,6 +25,10 @@ class PantryItemIn(BaseModel):
 class PantryItemUpdate(BaseModel):
     quantity: Optional[str] = Field(None, max_length=100)
     expiryDate: Optional[str] = Field(None, max_length=40)
+
+
+class PantryBulkIn(BaseModel):
+    items: List[PantryItemIn] = Field(..., max_length=100)
 
 
 @router.get("/")
@@ -52,6 +59,66 @@ def add_pantry_item(body: PantryItemIn, user: dict = Depends(require_user)):
         "addedAt": datetime.utcnow().isoformat(),
     })
     return {"ok": True}
+
+
+@router.get("/suggestions")
+def pantry_suggestions(request: Request, themes: Optional[str] = Query(default=None)):
+    """Staple pantry items implied by the household's meal themes.
+
+    ``themes`` (comma-separated) overrides the saved setting — used during
+    onboarding before the choice is persisted. Each suggestion is flagged
+    ``inPantry`` (fuzzy match) so the UI can pre-tick what's already owned.
+    """
+    db = get_db()
+    user = get_current_user(request)
+    if themes is not None:
+        chosen = [t for t in themes.split(",") if t.strip()]
+    else:
+        chosen = effective_settings(db, user).get("mealThemes", [])
+
+    owned = set()
+    if user:
+        owned = {
+            _normalise_name(i.get("canonical") or i.get("name") or "")
+            for i in db["user_pantry"].find({"userId": user["sub"]}, {"canonical": 1, "name": 1})
+        }
+
+    suggestions = []
+    for s in pantry_suggestions_for(chosen):
+        key = _normalise_name(s["canonical"])
+        s["inPantry"] = any(o and (o in key or key in o) for o in owned)
+        suggestions.append(s)
+    return {"themes": chosen, "suggestions": suggestions}
+
+
+@router.post("/bulk")
+def add_pantry_items(body: PantryBulkIn, user: dict = Depends(require_user)):
+    """Add several pantry items at once (skipping any already present).
+
+    Used when a user confirms theme-suggested staples in one tap."""
+    db = get_db()
+    existing = {
+        i["canonical"] for i in
+        db["user_pantry"].find({"userId": user["sub"]}, {"canonical": 1})
+    }
+    docs = []
+    for item in body.items:
+        canonical = clean_text(item.canonical)
+        if not canonical or canonical in existing:
+            continue
+        existing.add(canonical)
+        docs.append({
+            "userId": user["sub"],
+            "name": clean_text(item.name),
+            "canonical": canonical,
+            "quantity": clean_text(item.quantity) or None,
+            "category": clean_text(item.category) or None,
+            "expiryDate": clean_text(item.expiryDate) or None,
+            "addedAt": datetime.utcnow().isoformat(),
+        })
+    if docs:
+        db["user_pantry"].insert_many(docs)
+    return {"added": len(docs)}
 
 
 @router.put("/{canonical}")
