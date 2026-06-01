@@ -14,6 +14,8 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('settings-sheet').classList.contains('active'))  { closeSettings();        return; }
   if (document.getElementById('bundle-sheet').classList.contains('active'))    { closeBundleSheet();     return; }
   if (document.getElementById('enhance-sheet').classList.contains('active'))   { closeEnhancements();    return; }
+  const pantryConfirm = document.getElementById('pantry-confirm-sheet');
+  if (pantryConfirm && pantryConfirm.classList.contains('active'))             { closePantryConfirm();   return; }
 });
 
 // ── Swipe-to-dismiss for bottom sheets ──────────────────────────
@@ -61,6 +63,18 @@ let _generating = false;
 
 async function generatePlan() {
   if (_generating) return;
+  // Once a week, confirm the pantry before building a plan so the shopping
+  // list leaves out what's already at home. After it's been confirmed this
+  // week, skip straight to generating.
+  if (!_pantryConfirmedThisWeek()) {
+    await openPantryConfirm();
+    return;
+  }
+  await _runGeneration();
+}
+
+async function _runGeneration() {
+  if (_generating) return;
   _generating = true;
 
   const fab = document.getElementById('tab-fab');
@@ -88,7 +102,7 @@ async function generatePlan() {
     if (statusEl) statusEl.style.display = 'none';
     await notifyNewPlan({ week: result.week });
     await loadWeek();
-    loadRecipes();
+    await loadRecipes();
     await loadShopping();
     showToast(`Plan ready · ${result.recipeCount || plan?.recipes?.length || 5} meals · ${fmt$(result.estimatedTotal || plan?.estimatedTotal || 0)} est.`, 3000);
   } catch (e) {
@@ -103,6 +117,119 @@ async function generatePlan() {
     if (fab) { fab.classList.remove('fab--spinning'); fab.disabled = false; }
   }
 }
+
+// ── Weekly pantry confirmation ───────────────────────────────────
+// Shown before the first generation of each ISO week. The pantry feeds the
+// shopping total (owned items are dropped), so confirming it keeps the list
+// honest without nagging on every generate.
+
+let _pantryUnchecked = new Set();
+
+function _isoWeekKey(d = new Date()) {
+  // ISO-8601 week (YYYY-Www) — lines "once a week" up with the Mon-start plan week.
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = dt.getUTCDay() || 7;
+  dt.setUTCDate(dt.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  return `${dt.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function _pantryConfirmedThisWeek() {
+  return localStorage.getItem('pantryConfirmedWeek') === _isoWeekKey();
+}
+
+async function openPantryConfirm() {
+  // Pull the latest household pantry so the list is current before confirming.
+  try { await loadPantry(); } catch { /* offline — use what we have */ }
+  _pantryUnchecked = new Set();
+  renderPantryConfirmList();
+  const input = document.getElementById('pantry-confirm-input');
+  if (input) input.value = '';
+  document.getElementById('pantry-confirm-backdrop').classList.add('active');
+  document.getElementById('pantry-confirm-sheet').classList.add('active');
+}
+
+function closePantryConfirm() {
+  document.getElementById('pantry-confirm-backdrop').classList.remove('active');
+  document.getElementById('pantry-confirm-sheet').classList.remove('active');
+}
+
+function renderPantryConfirmList() {
+  const list = document.getElementById('pantry-confirm-list');
+  if (!list) return;
+  if (!pantry.length) {
+    list.innerHTML = `<div class="pantry-confirm-empty">No pantry items yet. Add staples you always have (salt, oil, rice…) so they stay off your shopping list.</div>`;
+    return;
+  }
+  list.innerHTML = pantry.map((item, i) => {
+    const checked = !_pantryUnchecked.has(item.canonical);
+    return `
+      <label class="pantry-confirm-item${checked ? '' : ' pantry-confirm-item--off'}">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="togglePantryConfirmItem(${i})">
+        <span class="pantry-confirm-box" aria-hidden="true"></span>
+        <span class="pantry-confirm-name">${_esc(item.name)}</span>
+      </label>`;
+  }).join('');
+}
+
+function togglePantryConfirmItem(i) {
+  const item = pantry[i];
+  if (!item) return;
+  if (_pantryUnchecked.has(item.canonical)) _pantryUnchecked.delete(item.canonical);
+  else _pantryUnchecked.add(item.canonical);
+  renderPantryConfirmList();
+}
+
+function addPantryConfirmItem() {
+  const input     = document.getElementById('pantry-confirm-input');
+  const val       = input.value.trim();
+  const canonical = val.toLowerCase();
+  if (!val || pantry.some(p => p.canonical === canonical)) { input.value = ''; return; }
+  pantry = [...pantry, { name: val, canonical }];
+  savePantry();
+  input.value = '';
+  _pantryUnchecked.delete(canonical);
+  renderPantryConfirmList();
+  apiFetch('/pantry/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: val, canonical }),
+  }).catch(() => {});
+}
+
+async function confirmPantryAndGenerate() {
+  // Apply any items the user unticked (they no longer have them), then build.
+  const removals = pantry.filter(p => _pantryUnchecked.has(p.canonical));
+  if (removals.length) {
+    pantry = pantry.filter(p => !_pantryUnchecked.has(p.canonical));
+    savePantry();
+    renderPantryTags();
+    for (const r of removals) {
+      apiFetch(`/pantry/${encodeURIComponent(r.canonical)}`, { method: 'DELETE' }).catch(() => {});
+    }
+  }
+  _pantryUnchecked = new Set();
+  localStorage.setItem('pantryConfirmedWeek', _isoWeekKey());
+  closePantryConfirm();
+  await _runGeneration();
+}
+
+function skipPantryConfirm() {
+  // Don't ask again this week; generate without touching the pantry.
+  localStorage.setItem('pantryConfirmedWeek', _isoWeekKey());
+  closePantryConfirm();
+  _runGeneration();
+}
+
+(function _wirePantryConfirm() {
+  const btn = document.getElementById('pantry-confirm-add-btn');
+  const input = document.getElementById('pantry-confirm-input');
+  if (btn) btn.onclick = addPantryConfirmItem;
+  if (input) input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addPantryConfirmItem();
+  });
+})();
 
 // ── Notifications ────────────────────────────────────────────────
 

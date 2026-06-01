@@ -60,6 +60,31 @@ def _parse_amount(raw) -> dict | None:
     return {"value": float(m.group(1)), "unit": unit}
 
 
+_LEADING_AMOUNT_RE = re.compile(r'^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)')
+
+
+def _leading_amount(raw) -> dict | None:
+    """Extract a leading quantity+unit from a free-text amount.
+
+    Recipe amounts are often descriptive — "1.8kg bone-in leg", "600g, peeled
+    and cubed", "1.2kg (approx 8 drumsticks)". ``_parse_amount`` requires the
+    *whole* string to be number+unit, so it returns None for these and the
+    cost path then can't scale by quantity (a 1.8kg lamb leg gets priced as a
+    single pack → absurd $4.99 totals). This reads just the leading
+    quantity+unit and ignores the trailing prose, which is all the cost
+    calculation needs. v2 amount objects defer to the strict parser.
+    """
+    if isinstance(raw, dict):
+        return _parse_amount(raw)
+    if not raw:
+        return None
+    m = _LEADING_AMOUNT_RE.match(str(raw).strip())
+    if not m:
+        return None
+    unit = _UNIT_NORMALIZE.get(m.group(2).lower(), m.group(2).lower())
+    return {"value": float(m.group(1)), "unit": unit}
+
+
 def _normalise_unit(value: float, unit: str) -> tuple[float, str]:
     """Promote g→kg if ≥1000g, ml→L if ≥1000ml."""
     if unit == "g" and value >= 1000:
@@ -105,6 +130,19 @@ def _clean_list(docs) -> list:
 def _normalise_name(name: str) -> str:
     """Normalise ingredient name for deduplication matching."""
     return re.sub(r'[^a-z0-9]', '', name.lower())
+
+
+def _pantry_keys(db, user: dict | None) -> set:
+    """Normalised canonical names of the user's server-side pantry, for fuzzy
+    'already have it' matching. Empty for anonymous callers.
+
+    Shared by the shopping list and the bundle total so both exclude pantry
+    items consistently — otherwise the same basket shows two different totals.
+    """
+    if not user:
+        return set()
+    items = db["user_pantry"].find({"userId": user["sub"]}, {"canonical": 1, "name": 1})
+    return {_normalise_name(i.get("canonical") or i.get("name") or "") for i in items}
 
 
 # Centre-of-plate protein classes. Order matters: the first class whose
@@ -385,8 +423,8 @@ _CULINARY_TO_ML = {
     "fl oz": 30.0,
 }
 
-_INGREDIENT_COST_CAP = 20.0   # cap on proportional budget estimate per ingredient
-_PACK_COST_CAP       = 60.0   # cap on pack price (legitimate packs rarely exceed this)
+_INGREDIENT_COST_CAP = 50.0   # cap on proportional budget estimate per ingredient
+_PACK_COST_CAP       = 80.0   # cap on pack price (legitimate packs rarely exceed this)
 
 _PACK_SIZE_RE = re.compile(r'(\d+(?:\.\d+)?)\s*(kg|g|ml|l)\b', re.IGNORECASE)
 
@@ -410,8 +448,12 @@ def _parse_pack_size_g(product_name: str) -> float | None:
 
 
 def _ingredient_to_g(amount) -> float | None:
-    """Convert an ingredient amount to grams or ml for proportional cost calculation."""
-    parsed = _parse_amount(amount)
+    """Convert an ingredient amount to grams or ml for proportional cost calculation.
+
+    Uses ``_leading_amount`` so descriptive quantities ("1.8kg bone-in leg")
+    still yield a weight to scale pack pricing against.
+    """
+    parsed = _leading_amount(amount)
     if not parsed:
         return None
     value, unit = parsed["value"], parsed["unit"]
@@ -480,27 +522,61 @@ _PRODUCT_PROJECTION = {"name": 1, "brand": 1, "sizeGrams": 1, "searchTokens": 1}
 
 
 def _candidate_query(words: list[str], price_prefix: str) -> dict:
-    """Match products by the ingredient's primary word against either the
-    scraper's clean searchTokens (brand/unit-stripped, MEA-111) or the raw
-    name (fallback for products scraped before tokens existed)."""
-    first = words[0]
-    # re.escape the user-derived term: it is compiled into a MongoDB $regex,
+    """Match products against ALL of the ingredient's significant words (not
+    just the first), against either the scraper's clean searchTokens
+    (brand/unit-stripped, MEA-111) or the raw name. Casting a wider net here
+    lifts recall ("lamb leg" can reach "leg of lamb"); precision is restored by
+    ``_rank_candidates`` scoring token overlap. ``_match_score`` then ranks."""
+    # re.escape each user-derived term: they are compiled into a MongoDB $regex,
     # so unescaped metacharacters would let a caller inject regex (ReDoS /
     # catastrophic backtracking, or skew matching).
+    name_re = re.compile("|".join(re.escape(w) for w in words), re.IGNORECASE)
     return {
         "$or": [
-            {"searchTokens": first},
-            {"name": re.compile(re.escape(first), re.IGNORECASE)},
+            {"searchTokens": {"$in": words}},
+            {"name": name_re},
         ],
         price_prefix: {"$exists": True},
     }
 
 
+def _price_per_g(sp: dict) -> float | None:
+    """The store's own per-kg / per-L / per-100g rate, normalised to price per
+    gram (or ml — treated 1:1 with grams here, as elsewhere).
+
+    This is the most reliable signal for variable-weight goods (butcher meat,
+    loose produce) where ``currentPrice`` is only an estimate for one arbitrary
+    cut and ``sizeGrams`` is null. Returns None when the store didn't quote a
+    unit price."""
+    val = sp.get("unitPriceValue")
+    unit = (sp.get("unitPriceUnit") or "").lower()
+    if not val or val <= 0 or not unit:
+        return None
+    return {
+        "kg": val / 1000, "g": val,
+        "l": val / 1000, "ml": val,
+        "100g": val / 100, "100ml": val / 100,
+    }.get(unit)
+
+
 def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g: float | None) -> dict | None:
     """Score and cost a single pricing product against an ingredient.
 
-    Returns None when the product has no price at this store. ``per_unit`` is
-    the price per gram/ml, which lets us compare value fairly across pack sizes.
+    Returns None when the product has no price at this store. Produces two
+    figures for the needed amount:
+      pack_price – what the shopper actually pays at checkout
+      prop_cost  – the proportional budget share (a tbsp of a $4 oil is cents)
+
+    Costing strategy, best signal first:
+      • by weight  – no discrete pack size but the store quotes a per-kg/L rate
+                     (butcher meat, loose produce): buy the exact amount,
+                     cost = rate × needed. No pack rounding.
+      • by pack    – a known pack size: round up to whole packs at the shelf
+                     price; the proportional share is the fraction used.
+      • fallback   – neither known: the shelf price as-is.
+
+    ``per_unit`` is the price per gram/ml (real unit rate when the store gives
+    one), so value comparisons across pack sizes are fair.
     """
     sp = product.get("storePrice", {}).get(store_id, {})
     raw_price = sp.get("currentPrice")
@@ -510,13 +586,31 @@ def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g:
     # Prefer the numeric pack size stored by the scraper; fall back to parsing
     # it out of the product name for products that predate that field.
     pack_g = product.get("sizeGrams") or _parse_pack_size_g(product["name"])
+    per_g  = _price_per_g(sp)
 
-    if pack_g and needed_g and pack_g > 0:
+    # Sold by weight: the store quotes a per-unit rate and there's no discrete
+    # pack to buy in whole multiples.
+    by_weight = pack_g is None and per_g is not None
+
+    if needed_g and by_weight:
+        packs      = 1
+        pack_price = per_g * needed_g
+        prop_cost  = pack_price
+    elif needed_g and pack_g and pack_g > 0:
         packs      = max(1, math.ceil(needed_g / pack_g))
-        total_cost = packs * raw_price
+        pack_price = packs * raw_price
+        prop_cost  = (needed_g / pack_g) * raw_price
     else:
         packs      = 1
-        total_cost = raw_price
+        pack_price = raw_price
+        prop_cost  = raw_price
+
+    if per_g is not None:
+        per_unit = per_g
+    elif pack_g:
+        per_unit = raw_price / pack_g
+    else:
+        per_unit = raw_price
 
     return {
         "product":    product,
@@ -524,8 +618,12 @@ def _candidate_pricing(product: dict, store_id: str, words: list[str], needed_g:
         "raw_price":  raw_price,
         "pack_g":     pack_g,
         "packs":      packs,
-        "total_cost": round(total_cost, 2),
-        "per_unit":   (raw_price / pack_g) if pack_g else raw_price,
+        "by_weight":  by_weight,
+        "pack_price": round(pack_price, 2),
+        "prop_cost":  round(prop_cost, 2),
+        # Kept for _ingredient_alternatives, which surfaces the buy price.
+        "total_cost": round(pack_price, 2),
+        "per_unit":   per_unit,
         "score":      _match_score(product, words),
     }
 
@@ -550,8 +648,6 @@ def _rank_candidates(name: str, amount, candidates: list, store_id: str) -> list
 def _apply_pricing(item: dict, best: dict) -> dict:
     """Write the chosen product's pricing/metadata onto a shopping item."""
     product, sp = best["product"], best["sp"]
-    raw_price, pack_g = best["raw_price"], best["pack_g"]
-    needed_g = _ingredient_to_g(item.get("amount"))
 
     item["isSpecial"]      = sp.get("isSpecial", False)
     item["matchedProduct"] = product["name"]
@@ -562,17 +658,15 @@ def _apply_pricing(item: dict, best: dict) -> dict:
     if sp.get("unitPriceValue") is not None:
         item["unitPriceValue"] = sp.get("unitPriceValue")
         item["unitPriceUnit"]  = sp.get("unitPriceUnit", "")
+    if best.get("by_weight"):
+        item["soldByWeight"] = True
 
-    # packPrice: whole-pack checkout cost — what the shopper actually spends
-    raw_pack = round(best["total_cost"], 2)
+    # packPrice: checkout cost — what the shopper actually spends.
+    raw_pack = best["pack_price"]
     item["packPrice"] = min(raw_pack, _PACK_COST_CAP)
 
     # currentPrice: proportional budget share (cheap staples stay cheap in estimates)
-    if pack_g and needed_g and pack_g > 0:
-        calculated = (needed_g / pack_g) * raw_price
-    else:
-        calculated = raw_price
-    raw_current = round(calculated, 2)
+    raw_current = best["prop_cost"]
     item["currentPrice"] = min(raw_current, _INGREDIENT_COST_CAP)
 
     # A value over the cap almost always means a bad ingredient→product match.
@@ -636,6 +730,14 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None) 
         ))
         ranked = _rank_candidates(name, item.get("amount"), candidates, store_id)
         best = ranked[0] if ranked else None
+
+        # No positive token overlap means the broad query dragged in something
+        # unrelated (e.g. "stock" → "Stockpot Pan"). Don't price off a bad
+        # match — leave it unpriced and flag it rather than inventing a cost.
+        # An explicit override is the user's call, so it is exempt.
+        if best is not None and best["score"] <= 0:
+            item["costWarning"] = True
+            return item
 
     if best is None:
         return item

@@ -202,9 +202,12 @@ const _CATEGORY_LABELS = {
 };
 
 function _shopRunningTotal(items) {
-  const unchecked = items.filter((_, i) => !checked[i]);
-  const cost = unchecked.reduce((s, item) => s + (item.packPrice ?? item.estimatedCost ?? 0), 0);
-  return { count: unchecked.length, cost };
+  // Mirror the API total: exclude pantry items (already owned) so the running
+  // total agrees with the "estimated total" header and the week-tab figure.
+  const toBuy = items.filter((item, i) =>
+    !checked[i] && !item.inPantry && !isPantryItem(item.name));
+  const cost = toBuy.reduce((s, item) => s + (item.packPrice ?? item.estimatedCost ?? 0), 0);
+  return { count: toBuy.length, cost };
 }
 
 function renderShoppingItems(items, storeKey) {

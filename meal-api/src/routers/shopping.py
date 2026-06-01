@@ -3,19 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from ..database import get_db, get_pricing_db
 from ..auth_utils import get_current_user, require_user, household_id_for
-from .helpers import _derive_shopping_list, _ingredient_alternatives, _normalise_name
+from .helpers import _derive_shopping_list, _ingredient_alternatives, _pantry_keys
 from .settings import effective_settings
 
 router = APIRouter()
-
-
-def _pantry_keys(db, user: dict | None) -> set:
-    """Normalised canonical names of the user's server-side pantry, for fuzzy
-    'already have it' matching. Empty for anonymous callers."""
-    if not user:
-        return set()
-    items = db["user_pantry"].find({"userId": user["sub"]}, {"canonical": 1, "name": 1})
-    return {_normalise_name(i.get("canonical") or i.get("name") or "") for i in items}
 
 
 @router.get("/latest")

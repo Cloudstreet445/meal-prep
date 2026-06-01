@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..database import get_db, get_pricing_db
 from ..auth_utils import require_user, household_id_for
-from .helpers import _select_from_library
+from .helpers import _select_from_library, _derive_shopping_list, _pantry_keys
 from .settings import effective_settings
 from .bundles import get_latest_bundle
 
@@ -55,9 +55,16 @@ def generate_plan(user: dict = Depends(require_user)):
             detail="Couldn't build a plan within your budget. Try raising your budget, relaxing exclusions/diet filters, or adding more recipes.",
         )
 
-    # Build a bundle from the selected recipes
+    # Build a bundle from the selected recipes. The stored estimatedTotal must
+    # match what the Shopping tab and week card show, so compute it the same
+    # way: one deduplicated list across all meals, pantry items excluded — NOT
+    # the sum of per-recipe costs (which double-counts shared ingredients).
     recipe_ids = [r["recipeId"] for r in selected]
-    total      = round(sum(r["_cost"] for r in selected), 2)
+    _, total = _derive_shopping_list(
+        selected, pricing_db, store_id,
+        serves=serves,
+        pantry=_pantry_keys(db, user),
+    )
 
     names        = [r["name"] for r in selected]
     week_summary = ", ".join(names[:3]) + (f" + {len(names) - 3} more" if len(names) > 3 else "")
