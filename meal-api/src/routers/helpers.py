@@ -180,6 +180,20 @@ def _infer_protein(recipe: dict) -> str:
 
 _COST_TIER_ESTIMATE = {"budget": 10.0, "mid": 17.0, "premium": 28.0}
 
+# Rough per-ingredient fallback used when no store product matches, so an
+# unpriced ingredient contributes a sensible estimate instead of $0. A $0
+# ingredient makes a recipe look free, which both understates the basket total
+# ("X price") and tricks selection into preferring badly-priced recipes. Keyed
+# by the coarse shopping category; items costed this way are flagged
+# ``isEstimate`` so the UI/total can distinguish a guess from a real price.
+_FALLBACK_COST_BY_CATEGORY = {
+    "protein":   8.0,
+    "dairy":     4.0,
+    "vegetable": 2.5,
+    "pantry":    2.0,
+    "other":     3.0,
+}
+
 
 def _recipe_cost(recipe: dict) -> float:
     """Return the recipe's estimated cost.
@@ -197,18 +211,32 @@ def _recipe_cost(recipe: dict) -> float:
     return sum(i.get("estimatedCost", 0) for i in recipe.get("ingredients", []))
 
 
-def _live_recipe_cost(recipe: dict, pricing_db, store_id: str, serves: int | None = None) -> tuple[float, bool]:
+def _live_recipe_cost(
+    recipe: dict, pricing_db, store_id: str, serves: int | None = None, cache: dict | None = None
+) -> tuple[float, bool, float]:
     """Cost to actually buy this recipe's ingredients at the given store.
 
     Reuses the same enrichment the shopping list uses, so the budget decision
     is made against live prices the shopper will really pay (whole packs),
-    scaled to the household size. Returns (cost, any_ingredient_on_special).
-    Falls back to (0.0, False) when nothing matched so the caller can drop back
-    to a static estimate.
+    scaled to the household size. Returns
+    ``(cost, any_ingredient_on_special, coverage)``.
+
+    ``coverage`` is the share of the basket's value backed by a real product
+    match (vs a fallback estimate), 0.0–1.0. Low coverage means we can't trust
+    this recipe's price, so selection should prefer better-priced meals. A
+    recipe with nothing to buy (all pantry) reports coverage 1.0.
     """
-    items, total = _derive_shopping_list([recipe], pricing_db, store_id, serves=serves)
+    items, total = _derive_shopping_list(
+        [recipe], pricing_db, store_id, serves=serves, cache=cache, estimate_unmatched=True
+    )
     on_special = any(i.get("isSpecial") for i in items)
-    return total, on_special
+    priced = sum((i.get("currentPrice") or 0) for i in items
+                 if not i.get("inPantry") and not i.get("isEstimate"))
+    estimated = sum((i.get("currentPrice") or 0) for i in items
+                    if not i.get("inPantry") and i.get("isEstimate"))
+    denom = priced + estimated
+    coverage = (priced / denom) if denom > 0 else 1.0
+    return total, on_special, coverage
 
 
 def _select_from_library(
@@ -223,6 +251,7 @@ def _select_from_library(
     serves: int | None = None,
     min_n: int | None = None,
     diet_tags: list[str] | None = None,
+    pantry: set | None = None,
 ) -> list[dict] | None:
     """
     Pick recipes from the library that fit within budget.
@@ -238,11 +267,26 @@ def _select_from_library(
     Without it the legacy behaviour (recency × rating over static cost tiers)
     is used.
 
+    The budget constraint is checked against the *real deduplicated basket* —
+    the same ``_derive_shopping_list`` figure that gets stored as the bundle's
+    ``estimatedTotal`` and shown on the Shopping tab — not a sum of per-recipe
+    costs. Summing standalone recipe costs double-counts shared staples (onion,
+    oil, garlic) and re-buys whole packs per meal, which made the gate
+    over-estimate and starve the plan of meals it could actually afford. Costing
+    the basket as a whole keeps the meal count honest. ``pantry`` is threaded in
+    so the gate also excludes items the household already owns.
+
+    Selection is coverage-aware: a recipe whose ingredients mostly fail to match
+    a store product (poor pricing data) is down-ranked, so the plan prefers
+    meals we can actually price rather than ones that merely *look* cheap because
+    their cost is unknown.
+
     ``min_n`` lets the plan degrade gracefully: it aims for ``n`` meals but
     returns as few as ``min_n`` rather than failing outright when the budget is
     tight (defaults to ``n`` — strict). ``diet_tags`` filters to recipes
     carrying every requested dietary tag (e.g. 'vegetarian', 'gluten-free').
     """
+    pantry = pantry or set()
     min_n = n if min_n is None else min_n
     excl_terms = [e.lower().strip() for e in (exclusions or []) if e.strip()]
     want_tags = {t.lower().strip() for t in (diet_tags or []) if t.strip()}
@@ -293,20 +337,27 @@ def _select_from_library(
     today = _date.today()
     price_aware = pricing_db is not None
     target_per_meal = (budget / n) if n else budget
+    # Shared across all pricing work in this generation so the repeated basket
+    # evaluations in the greedy passes don't re-hit the product DB.
+    price_cache: dict = {}
 
     for r in candidates:
         r["_protein"]   = _infer_protein(r)
         r["_last_used"] = r.get("lastUsedWeek") or "2000-01-01"
 
         if price_aware:
-            live_cost, on_special = _live_recipe_cost(r, pricing_db, store_id, serves=serves)
+            live_cost, on_special, coverage = _live_recipe_cost(
+                r, pricing_db, store_id, serves=serves, cache=price_cache
+            )
             # Fall back to a static estimate when nothing matched (e.g. empty
             # pricing data) so the recipe still has a sensible cost.
             r["_cost"]      = live_cost if live_cost > 0 else _recipe_cost(r)
             r["_onSpecial"] = on_special
+            r["_coverage"]  = coverage
         else:
             r["_cost"]      = _recipe_cost(r)
             r["_onSpecial"] = False
+            r["_coverage"]  = 1.0
 
         # Recency: 0.0 (used this week) → 1.0 (not used in 8+ weeks / never)
         try:
@@ -330,7 +381,12 @@ def _select_from_library(
             # Prefer meals with a clear protein at the centre of the plate;
             # proteinless meals ("other") are deprioritised but not excluded.
             main_mult = 0.5 if r["_protein"] == "other" else 1.0
-            r["_score"] = recency * rating_mult * cheap_mult * special_mult * main_mult
+            # Trust well-priced recipes more: a meal whose cost is mostly real
+            # store matches scores ×1.0, one that's mostly fallback estimates
+            # drops toward ×0.4. Keeps a thinly-priced recipe selectable but
+            # dispreferred, so the plan leans on decent shopping data.
+            coverage_mult = 0.4 + 0.6 * r["_coverage"]
+            r["_score"] = recency * rating_mult * cheap_mult * special_mult * main_mult * coverage_mult
         else:
             r["_score"] = recency * rating_mult
 
@@ -349,28 +405,47 @@ def _select_from_library(
 
     selected: list[dict] = []
     selected_ids: set[str] = set()
-    total = 0.0
+
+    def _fits(extra: dict) -> bool:
+        """Would adding ``extra`` keep the real shared basket within budget?
+
+        Costs the whole tentative basket (dedup + pantry-excluded), so shared
+        staples and whole-pack rounding are counted once — exactly as the stored
+        bundle total will be. Without pricing data, falls back to summing the
+        per-recipe static costs.
+        """
+        tentative = selected + [extra]
+        if price_aware:
+            # estimate_unmatched=True: an un-priceable ingredient counts as its
+            # fallback estimate here, so a thinly-priced recipe can't sneak in by
+            # looking free. (The stored/displayed total keeps the default
+            # behaviour, so it never exceeds this gate.)
+            _, total = _derive_shopping_list(
+                tentative, pricing_db, store_id,
+                serves=serves, pantry=pantry, cache=price_cache,
+                estimate_unmatched=True,
+            )
+        else:
+            total = sum(x["_cost"] for x in tentative)
+        return total <= budget
 
     # Pass 1: one slot per protein, least-recently-used protein first
     for protein in protein_order:
         if len(selected) >= n:
             break
         for r in candidates:
-            if r["_protein"] == protein and r["recipeId"] not in selected_ids:
-                if total + r["_cost"] <= budget:
-                    selected.append(r)
-                    selected_ids.add(r["recipeId"])
-                    total += r["_cost"]
-                    break
+            if r["_protein"] == protein and r["recipeId"] not in selected_ids and _fits(r):
+                selected.append(r)
+                selected_ids.add(r["recipeId"])
+                break
 
     # Pass 2: fill remaining slots, best-scored first
     for r in candidates:
         if len(selected) >= n:
             break
-        if r["recipeId"] not in selected_ids and total + r["_cost"] <= budget:
+        if r["recipeId"] not in selected_ids and _fits(r):
             selected.append(r)
             selected_ids.add(r["recipeId"])
-            total += r["_cost"]
 
     return selected if len(selected) >= min_n else None
 
@@ -689,7 +764,7 @@ def _apply_pricing(item: dict, best: dict) -> dict:
     return item
 
 
-def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None) -> dict:
+def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None, cache: dict | None = None) -> dict:
     """
     Match an ingredient against paknsave-pricing products and calculate cost.
 
@@ -702,11 +777,29 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None) 
     Two prices are stored on the item:
       packPrice    – what the shopper actually pays at checkout (whole packs)
       currentPrice – proportional budget impact (fed to estimatedCost)
+
+    ``cache`` memoises the (expensive) product lookup keyed by
+    (store, override, name, amount). Plan generation evaluates the basket many
+    times while filling slots, so the same ingredients recur constantly — the
+    cache turns those repeats into dict lookups. Identical inputs always
+    produce identical pricing, so caching is exact, not approximate.
     """
     name = item.get("name", "") or item.get("searchKey", "")
     words = [w for w in re.split(r'\W+', name.lower()) if len(w) > 2]
 
     if not words:
+        return item
+
+    ckey = (store_id, str(override_id), name, str(item.get("amount", ""))) if cache is not None else None
+    if ckey is not None and ckey in cache:
+        item.update(cache[ckey])
+        return item
+
+    before = set(item.keys())
+
+    def _done() -> dict:
+        if ckey is not None:
+            cache[ckey] = {k: v for k, v in item.items() if k not in before}
         return item
 
     price_prefix = f"storePrice.{store_id}"
@@ -737,12 +830,13 @@ def _enrich_ingredient(item: dict, pricing_db, store_id: str, override_id=None) 
         # An explicit override is the user's call, so it is exempt.
         if best is not None and best["score"] <= 0:
             item["costWarning"] = True
-            return item
+            return _done()
 
     if best is None:
-        return item
+        return _done()
 
-    return _apply_pricing(item, best)
+    _apply_pricing(item, best)
+    return _done()
 
 
 def _ingredient_alternatives(name: str, amount, pricing_db, store_id: str, limit: int = 8) -> list[dict]:
@@ -795,6 +889,8 @@ def _derive_shopping_list(
     serves: int | None = None,
     overrides: dict | None = None,
     pantry: set | None = None,
+    cache: dict | None = None,
+    estimate_unmatched: bool = False,
 ) -> tuple[list, float]:
     """
     Derive a deduplicated shopping list from a list of recipe documents.
@@ -807,6 +903,13 @@ def _derive_shopping_list(
     - ``overrides``: {normalised ingredient name: productId} brand/cut choices
     - ``pantry``: normalised names the household already has — flagged
       ``inPantry`` and excluded from the total (you don't buy what you own)
+    - ``cache``: optional memo dict shared across repeated calls (plan
+      generation) to avoid re-running the same product lookups
+    - ``estimate_unmatched``: when True, an ingredient that matched no product
+      gets a flagged category fallback estimate instead of $0. Off by default so
+      the shopping tab keeps its "unpriced + flagged, never invented" behaviour;
+      the budget selector turns it on so an un-priceable recipe isn't treated as
+      free. Items costed this way carry ``isEstimate``.
     - Returns (shopping_items, total)
     """
     overrides = overrides or {}
@@ -873,12 +976,20 @@ def _derive_shopping_list(
 
     items = []
     for key, item in ingredient_map.items():
-        enriched = _enrich_ingredient(item, pricing_db, store_id, override_id=overrides.get(key))
+        enriched = _enrich_ingredient(item, pricing_db, store_id, override_id=overrides.get(key), cache=cache)
         enriched["sharedWith"] = enriched["usedInNames"] if len(enriched["usedIn"]) > 1 else []
-        # Use live price as cost; fall back to 0 if no product was matched
-        enriched["estimatedCost"] = round(enriched.get("currentPrice") or 0, 2)
         # Pantry match is fuzzy: 'garlic' in pantry covers 'garlic cloves'.
         enriched["inPantry"] = any(p and (p in key or key in p) for p in pantry)
+        # No product matched → optionally cost it with a flagged category
+        # estimate so the basket isn't quietly missing real spend (and a recipe
+        # full of unpriceable items isn't treated as free during selection).
+        matched = enriched.get("packPrice") is not None or enriched.get("currentPrice") is not None
+        if estimate_unmatched and not matched and not enriched.get("inPantry"):
+            enriched["currentPrice"] = _FALLBACK_COST_BY_CATEGORY.get(enriched.get("category", "other"), 3.0)
+            enriched["isEstimate"]   = True
+            enriched["costWarning"]  = True
+        # Use live price as cost; falls back to 0 only for pantry/unestimated.
+        enriched["estimatedCost"] = round(enriched.get("currentPrice") or 0, 2)
         items.append(enriched)
 
     category_order = {"protein": 0, "vegetable": 1, "pantry": 2, "dairy": 3, "other": 4}
