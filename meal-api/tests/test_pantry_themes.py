@@ -25,6 +25,21 @@ class TestMealThemesSetting:
         resp = client.get("/api/settings/")
         assert resp.json()["mealThemes"] == []
 
+    def test_themes_persist_independently_of_other_fields(self, client):
+        # The settings-sheet cuisine editor saves mealThemes on its own (PUT
+        # with just mealThemes), while Save Settings sends budget/serves/store.
+        # Each must leave the other untouched.
+        client.put("/api/settings/", json={"budget": 90.0})
+        client.put("/api/settings/", json={"mealThemes": ["korean", "greek"]})
+        after_theme = client.get("/api/settings/").json()
+        assert after_theme["budget"] == 90.0
+        assert after_theme["mealThemes"] == ["korean", "greek"]
+
+        client.put("/api/settings/", json={"budget": 70.0})
+        after_budget = client.get("/api/settings/").json()
+        assert after_budget["mealThemes"] == ["korean", "greek"]
+        assert after_budget["budget"] == 70.0
+
 
 class TestPantrySuggestions:
     def test_suggestions_from_query_override(self, client):

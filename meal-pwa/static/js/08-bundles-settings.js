@@ -251,6 +251,45 @@ function selectStore(id) {
   renderStoreSelector();
 }
 
+// ── Cuisine themes ─────────────────────────────────────────────
+// Selectable list comes from the API (single source of truth — same endpoint
+// onboarding uses). Cached after first fetch; small fallback if it's missing.
+let _settingsThemeList = [];
+const _SETTINGS_THEME_FALLBACK = [
+  { id: 'asian', label: 'Asian' }, { id: 'italian', label: 'Italian' },
+  { id: 'indian', label: 'Indian' }, { id: 'mexican', label: 'Mexican' },
+  { id: 'nz-classic', label: 'Kiwi Classic' },
+];
+
+async function renderThemeChips() {
+  const el = document.getElementById('settings-theme-chips');
+  if (!el) return;
+  if (!_settingsThemeList.length) {
+    el.innerHTML = '<div class="settings-hint">Loading…</div>';
+    try {
+      _settingsThemeList = await apiFetch('/settings/themes');
+    } catch (_) {}
+    if (!Array.isArray(_settingsThemeList) || !_settingsThemeList.length) {
+      _settingsThemeList = _SETTINGS_THEME_FALLBACK;
+    }
+  }
+  const chosen = settings.mealThemes || [];
+  el.innerHTML = _settingsThemeList.map(t => `
+    <button type="button" class="settings-theme-chip${chosen.includes(t.id) ? ' selected' : ''}"
+            onclick="toggleSettingsTheme('${_esc(t.id)}')">${_esc(t.label)}</button>`).join('');
+}
+
+function toggleSettingsTheme(id) {
+  const chosen = settings.mealThemes || [];
+  settings.mealThemes = chosen.includes(id)
+    ? chosen.filter(t => t !== id)
+    : [...chosen, id];
+  renderThemeChips();
+  // Persist immediately (like the pack-efficiency toggle) so it drives the next
+  // plan generation and pantry suggestions without needing the Save button.
+  apiPost('/settings/', { mealThemes: settings.mealThemes }, 'PUT').catch(() => {});
+}
+
 function openSettings() {
   switchSettingsTab('planning');
   document.getElementById('settings-budget').value  = settings.budget;
@@ -259,6 +298,7 @@ function openSettings() {
   if (packToggle) packToggle.checked = !!settings.packEfficiency;
   renderExclusionTags();
   renderStoreSelector();
+  renderThemeChips();
   renderHouseholdSection();
   renderSessionsSection();
   document.getElementById('settings-backdrop').classList.add('active');

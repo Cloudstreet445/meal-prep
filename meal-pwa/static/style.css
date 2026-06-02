@@ -2601,6 +2601,21 @@ main {
   border-color: var(--accent);
 }
 
+/* Cuisine theme chips in the settings sheet (mirrors the onboarding picker) */
+.settings-theme-chips {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+}
+.settings-theme-chip {
+  padding: 8px 14px; background: var(--bg2);
+  border: 1.5px solid var(--bg3); border-radius: 999px;
+  color: var(--text-dim); cursor: pointer; font-size: 14px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.settings-theme-chip.selected {
+  border-color: var(--accent); color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
 .settings-exclusion-add {
   display: flex;
   gap: 8px;
