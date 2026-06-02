@@ -60,6 +60,12 @@ BATCHES = [
     {"id": 23, "label": "family-favourites", "focus": "kid-friendly family favourites — crowd-pleasing classics"},
     {"id": 24, "label": "comfort-bakes",     "focus": "baked comfort dishes — savoury pies, gratins, bakes, stuffed vegetables"},
     {"id": 25, "label": "breakfast-brunch",  "focus": "breakfast and brunch meals — hearty starts and weekend brunches (mealType breakfast)"},
+    {"id": 26, "label": "chinese",           "focus": "Chinese-style — stir fries, fried rice, sweet & sour, black bean, ginger & spring onion dishes (using ingredients sold at a standard NZ PAK'nSAVE)"},
+    {"id": 27, "label": "japanese",          "focus": "Japanese-style — teriyaki, katsu, donburi rice bowls, miso soups, gyoza-inspired dishes (using supermarket ingredients)"},
+    {"id": 28, "label": "korean",            "focus": "Korean-style — bibimbap, bulgogi, gochujang stir fries and rice bowls (using ingredients sold at PAK'nSAVE)"},
+    {"id": 29, "label": "middle-eastern",    "focus": "Middle Eastern-style — spiced kofta, tagines, falafel, chickpea and lentil dishes, flatbread plates"},
+    {"id": 30, "label": "greek",             "focus": "Greek-style — souvlaki, lemon & oregano chicken, baked feta, salads and gyros-inspired plates"},
+    {"id": 31, "label": "american",          "focus": "American / BBQ-style — burgers, pulled pork, ribs, mac & cheese, BBQ tray bakes"},
 ]
 
 

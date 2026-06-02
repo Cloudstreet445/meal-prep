@@ -56,9 +56,9 @@ class TestBatches:
     def test_every_batch_has_a_focus(self):
         assert all(b["focus"].strip() for b in BATCHES)
 
-    def test_count_supports_five_hundred_recipes(self):
-        # 25 batches x 20 recipes per batch = 500.
-        assert len(BATCHES) == 25
+    def test_count_supports_target_recipe_library(self):
+        # 31 batches x 20 recipes per batch = 620 (incl. expanded cuisine set).
+        assert len(BATCHES) == 31
 
 
 class TestMakeRecipeId:

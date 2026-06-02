@@ -11,28 +11,42 @@ lower-cased names, matching how the pantry stores items elsewhere.
 
 # Display order + label for each selectable theme.
 THEME_LABELS: dict[str, str] = {
-    "asian":         "Asian",
-    "thai":          "Thai",
-    "indian":        "Indian",
-    "mexican":       "Mexican",
-    "italian":       "Italian",
-    "mediterranean": "Mediterranean",
-    "nz-classic":    "Kiwi Classic",
+    "asian":          "Asian",
+    "chinese":        "Chinese",
+    "japanese":       "Japanese",
+    "korean":         "Korean",
+    "thai":           "Thai",
+    "vietnamese":     "Vietnamese",
+    "indian":         "Indian",
+    "mexican":        "Mexican",
+    "italian":        "Italian",
+    "mediterranean":  "Mediterranean",
+    "greek":          "Greek",
+    "middle-eastern": "Middle Eastern",
+    "american":       "American / BBQ",
+    "nz-classic":     "Kiwi Classic",
 }
 
 VALID_THEMES = set(THEME_LABELS)
 
 # Recipe tags that count as "matching" a theme, for the soft plan-gen boost.
-# Recipes only carry the broad cuisine tags today (asian/mexican/…), so finer
-# themes (thai/indian) lean on the closest existing tags + method tags.
+# Broad cuisines lean on existing/older tags; finer themes match their own
+# dedicated tag (added to recipe_schema VALID_TAGS) once recipes carry them.
 THEME_RECIPE_TAGS: dict[str, set[str]] = {
-    "asian":         {"asian", "stir-fry", "curry"},
-    "thai":          {"asian", "curry"},
-    "indian":        {"curry"},
-    "mexican":       {"mexican"},
-    "italian":       {"italian", "pasta"},
-    "mediterranean": {"mediterranean"},
-    "nz-classic":    {"nz-classic"},
+    "asian":          {"asian", "stir-fry", "curry"},
+    "chinese":        {"chinese", "stir-fry"},
+    "japanese":       {"japanese"},
+    "korean":         {"korean"},
+    "thai":           {"thai", "asian", "curry"},
+    "vietnamese":     {"vietnamese"},
+    "indian":         {"indian", "curry"},
+    "mexican":        {"mexican"},
+    "italian":        {"italian", "pasta"},
+    "mediterranean":  {"mediterranean"},
+    "greek":          {"greek"},
+    "middle-eastern": {"middle-eastern"},
+    "american":       {"american", "bbq"},
+    "nz-classic":     {"nz-classic"},
 }
 
 # Staple pantry items each theme implies. Offered during onboarding and the
@@ -40,13 +54,20 @@ THEME_RECIPE_TAGS: dict[str, set[str]] = {
 # list and used to bias/cheapen plans). Names are display-cased; canonical keys
 # are derived as the lower-cased name.
 THEME_PANTRY_STAPLES: dict[str, list[str]] = {
-    "asian":         ["Soy Sauce", "Sesame Oil", "Rice", "Rice Vinegar", "Ginger", "Garlic"],
-    "thai":          ["Fish Sauce", "Coconut Milk", "Thai Curry Paste", "Lime", "Jasmine Rice", "Lemongrass"],
-    "indian":        ["Garam Masala", "Turmeric", "Ground Cumin", "Basmati Rice", "Red Lentils", "Ginger", "Garlic"],
-    "mexican":       ["Ground Cumin", "Smoked Paprika", "Tinned Tomatoes", "Black Beans", "Tortillas", "Lime"],
-    "italian":       ["Olive Oil", "Garlic", "Tinned Tomatoes", "Pasta", "Parmesan", "Dried Oregano"],
-    "mediterranean": ["Olive Oil", "Garlic", "Lemon", "Chickpeas", "Dried Oregano"],
-    "nz-classic":    ["Potatoes", "Onion", "Butter", "Flour", "Mixed Herbs"],
+    "asian":          ["Soy Sauce", "Sesame Oil", "Rice", "Rice Vinegar", "Ginger", "Garlic"],
+    "chinese":        ["Soy Sauce", "Sesame Oil", "Rice", "Oyster Sauce", "Ginger", "Garlic", "Spring Onion"],
+    "japanese":       ["Soy Sauce", "Mirin", "Short Grain Rice", "Miso Paste", "Nori", "Sesame Oil"],
+    "korean":         ["Gochujang", "Soy Sauce", "Sesame Oil", "Rice", "Garlic", "Spring Onion"],
+    "thai":           ["Fish Sauce", "Coconut Milk", "Thai Curry Paste", "Lime", "Jasmine Rice", "Lemongrass"],
+    "vietnamese":     ["Fish Sauce", "Rice Noodles", "Lime", "Fresh Coriander", "Garlic", "Rice"],
+    "indian":         ["Garam Masala", "Turmeric", "Ground Cumin", "Basmati Rice", "Red Lentils", "Ginger", "Garlic"],
+    "mexican":        ["Ground Cumin", "Smoked Paprika", "Tinned Tomatoes", "Black Beans", "Tortillas", "Lime"],
+    "italian":        ["Olive Oil", "Garlic", "Tinned Tomatoes", "Pasta", "Parmesan", "Dried Oregano"],
+    "mediterranean":  ["Olive Oil", "Garlic", "Lemon", "Chickpeas", "Dried Oregano"],
+    "greek":          ["Olive Oil", "Lemon", "Garlic", "Feta", "Dried Oregano", "Red Onion"],
+    "middle-eastern": ["Ground Cumin", "Tahini", "Chickpeas", "Olive Oil", "Garlic", "Lemon", "Flatbread"],
+    "american":       ["Tomato Ketchup", "Mustard", "BBQ Sauce", "Burger Buns", "Cheddar", "Smoked Paprika"],
+    "nz-classic":     ["Potatoes", "Onion", "Butter", "Flour", "Mixed Herbs"],
 }
 
 

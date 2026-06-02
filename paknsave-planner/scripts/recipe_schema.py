@@ -48,11 +48,13 @@ VALID_TAGS = {
     "quick", "medium", "slow",
     # Method
     "one-pan", "tray-bake", "slow-cooker", "stir-fry", "soup", "stew",
-    "salad", "pasta", "rice", "curry",
+    "salad", "pasta", "rice", "curry", "bbq",
     # Character
     "freezer-friendly", "leftovers", "meal-prep", "budget",
     # Cuisine
-    "asian", "thai", "indian", "mexican", "italian", "nz-classic", "mediterranean",
+    "asian", "chinese", "japanese", "korean", "thai", "vietnamese",
+    "indian", "mexican", "italian", "mediterranean", "greek",
+    "middle-eastern", "american", "nz-classic",
     # Season feel
     "winter-warmer", "summer-fresh",
 }

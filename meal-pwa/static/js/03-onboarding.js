@@ -4,27 +4,30 @@ const _obStepCount = 5;
 let _obExclusions = [];
 let _obStore = null;
 let _obThemes = [];
+let _obThemeList = [];              // [{id,label}] fetched from the API
 let _obPantrySuggestions = [];
 let _obPantryChecked = new Set();   // canonicals the user confirmed they own
 
-// Mirrors the backend THEME_LABELS (src/meal_themes.py).
-const MEAL_THEMES = [
-  { id: 'asian',         label: 'Asian' },
-  { id: 'thai',          label: 'Thai' },
-  { id: 'indian',        label: 'Indian' },
-  { id: 'mexican',       label: 'Mexican' },
-  { id: 'italian',       label: 'Italian' },
-  { id: 'mediterranean', label: 'Mediterranean' },
-  { id: 'nz-classic',    label: 'Kiwi Classic' },
+// Minimal fallback so the picker still works if the themes fetch fails.
+const _OB_THEME_FALLBACK = [
+  { id: 'asian', label: 'Asian' }, { id: 'italian', label: 'Italian' },
+  { id: 'indian', label: 'Indian' }, { id: 'mexican', label: 'Mexican' },
+  { id: 'nz-classic', label: 'Kiwi Classic' },
 ];
 
 async function showOnboarding() {
   _obStep = 0;
   _obExclusions = [];
   _obThemes = [];
+  _obThemeList = [];
   _obPantryChecked = new Set();
+  // Themes + stores are independent — fetch together so step 0/2 are ready.
+  try {
+    _obThemeList = await apiFetch('/settings/themes');
+  } catch (_) {}
+  if (!Array.isArray(_obThemeList) || !_obThemeList.length) _obThemeList = _OB_THEME_FALLBACK;
   renderObThemeChips();
-  // Load stores for step 1
+  // Load stores for step 0
   try {
     const stores = await apiFetch('/settings/stores');
     const el = document.getElementById('ob-store-options');
@@ -90,9 +93,9 @@ function obNext() {
 function renderObThemeChips() {
   const el = document.getElementById('ob-theme-chips');
   if (!el) return;
-  el.innerHTML = MEAL_THEMES.map(t => `
+  el.innerHTML = _obThemeList.map(t => `
     <button type="button" class="ob-theme-chip${_obThemes.includes(t.id) ? ' selected' : ''}"
-            data-theme="${t.id}" onclick="obToggleTheme('${t.id}')">${_esc(t.label)}</button>
+            data-theme="${_esc(t.id)}" onclick="obToggleTheme('${_esc(t.id)}')">${_esc(t.label)}</button>
   `).join('');
 }
 

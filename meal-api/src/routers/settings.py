@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from ..database import get_db, get_pricing_db
 from ..auth_utils import get_current_user, require_user
-from ..meal_themes import normalise_themes
+from ..meal_themes import normalise_themes, THEME_LABELS
 
 router = APIRouter()
 
@@ -81,6 +81,13 @@ def update_settings(body: SettingsIn, request: Request, user: dict = Depends(req
             upsert=True,
         )
     return get_settings(request)
+
+
+@router.get("/themes")
+def list_themes():
+    """Selectable meal-type themes (cuisines), in display order. Single source
+    of truth for the onboarding picker so the frontend never hardcodes the list."""
+    return [{"id": key, "label": label} for key, label in THEME_LABELS.items()]
 
 
 @router.get("/stores")

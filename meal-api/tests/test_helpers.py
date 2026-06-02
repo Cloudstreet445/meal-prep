@@ -1180,6 +1180,26 @@ class TestThemeBoost:
         )
         assert result is not None
 
+    def test_new_cuisine_tag_is_boosted(self, pricing_db):
+        # A recipe tagged with a newly-added cuisine wins its slot when that
+        # theme is selected, proving expanded themes flow through unchanged.
+        _seed_product(pricing_db, "Beef Mince 1kg", 8.0)
+        _seed_product(pricing_db, "Pork Mince 1kg", 7.0)
+        jp = _make_recipe("beef-jp", "Beef Teriyaki", [("Beef Mince", 0.0)])
+        jp["tags"] = ["japanese"]
+        plain = _make_recipe("beef-plain", "Beef Patties", [("Beef Mince", 0.0)])
+        plain["tags"] = ["nz-classic"]
+        pork = _make_recipe("pork-1", "Pork Roast", [("Pork Mince", 0.0)])
+        result = _select_from_library(
+            FakeDB([jp, plain, pork]), budget=60, exclusions=[], exclude_ids=set(),
+            n=2, min_n=1,
+            pricing_db=pricing_db, store_id="paknsave-lower-hutt",
+            meal_themes=["japanese"],
+        )
+        ids = {r["recipeId"] for r in result}
+        assert "beef-jp" in ids
+        assert "beef-plain" not in ids
+
 
 class TestLeftoverSurfacing:
     """Whole-pack rounding exposes the spare quantity you've paid for."""

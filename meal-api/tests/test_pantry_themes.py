@@ -1,6 +1,19 @@
 """Endpoint tests for theme-driven pantry suggestions + bulk add + settings."""
 
 
+class TestThemesEndpoint:
+    def test_lists_all_themes_with_labels(self, client):
+        resp = client.get("/api/settings/themes")
+        assert resp.status_code == 200
+        themes = resp.json()
+        assert len(themes) == 14
+        by_id = {t["id"]: t["label"] for t in themes}
+        assert by_id["japanese"] == "Japanese"
+        assert by_id["korean"] == "Korean"
+        # Every entry carries id + label.
+        assert all(t.get("id") and t.get("label") for t in themes)
+
+
 class TestMealThemesSetting:
     def test_saves_and_normalises_themes(self, client):
         resp = client.put("/api/settings/", json={"mealThemes": ["asian", "klingon", "INDIAN"]})
@@ -23,6 +36,11 @@ class TestPantrySuggestions:
         assert "fish sauce" in names
         # Nothing in pantry yet → none pre-ticked.
         assert all(s["inPantry"] is False for s in data["suggestions"])
+
+    def test_suggestions_for_new_cuisine(self, client):
+        resp = client.get("/api/pantry/suggestions", params={"themes": "korean"})
+        names = {s["canonical"] for s in resp.json()["suggestions"]}
+        assert "gochujang" in names
 
     def test_suggestions_fall_back_to_saved_themes(self, client):
         client.put("/api/settings/", json={"mealThemes": ["italian"]})

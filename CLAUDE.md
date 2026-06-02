@@ -126,11 +126,15 @@ Ticket naming: `MEA-NNN`. Completed sprint work through MEA-168.
 - Shopping list: sticky category headers, live running total, checked items sink, ad-hoc items
 - PWA manifest with SVG + PNG icons
 - Onboarding: 5 steps (store → budget+household → meal themes → pantry staples → ready), each skippable
-- Meal-type themes (`mealThemes` setting: asian/thai/indian/mexican/italian/mediterranean/nz-classic).
-  Single source of truth in `meal-api/src/meal_themes.py`. Themes (a) softly boost
-  on-theme recipes in plan gen, and (b) drive pantry-staple suggestions
-  (`GET /pantry/suggestions`, confirm/deny in onboarding + weekly pantry check;
-  `POST /pantry/bulk` seeds confirmed staples)
+- Meal-type themes (`mealThemes` setting): 14 cuisines —
+  asian/chinese/japanese/korean/thai/vietnamese/indian/mexican/italian/
+  mediterranean/greek/middle-eastern/american/nz-classic. Single source of truth in
+  `meal-api/src/meal_themes.py`, served to the frontend via `GET /settings/themes`
+  (no hardcoded list in the PWA). Themes (a) softly boost on-theme recipes in plan gen
+  (via `THEME_RECIPE_TAGS`; needs recipes tagged with the cuisine — see
+  `paknsave-planner` `VALID_TAGS` + generation `BATCHES`), and (b) drive pantry-staple
+  suggestions (`GET /pantry/suggestions`, confirm/deny in onboarding + weekly pantry
+  check; `POST /pantry/bulk` seeds confirmed staples)
 
 ---
 
